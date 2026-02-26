@@ -57,7 +57,7 @@
                                 <div class="col-md-6 col-lg-4 col-xl-4">
                                     <div class="rounded position-relative fruite-item">
                                         <div class="fruite-img">
-                                            <img src="{{ asset('storage/'.$product->image) }}" class="img-fluid w-100 rounded-top" alt="{{ $product->name }}">
+                                            <img src="{{ $product->image ? asset('storage/' . $product->image) : asset('img/hero-img-1.png') }}" class="img-fluid w-100 rounded-top" alt="{{ $product->name }}">
                                         </div>
                                         <div class="text-white bg-secondary px-3 py-1 rounded position-absolute" style="top: 10px; left: 10px;">
                                          <a href="{{ route('products.show', $product->slug ) }}">
@@ -68,10 +68,13 @@
                                             <h4>{{ $product->name }}</h4>
                                             <p>{{ $product->description }}</p>
                                             <div class="d-flex justify-content-between flex-lg-wrap">
-                                                <p class="text-dark fs-5 fw-bold mb-0">${{ number_format($product->price, 2) }} / Unidad</p>
-                                                <a href="{{ route('cart.add', $product->id) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                                    <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al Carrito
-                                                </a>
+                                                <p class="text-dark fs-5 fw-bold mb-0">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
+                                                <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                                                    @csrf
+                                                    <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary">
+                                                        <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al Carrito
+                                                    </button>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>

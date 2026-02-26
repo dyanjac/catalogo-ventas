@@ -1,6 +1,8 @@
 <?php
 use App\Http\Controllers\{ProductController,CategoryController,CartController,OrderController};
 use App\Http\Controllers\{ContactoController};
+use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\CatalogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -21,6 +23,9 @@ Route::get('/contacto', [ContactoController::class,'index'])->name('contacto.ind
 
 Route::get('/producto/{product:slug}', [ProductController::class,'show'])->name('products.show');
 Route::get('/categoria/{category:slug}', [CategoryController::class,'show'])->name('categories.show');
+Route::resource('admin/products', AdminProductController::class)->names('admin.products');
+Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
+Route::get('/catalogo/{product:slug}', [CatalogController::class, 'show'])->name('catalog.show');
 
 Route::get('/carrito', [CartController::class,'view'])->name('cart.view');
 Route::post('/carrito/agregar/{product}', [CartController::class,'add'])->name('cart.add');
@@ -32,4 +37,3 @@ Route::middleware('auth')->group(function () {
     Route::post('/checkout', [OrderController::class,'checkout'])->name('checkout');
     Route::get('/mis-pedidos', [OrderController::class,'myOrders'])->name('orders.mine');
 });
-

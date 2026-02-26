@@ -22,14 +22,20 @@
             </div>
             <div class="container px-0">
                 <nav class="navbar navbar-light bg-white navbar-expand-xl">
-                    <a href="{{ route('home') }}" class="navbar-brand"><h1 class="text-primary display-6">Maestro Panadero</h1></a>
+                    <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0">
+                        <img
+                            src="{{ asset('img/logo-V&V.png') }}"
+                            alt="Maestro Panadero"
+                            style="height: 82px; width: auto; max-width: 260px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.25));"
+                        >
+                    </a>
                     <button class="navbar-toggler py-2 px-3" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                         <span class="fa fa-bars text-primary"></span>
                     </button>
                     <div class="collapse navbar-collapse bg-white" id="navbarCollapse">
                         <div class="navbar-nav mx-auto">
                             <a href="{{ route('home') }}" class="nav-item nav-link">Inicio</a>
-                            <a href="{{ route('products.index') }}" class="nav-item nav-link active">Productos</a>
+                            <a href="{{ route('catalog.index') }}" class="nav-item nav-link active">Catálogo</a>
                             <a href="shop-detail.html" class="nav-item nav-link">Nosotros</a>
                             <div class="nav-item dropdown">
                                 <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Promociones</a>

@@ -24,7 +24,7 @@ class CartController extends Controller
         $cart[$id] = [
             'id'       => $product->id,
             'name'     => $product->name,
-            'price'    => (float) $product->price,
+            'price'    => (float) ($product->sale_price ?? $product->price),
             'image'    => $product->image,
             'quantity' => ($cart[$id]['quantity'] ?? 0) + $qty,
         ];

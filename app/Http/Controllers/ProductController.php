@@ -8,7 +8,7 @@ use App\Models\Product;
 
 class ProductController extends Controller
 {
-     public function home()
+    public function home()
     {
         $featured = Product::active()->latest('id')->take(8)->get();
         $categories = Category::withCount('products')->get();
@@ -24,8 +24,8 @@ class ProductController extends Controller
         //    'categories' => Category::all(),
         //]);
 
-    $categories = Category::all(); // O puedes paginar si tienes muchas categorías
-    $products = Product::active()->latest('id')->paginate(12); // Paginación de productos
+    $categories = Category::withCount('products')->get();
+    $products = Product::active()->latest('id')->paginate(12);
 
     return view('products.index', compact('products', 'categories'));
     }
@@ -33,14 +33,16 @@ class ProductController extends Controller
     public function category($slug)
     {
         $category = Category::where('slug', $slug)->firstOrFail();
-        $products = $category->products()->paginate(9); // Paginación por categoría
+        $products = $category->products()->active()->paginate(9);
 
         return view('products.index', compact('products', 'category'));
     }
 
     public function show(Product $product)
     {   
-            abort_unless($product->is_active, 404);
+        abort_unless($product->is_active, 404);
+        $product->load(['category', 'unitMeasure']);
+
         return view('products.show', compact('product'));
     }
 }
