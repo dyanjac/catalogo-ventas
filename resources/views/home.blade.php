@@ -4,23 +4,7 @@
 @php
     $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
 @endphp
-<?php /** @include('partials.banner')
-  <section class="grid">
-    @foreach($featured as $p)
-      <article>
-        <a href="{{ route('products.show',$p) }}">
-          <img src="{{ $p->image ? asset($p->image) : asset('img/placeholder.png') }}" alt="{{ $p->name }}">
-          <h3>{{ $p->name }}</h3>
-          <span>S/ {{ number_format($p->price,2) }}</span>
-        </a>
-        <form method="POST" action="{{ route('cart.add',$p) }}">
-          @csrf
-          <button>Agregar al carrito</button>
-        </form>
-      </article>
-    @endforeach
-  </section> **/
- ?>
+
 
             
 
@@ -202,66 +186,7 @@
                             </div>
                         </div>
 
-                        @foreach($homeGroups as $group)
-                            <div id="tab-cat-{{ $group->id }}" class="tab-pane fade p-0">
-                                <div class="row g-4">
-                                    @forelse($group->products as $product)
-                                        <div class="col-md-6 col-lg-4 col-xl-3">
-                                            <div class="rounded position-relative fruite-item h-100">
-                                                <div class="fruite-img">
-                                                    <img src="{{ $product->image ? asset('storage/' . $product->image) : asset('img/hero-img-1.png') }}" class="img-fluid w-100 rounded-top" alt="{{ $product->name }}">
-                                                </div>
-                                                <div class="text-white bg-secondary px-3 py-1 rounded position-absolute" style="top: 10px; left: 10px;">
-                                                    {{ $group->name }}
-                                                </div>
-                                                <div class="p-4 border border-secondary border-top-0 rounded-bottom">
-                                                    <h4>{{ $product->name }}</h4>
-                                                    <p>{{ \Illuminate\Support\Str::limit($product->description ?? 'Producto disponible.', 85) }}</p>
-                                                    <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
-                                                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                                                        <a href="{{ route('catalog.show', $product) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                                            Ver detalle
-                                                        </a>
-                                                        <div class="input-group input-group-sm" style="max-width: 115px;">
-                                                            <span class="input-group-text">Cant.</span>
-                                                            <input
-                                                                id="qty-home-group-{{ $group->id }}-{{ $product->id }}"
-                                                                type="number"
-                                                                min="1"
-                                                                value="1"
-                                                                class="form-control"
-                                                            >
-                                                        </div>
-                                                    </div>
-                                                    <div class="d-flex justify-content-between align-items-center gap-2">
-                                                        <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
-                                                            @csrf
-                                                            <input type="hidden" name="quantity" id="add-qty-home-group-{{ $group->id }}-{{ $product->id }}" value="1">
-                                                            <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncHomeQty('group-{{ $group->id }}-{{ $product->id }}')">
-                                                                <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar
-                                                            </button>
-                                                        </form>
-                                                        <button
-                                                            type="button"
-                                                            class="btn border border-success rounded-pill px-3 text-success"
-                                                            title="Pedir por WhatsApp"
-                                                            onclick="openHomeWhatsApp('group-{{ $group->id }}-{{ $product->id }}', @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
-                                                        >
-                                                            <i class="fab fa-whatsapp me-1"></i> WhatsApp
-                                                        </button>
-                                                    </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <div class="col-12">
-                                            <p class="text-muted mb-0">No hay productos activos en {{ $group->name }}.</p>
-                                        </div>
-                                    @endforelse
-                                </div>
-                            </div>
-                        @endforeach
+
                     </div>
                 </div>
             </div>
