@@ -22,11 +22,11 @@
             </div>
             <div class="container px-0">
                 <nav class="navbar navbar-light bg-white navbar-expand-xl">
-                    <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0">
+                    <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0 mt-2">
                         <img
                             src="{{ asset('img/logo-V&V.png') }}"
                             alt="Maestro Panadero"
-                            style="height: 82px; width: auto; max-width: 260px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.25));"
+                            style="height: 170px; width: auto; max-width: 460px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.25));"
                         >
                     </a>
                     <button class="navbar-toggler py-2 px-3" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">

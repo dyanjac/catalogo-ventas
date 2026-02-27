@@ -25,7 +25,7 @@
                     <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0">
                         <img
                             src="{{ asset('img/logo-V&V.png') }}"
-                            alt="Maestro Panadero"
+                            alt="V&V"
                             style="height: 82px; width: auto; max-width: 260px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.25));"
                         >
                     </a>

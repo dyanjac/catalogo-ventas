@@ -3,7 +3,7 @@
     <div class="container py-5">
         <div class="row g-4">
             <div class="col-lg-3">
-                <h1 class="text-primary mb-0">Maestro Panadero</h1>
+                <h1 class="text-primary mb-0">Distribuidora Mayorista V&V</h1>
                 <p class="text-secondary mb-0">Productos de Calidad</p>
             </div>
             <div class="col-lg-6">

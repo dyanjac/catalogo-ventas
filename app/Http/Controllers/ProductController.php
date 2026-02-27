@@ -10,10 +10,36 @@ class ProductController extends Controller
 {
     public function home()
     {
-        $featured = Product::active()->latest('id')->take(8)->get();
+        $featured = Product::query()
+            ->active()
+            ->with(['category', 'unitMeasure'])
+            ->latest('id')
+            ->take(8)
+            ->get();
         $categories = Category::withCount('products')->get();
 
-        return view('home', compact('featured','categories'));
+        $homeGroups = Category::query()
+            ->whereHas('products', fn ($query) => $query->active())
+            ->with([
+                'products' => fn ($query) => $query
+                    ->active()
+                    ->with(['category', 'unitMeasure'])
+                    ->latest('id')
+                    ->take(8),
+            ])
+            ->orderBy('name')
+            ->take(6)
+            ->get();
+
+        $bestPrices = Product::query()
+            ->active()
+            ->with(['category', 'unitMeasure'])
+            ->orderByRaw('COALESCE(sale_price, price) asc')
+            ->latest('id')
+            ->take(10)
+            ->get();
+
+        return view('home', compact('featured', 'categories', 'homeGroups', 'bestPrices'));
 
     }
 
