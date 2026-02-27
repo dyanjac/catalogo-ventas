@@ -34,6 +34,7 @@ Route::post('/carrito/actualizar/{product}', [CartController::class,'update'])->
 Route::post('/carrito/vaciar', [CartController::class,'clear'])->name('cart.clear');
 
 Route::middleware('auth')->group(function () {
-    Route::post('/checkout', [OrderController::class,'checkout'])->name('checkout');
+    Route::get('/checkout', [OrderController::class,'showCheckout'])->name('checkout.show');
+    Route::post('/checkout', [OrderController::class,'checkout'])->name('checkout.store');
     Route::get('/mis-pedidos', [OrderController::class,'myOrders'])->name('orders.mine');
 });

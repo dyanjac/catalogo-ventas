@@ -3,6 +3,9 @@
 @section('title', 'Productos')
 
 @section('content')
+@php
+    $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+@endphp
 
 
 <!-- Fruits Shop Start-->
@@ -67,14 +70,39 @@
                                         <div class="p-4 border border-secondary border-top-0 rounded-bottom">
                                             <h4>{{ $product->name }}</h4>
                                             <p>{{ $product->description }}</p>
-                                            <div class="d-flex justify-content-between flex-lg-wrap">
-                                                <p class="text-dark fs-5 fw-bold mb-0">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
-                                                <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                                            <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
+                                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                                <a href="{{ route('products.show', $product->slug) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
+                                                    Ver detalle
+                                                </a>
+                                                <div class="input-group input-group-sm" style="max-width: 115px;">
+                                                    <span class="input-group-text">Cant.</span>
+                                                    <input
+                                                        id="qty-products-{{ $product->id }}"
+                                                        type="number"
+                                                        name="quantity"
+                                                        min="1"
+                                                        value="1"
+                                                        class="form-control"
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                                <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
                                                     @csrf
-                                                    <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                                        <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al Carrito
+                                                    <input type="hidden" name="quantity" id="add-qty-products-{{ $product->id }}" value="1">
+                                                    <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncQtyForProducts({{ $product->id }})">
+                                                        <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar
                                                     </button>
                                                 </form>
+                                                <button
+                                                    type="button"
+                                                    class="btn border border-success rounded-pill px-3 text-success"
+                                                    title="Pedir por WhatsApp"
+                                                    onclick="openProductsWhatsApp({{ $product->id }}, @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
+                                                >
+                                                    <i class="fab fa-whatsapp me-1"></i> WhatsApp
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -95,5 +123,38 @@
     </div>
 </div>
 <!-- Fruits Shop End-->
+
+<script>
+    function normalizeQtyProducts(input) {
+        const raw = parseInt(input?.value ?? '1', 10);
+        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+    }
+
+    function syncQtyForProducts(productId) {
+        const qtyInput = document.getElementById(`qty-products-${productId}`);
+        const hiddenInput = document.getElementById(`add-qty-products-${productId}`);
+        hiddenInput.value = normalizeQtyProducts(qtyInput);
+    }
+
+    function openProductsWhatsApp(productId, productCode, productName) {
+        const phone = @js($sellerPhone);
+
+        if (!phone) {
+            alert('No se ha configurado CELULAR_VENDEDOR1 en el entorno.');
+            return;
+        }
+
+        const qtyInput = document.getElementById(`qty-products-${productId}`);
+        const qty = normalizeQtyProducts(qtyInput);
+        const message = [
+            'Hola, deseo cotizar este producto.',
+            `Codigo: ${productCode}`,
+            `Producto: ${productName}`,
+            `Cantidad: ${qty}`,
+        ].join('\n');
+
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+</script>
 
 @endsection

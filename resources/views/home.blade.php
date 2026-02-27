@@ -1,6 +1,9 @@
 @extends('layouts.app-home')
 @section('title','Inicio')
 @section('content')
+@php
+    $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+@endphp
 <?php /** @include('partials.banner')
   <section class="grid">
     @foreach($featured as $p)
@@ -155,14 +158,38 @@
                                             <div class="p-4 border border-secondary border-top-0 rounded-bottom">
                                                 <h4>{{ $product->name }}</h4>
                                                 <p>{{ \Illuminate\Support\Str::limit($product->description ?? 'Producto disponible.', 85) }}</p>
-                                                <div class="d-flex justify-content-between flex-lg-wrap gap-2">
-                                                    <p class="text-dark fs-5 fw-bold mb-0">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
-                                                    <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                                                <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
+                                                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                                    <a href="{{ route('catalog.show', $product) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
+                                                        Ver detalle
+                                                    </a>
+                                                    <div class="input-group input-group-sm" style="max-width: 115px;">
+                                                        <span class="input-group-text">Cant.</span>
+                                                        <input
+                                                            id="qty-home-featured-{{ $product->id }}"
+                                                            type="number"
+                                                            min="1"
+                                                            value="1"
+                                                            class="form-control"
+                                                        >
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                                    <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
                                                         @csrf
-                                                        <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                                            <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al Carrito
+                                                        <input type="hidden" name="quantity" id="add-qty-home-featured-{{ $product->id }}" value="1">
+                                                        <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncHomeQty('featured-{{ $product->id }}')">
+                                                            <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar
                                                         </button>
                                                     </form>
+                                                    <button
+                                                        type="button"
+                                                        class="btn border border-success rounded-pill px-3 text-success"
+                                                        title="Pedir por WhatsApp"
+                                                        onclick="openHomeWhatsApp('featured-{{ $product->id }}', @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
+                                                    >
+                                                        <i class="fab fa-whatsapp me-1"></i> WhatsApp
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -190,14 +217,39 @@
                                                 <div class="p-4 border border-secondary border-top-0 rounded-bottom">
                                                     <h4>{{ $product->name }}</h4>
                                                     <p>{{ \Illuminate\Support\Str::limit($product->description ?? 'Producto disponible.', 85) }}</p>
-                                                    <div class="d-flex justify-content-between flex-lg-wrap gap-2">
-                                                        <p class="text-dark fs-5 fw-bold mb-0">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
-                                                        <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                                                    <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
+                                                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                                        <a href="{{ route('catalog.show', $product) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
+                                                            Ver detalle
+                                                        </a>
+                                                        <div class="input-group input-group-sm" style="max-width: 115px;">
+                                                            <span class="input-group-text">Cant.</span>
+                                                            <input
+                                                                id="qty-home-group-{{ $group->id }}-{{ $product->id }}"
+                                                                type="number"
+                                                                min="1"
+                                                                value="1"
+                                                                class="form-control"
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                                        <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
                                                             @csrf
-                                                            <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                                                <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al Carrito
+                                                            <input type="hidden" name="quantity" id="add-qty-home-group-{{ $group->id }}-{{ $product->id }}" value="1">
+                                                            <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncHomeQty('group-{{ $group->id }}-{{ $product->id }}')">
+                                                                <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar
                                                             </button>
                                                         </form>
+                                                        <button
+                                                            type="button"
+                                                            class="btn border border-success rounded-pill px-3 text-success"
+                                                            title="Pedir por WhatsApp"
+                                                            onclick="openHomeWhatsApp('group-{{ $group->id }}-{{ $product->id }}', @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
+                                                        >
+                                                            <i class="fab fa-whatsapp me-1"></i> WhatsApp
+                                                        </button>
+                                                    </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -234,14 +286,38 @@
                             <div class="p-4 rounded-bottom">
                                 <h4>{{ $product->name }}</h4>
                                 <p>{{ \Illuminate\Support\Str::limit($product->description ?? 'Producto disponible.', 85) }}</p>
-                                <div class="d-flex justify-content-between flex-lg-wrap">
-                                    <p class="text-dark fs-5 fw-bold mb-0">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
-                                    <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                                <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }} / Unidad</p>
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                    <a href="{{ route('catalog.show', $product) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
+                                        Ver detalle
+                                    </a>
+                                    <div class="input-group input-group-sm" style="max-width: 115px;">
+                                        <span class="input-group-text">Cant.</span>
+                                        <input
+                                            id="qty-home-best-{{ $product->id }}"
+                                            type="number"
+                                            min="1"
+                                            value="1"
+                                            class="form-control"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
                                         @csrf
-                                        <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                            <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al carrito
+                                        <input type="hidden" name="quantity" id="add-qty-home-best-{{ $product->id }}" value="1">
+                                        <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncHomeQty('best-{{ $product->id }}')">
+                                            <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar
                                         </button>
                                     </form>
+                                    <button
+                                        type="button"
+                                        class="btn border border-success rounded-pill px-3 text-success"
+                                        title="Pedir por WhatsApp"
+                                        onclick="openHomeWhatsApp('best-{{ $product->id }}', @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
+                                    >
+                                        <i class="fab fa-whatsapp me-1"></i> WhatsApp
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -298,6 +374,39 @@
         </div>
         <!-- Fact Start -->
 
+<script>
+    function normalizeHomeQty(input) {
+        const raw = parseInt(input?.value ?? '1', 10);
+        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+    }
+
+    function syncHomeQty(idSuffix) {
+        const qtyInput = document.getElementById(`qty-home-${idSuffix}`);
+        const hiddenInput = document.getElementById(`add-qty-home-${idSuffix}`);
+        if (!hiddenInput) return;
+        hiddenInput.value = normalizeHomeQty(qtyInput);
+    }
+
+    function openHomeWhatsApp(idSuffix, productCode, productName) {
+        const phone = @js($sellerPhone);
+
+        if (!phone) {
+            alert('No se ha configurado CELULAR_VENDEDOR1 en el entorno.');
+            return;
+        }
+
+        const qtyInput = document.getElementById(`qty-home-${idSuffix}`);
+        const qty = normalizeHomeQty(qtyInput);
+        const message = [
+            'Hola, deseo cotizar este producto.',
+            `Codigo: ${productCode}`,
+            `Producto: ${productName}`,
+            `Cantidad: ${qty}`,
+        ].join('\n');
+
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+</script>
 
 @endsection
 
