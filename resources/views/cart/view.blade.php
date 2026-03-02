@@ -86,6 +86,9 @@
                             <div class="alert alert-warning mb-2">
                                 Debes iniciar sesión para confirmar y grabar el pedido.
                             </div>
+                            <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#authModal">
+                                Iniciar sesión para continuar
+                            </button>
                         @endauth
                     </div>
                 </div>

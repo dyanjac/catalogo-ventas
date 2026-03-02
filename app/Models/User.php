@@ -20,6 +20,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
+        'document_type',
+        'document_number',
+        'city',
+        'address',
+        'is_active',
         'password',
     ];
 
@@ -43,6 +49,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 }

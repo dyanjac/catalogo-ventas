@@ -12,7 +12,7 @@
 
         @include('partials.flash')
 
-        <form method="POST" action="{{ route('admin.products.update', $product) }}" class="card border border-secondary rounded-3">
+        <form method="POST" action="{{ route('admin.products.update', $product) }}" class="card border border-secondary rounded-3" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <div class="card-body">
@@ -22,6 +22,10 @@
                 <button type="submit" class="btn btn-primary rounded-pill px-4">Actualizar</button>
             </div>
         </form>
+
+        <div class="mt-4">
+            @include('admin.products._image-manager')
+        </div>
     </div>
 </div>
 @endsection

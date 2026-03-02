@@ -12,7 +12,7 @@ class ProductController extends Controller
     {
         $featured = Product::query()
             ->active()
-            ->with(['category', 'unitMeasure'])
+            ->with(['category', 'unitMeasure', 'mainImage'])
             ->latest('id')
             ->take(8)
             ->get();
@@ -23,7 +23,7 @@ class ProductController extends Controller
             ->with([
                 'products' => fn ($query) => $query
                     ->active()
-                    ->with(['category', 'unitMeasure'])
+                    ->with(['category', 'unitMeasure', 'mainImage'])
                     ->latest('id')
                     ->take(8),
             ])
@@ -33,7 +33,7 @@ class ProductController extends Controller
 
         $bestPrices = Product::query()
             ->active()
-            ->with(['category', 'unitMeasure'])
+            ->with(['category', 'unitMeasure', 'mainImage'])
             ->orderByRaw('COALESCE(sale_price, price) asc')
             ->latest('id')
             ->take(10)
@@ -51,7 +51,7 @@ class ProductController extends Controller
         //]);
 
     $categories = Category::withCount('products')->get();
-    $products = Product::active()->latest('id')->paginate(12);
+    $products = Product::query()->active()->with(['mainImage'])->latest('id')->paginate(12);
 
     return view('products.index', compact('products', 'categories'));
     }
@@ -67,7 +67,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {   
         abort_unless($product->is_active, 404);
-        $product->load(['category', 'unitMeasure']);
+        $product->load(['category', 'unitMeasure', 'mainImage', 'images']);
 
         return view('products.show', compact('product'));
     }

@@ -13,9 +13,18 @@
             </div>
         </div>
 
-        <div class="card border border-secondary rounded-3">
+            <div class="card border border-secondary rounded-3">
             <div class="card-body">
                 <div class="row g-3">
+                    <div class="col-12">
+                        <strong>Imagen principal:</strong><br>
+                        <img
+                            src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}"
+                            alt="{{ $product->name }}"
+                            class="img-fluid rounded border mt-2"
+                            style="max-height: 240px; object-fit: contain;"
+                        >
+                    </div>
                     <div class="col-md-4"><strong>SKU:</strong> {{ $product->sku ?? '-' }}</div>
                     <div class="col-md-4"><strong>Categoría:</strong> {{ $product->category?->name ?? '-' }}</div>
                     <div class="col-md-4"><strong>Unidad:</strong> {{ $product->unitMeasure?->name ?? '-' }}</div>

@@ -89,4 +89,5 @@
         <label class="form-label">Descripción</label>
         <textarea name="description" rows="4" class="form-control">{{ old('description', $product->description) }}</textarea>
     </div>
+
 </div>

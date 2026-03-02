@@ -11,7 +11,7 @@
                     <div class="col-lg-6">
                         <div class="border rounded">
                             <img
-                                src="{{ $product->image ? asset('storage/' . $product->image) : asset('img/hero-img-1.png') }}"
+                                src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}"
                                 class="img-fluid rounded"
                                 alt="{{ $product->name }}"
                             >

@@ -12,10 +12,11 @@
 
         @include('partials.flash')
 
-        <form method="POST" action="{{ route('admin.products.store') }}" class="card border border-secondary rounded-3">
+        <form method="POST" action="{{ route('admin.products.store') }}" class="card border border-secondary rounded-3" enctype="multipart/form-data">
             @csrf
             <div class="card-body">
                 @include('admin.products._form')
+                @include('admin.products._image-manager')
             </div>
             <div class="card-footer bg-white d-flex justify-content-end">
                 <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar</button>

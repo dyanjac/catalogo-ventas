@@ -12,7 +12,7 @@ class CatalogController extends Controller
     {
         $query = Product::query()
             ->active()
-            ->with(['category', 'unitMeasure'])
+            ->with(['category', 'unitMeasure', 'mainImage'])
             ->latest('id');
 
         if ($search = trim((string) request('q'))) {
@@ -32,7 +32,7 @@ class CatalogController extends Controller
     public function show(Product $product): View
     {
         abort_unless($product->is_active, 404);
-        $product->load(['category', 'unitMeasure']);
+        $product->load(['category', 'unitMeasure', 'mainImage', 'images']);
 
         return view('catalog.show', compact('product'));
     }

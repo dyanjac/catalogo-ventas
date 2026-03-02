@@ -40,7 +40,7 @@
                     <div class="rounded position-relative fruite-item h-100">
                         <div class="fruite-img">
                             <img
-                                src="{{ $product->image ? asset('storage/' . $product->image) : asset('img/hero-img-1.png') }}"
+                                src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}"
                                 class="img-fluid w-100 rounded-top"
                                 alt="{{ $product->name }}"
                             >

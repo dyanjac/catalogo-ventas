@@ -36,6 +36,7 @@
   <script src="{{ asset('lib/owlcarousel/owl.carousel.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/appwrite@7.0.0/dist/appwrite.min.js"></script>
   <script src="{{ asset('js/main.js') }}"></script>
+  @include('partials.auth-modal')
   @include('partials.whatsapp-float')
 
 </body>

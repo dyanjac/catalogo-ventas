@@ -7,8 +7,10 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\UnitMeasure;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -16,7 +18,7 @@ class ProductController extends Controller
 {
     public function index(): View
     {
-        $query = Product::query()->with(['category', 'unitMeasure'])->latest('id');
+        $query = Product::query()->with(['category', 'unitMeasure', 'mainImage'])->latest('id');
 
         if ($search = trim((string) request('q'))) {
             $query->where(function ($sub) use ($search) {
@@ -58,6 +60,7 @@ class ProductController extends Controller
     {
         $data = $this->normalizePayload($request->validated());
         $product = Product::create($data);
+        $this->syncProductImage($product, $request->file('image_file'));
 
         return redirect()
             ->route('admin.products.edit', $product)
@@ -66,13 +69,15 @@ class ProductController extends Controller
 
     public function show(Product $product): View
     {
-        $product->load(['category', 'unitMeasure']);
+        $product->load(['category', 'unitMeasure', 'images', 'mainImage']);
 
         return view('admin.products.show', compact('product'));
     }
 
     public function edit(Product $product): View
     {
+        $product->load(['images', 'mainImage']);
+
         return view('admin.products.edit', [
             'product' => $product,
             'categories' => Category::orderBy('name')->get(),
@@ -84,6 +89,8 @@ class ProductController extends Controller
     public function update(UpdateProductRequest $request, Product $product): RedirectResponse
     {
         $product->update($this->normalizePayload($request->validated(), $product));
+        ProductImage::where('product_id', $product->id)->update(['product_sku' => $product->sku]);
+        $this->syncProductImage($product, $request->file('image_file'));
 
         return redirect()
             ->route('admin.products.edit', $product)
@@ -152,5 +159,26 @@ class ProductController extends Controller
         } while (Product::where('sku', $sku)->exists());
 
         return $sku;
+    }
+
+    private function syncProductImage(Product $product, ?UploadedFile $file): void
+    {
+        if (! $file) {
+            return;
+        }
+
+        $path = $file->store('products', 'public');
+
+        ProductImage::where('product_id', $product->id)->update(['is_main' => false]);
+
+        ProductImage::create([
+            'product_id' => $product->id,
+            'product_sku' => $product->sku,
+            'path' => $path,
+            'is_main' => true,
+            'sort' => 0,
+        ]);
+
+        $product->update(['image' => $path]);
     }
 }

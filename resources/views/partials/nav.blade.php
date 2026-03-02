@@ -57,9 +57,25 @@
                                 <i class="fa fa-shopping-bag fa-2x"></i>
                                 <span class="position-absolute bg-secondary rounded-circle d-flex align-items-center justify-content-center text-dark px-1" style="top: -5px; left: 15px; height: 20px; min-width: 20px;">{{ $cartCount }}</span>
                             </a>
-                            <a href="#" class="my-auto">
-                                <i class="fas fa-user fa-2x"></i>
-                            </a>
+                            @auth
+                                <div class="nav-item dropdown my-auto">
+                                    <a href="#" class="nav-link dropdown-toggle p-0" data-bs-toggle="dropdown">
+                                        <i class="fas fa-user fa-2x"></i>
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-end m-0 bg-white rounded-0">
+                                        <span class="dropdown-item-text fw-semibold">{{ auth()->user()->name }}</span>
+                                        <a href="{{ route('orders.mine') }}" class="dropdown-item">Mis pedidos</a>
+                                        <form method="POST" action="{{ route('logout') }}">
+                                            @csrf
+                                            <button type="submit" class="dropdown-item">Cerrar sesión</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @else
+                                <a href="#" class="my-auto" data-bs-toggle="modal" data-bs-target="#authModal" title="Iniciar sesión">
+                                    <i class="fas fa-user fa-2x"></i>
+                                </a>
+                            @endauth
                         </div>
                     </div>
                 </nav>

@@ -10,7 +10,7 @@ class ProductImage extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['product_id', 'path', 'is_main', 'sort'];
+    protected $fillable = ['product_id', 'product_sku', 'path', 'is_main', 'sort'];
 
     protected $casts = [
         'is_main' => 'boolean',
