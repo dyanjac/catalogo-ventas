@@ -31,7 +31,7 @@
                             @endif
                         </p>
                         <div class="d-flex gap-2 flex-wrap">
-                            <form method="POST" action="{{ route('cart.add', $product) }}">
+                            <form method="POST" action="{{ route('cart.add', $product->id) }}">
                                 @csrf
                                 <button type="submit" class="btn border border-secondary rounded-pill px-4 py-2 text-primary">
                                     <i class="fa fa-shopping-bag me-2 text-primary"></i> Agregar al carrito

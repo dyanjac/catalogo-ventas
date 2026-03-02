@@ -69,7 +69,7 @@
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between align-items-center gap-2">
-                                <form method="POST" action="{{ route('cart.add', $product) }}" class="m-0">
+                                <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
                                     @csrf
                                     <input type="hidden" name="quantity" id="add-qty-{{ $product->id }}" value="1">
                                     <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncQtyForCart({{ $product->id }})">

@@ -29,7 +29,7 @@ Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.inde
 Route::get('/catalogo/{product:slug}', [CatalogController::class, 'show'])->name('catalog.show');
 
 Route::get('/carrito', [CartController::class,'view'])->name('cart.view');
-Route::post('/carrito/agregar/{product}', [CartController::class,'add'])->name('cart.add');
+Route::post('/carrito/agregar/{product:id}', [CartController::class,'add'])->name('cart.add');
 Route::post('/carrito/quitar/{product:id}', [CartController::class,'remove'])->name('cart.remove');
 Route::post('/carrito/actualizar/{product:id}', [CartController::class,'update'])->name('cart.update');
 Route::post('/carrito/vaciar', [CartController::class,'clear'])->name('cart.clear');
