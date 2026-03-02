@@ -21,6 +21,7 @@ Route::get('/', [ProductController::class,'home'])->name('home');
 
 Route::get('/productos', [ProductController::class,'index'])->name('products.index');
 
+Route::view('/nosotros', 'nosotros.index')->name('nosotros.index');
 Route::get('/contacto', [ContactoController::class,'index'])->name('contacto.index');
 
 Route::get('/producto/{product:slug}', [ProductController::class,'show'])->name('products.show');

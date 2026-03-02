@@ -34,19 +34,10 @@
                     </button>
                     <div class="collapse navbar-collapse bg-white" id="navbarCollapse">
                         <div class="navbar-nav mx-auto">
-                            <a href="{{ route('home') }}" class="nav-item nav-link">Inicio</a>
-                            <a href="{{ route('catalog.index') }}" class="nav-item nav-link active">Catálogo</a>
-                            <a href="shop-detail.html" class="nav-item nav-link">Nosotros</a>
-                            <div class="nav-item dropdown">
-                                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Promociones</a>
-                                <div class="dropdown-menu m-0 bg-secondary rounded-0">
-                                    <a href="cart.html" class="dropdown-item">Cart</a>
-                                    <a href="chackout.html" class="dropdown-item">Chackout</a>
-                                    <a href="testimonial.html" class="dropdown-item">Testimonial</a>
-                                    <a href="404.html" class="dropdown-item">404 Page</a>
-                                </div>
-                            </div>
-                            <a href="{{ route('contacto.index') }}" class="nav-item nav-link">Contacto</a>
+                            <a href="{{ route('home') }}" class="nav-item nav-link {{ request()->routeIs('home') ? 'active' : '' }}">Inicio</a>
+                            <a href="{{ route('catalog.index') }}" class="nav-item nav-link {{ request()->routeIs('catalog.*') || request()->routeIs('products.*') || request()->routeIs('categories.show') ? 'active' : '' }}">Catálogo</a>
+                            <a href="{{ route('nosotros.index') }}" class="nav-item nav-link {{ request()->routeIs('nosotros.index') ? 'active' : '' }}">Nosotros</a>
+                            <a href="{{ route('contacto.index') }}" class="nav-item nav-link {{ request()->routeIs('contacto.index') ? 'active' : '' }}">Contacto</a>
                         </div>
                         @php
                             $cartCount = collect(session('cart', []))->sum('quantity');
@@ -105,12 +96,22 @@
 
 
         <!-- Single Page Header start -->
+        @php
+            $pageTitle = match (true) {
+                request()->routeIs('catalog.*', 'products.*', 'categories.show') => 'Catálogo',
+                request()->routeIs('nosotros.index') => 'Nosotros',
+                request()->routeIs('contacto.index') => 'Contacto',
+                request()->routeIs('cart.view') => 'Carrito',
+                request()->routeIs('checkout.show') => 'Checkout',
+                request()->routeIs('orders.mine') => 'Mis Pedidos',
+                default => 'Página',
+            };
+        @endphp
         <div class="container-fluid page-header py-5">
-            <h1 class="text-center text-white display-6">Productos</h1>
+            <h1 class="text-center text-white display-6">{{ $pageTitle }}</h1>
             <ol class="breadcrumb justify-content-center mb-0">
-                <li class="breadcrumb-item"><a href="#">Inicio</a></li>
-                <li class="breadcrumb-item"><a href="#">Pagina</a></li>
-                <li class="breadcrumb-item active text-white">Productos</li>
+                <li class="breadcrumb-item"><a href="{{ route('home') }}">Inicio</a></li>
+                <li class="breadcrumb-item active text-white">{{ $pageTitle }}</li>
             </ol>
         </div>
         <!-- Single Page Header End -->

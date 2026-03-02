@@ -34,19 +34,10 @@
                     </button>
                     <div class="collapse navbar-collapse bg-white" id="navbarCollapse">
                         <div class="navbar-nav mx-auto">
-                            <a href="{{ route('home') }}" class="nav-item nav-link">Inicio</a>
-                            <a href="{{ route('catalog.index') }}" class="nav-item nav-link active">Catálogo</a>
-                            <a href="shop-detail.html" class="nav-item nav-link">Nosotros</a>
-                            <div class="nav-item dropdown">
-                                <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Promociones</a>
-                                <div class="dropdown-menu m-0 bg-secondary rounded-0">
-                                    <a href="cart.html" class="dropdown-item">Cart</a>
-                                    <a href="{{ route('contacto.index') }}" class="dropdown-item">Chackout</a>
-                                    <a href="testimonial.html" class="dropdown-item">Testimonial</a>
-                                    <a href="404.html" class="dropdown-item">404 Page</a>
-                                </div>
-                            </div>
-                            <a href="contact.html" class="nav-item nav-link">Contacto</a>
+                            <a href="{{ route('home') }}" class="nav-item nav-link {{ request()->routeIs('home') ? 'active' : '' }}">Inicio</a>
+                            <a href="{{ route('catalog.index') }}" class="nav-item nav-link {{ request()->routeIs('catalog.*') ? 'active' : '' }}">Catálogo</a>
+                            <a href="{{ route('nosotros.index') }}" class="nav-item nav-link {{ request()->routeIs('nosotros.index') ? 'active' : '' }}">Nosotros</a>
+                            <a href="{{ route('contacto.index') }}" class="nav-item nav-link {{ request()->routeIs('contacto.index') ? 'active' : '' }}">Contacto</a>
                         </div>
                         @php
                             $cartCount = collect(session('cart', []))->sum('quantity');
