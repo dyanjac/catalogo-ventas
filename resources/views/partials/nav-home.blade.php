@@ -54,6 +54,15 @@
                             </a>
                             <div class="dropdown-menu dropdown-menu-end m-0 bg-white rounded-4 border-0 shadow-sm">
                                 <span class="dropdown-item-text fw-semibold">{{ auth()->user()->name }}</span>
+                                @if(auth()->user()->isSuperAdmin())
+                                    <span class="dropdown-item-text small text-muted">Super usuario</span>
+                                    <a href="{{ route('admin.orders.index') }}" class="dropdown-item">Todos los pedidos</a>
+                                    <a href="{{ route('admin.customers.index') }}" class="dropdown-item">Clientes</a>
+                                    <a href="{{ route('admin.products.index') }}" class="dropdown-item">Productos</a>
+                                    <a href="{{ route('admin.categories.index') }}" class="dropdown-item">Categorias</a>
+                                    <a href="{{ route('admin.unit-measures.index') }}" class="dropdown-item">Unidades</a>
+                                    <hr class="dropdown-divider">
+                                @endif
                                 <a href="{{ route('orders.mine') }}" class="dropdown-item">Mis pedidos</a>
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf

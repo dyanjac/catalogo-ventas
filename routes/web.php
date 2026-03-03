@@ -2,9 +2,14 @@
 use App\Http\Controllers\{ProductController,CategoryController,CartController,OrderController};
 use App\Http\Controllers\{ContactoController};
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\ProductImageController as AdminProductImageController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\UnitMeasureController as AdminUnitMeasureController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -41,12 +46,31 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::resource('admin/products', AdminProductController::class)->names('admin.products');
-    Route::post('admin/products/{product}/images', [AdminProductImageController::class, 'store'])->name('admin.products.images.store');
-    Route::delete('admin/products/{product}/images/{image}', [AdminProductImageController::class, 'destroy'])->name('admin.products.images.destroy');
     Route::get('/checkout', [OrderController::class,'showCheckout'])->name('checkout.show');
     Route::post('/checkout', [OrderController::class,'checkout'])->name('checkout.store');
     Route::get('/mis-pedidos', [OrderController::class,'myOrders'])->name('orders.mine');
     Route::get('/mis-pedidos/{order}', [OrderController::class,'show'])->name('orders.show');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+});
+
+Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
+    Route::resource('admin/products', AdminProductController::class)->names('admin.products');
+    Route::post('admin/products/{product}/images', [AdminProductImageController::class, 'store'])->name('admin.products.images.store');
+    Route::delete('admin/products/{product}/images/{image}', [AdminProductImageController::class, 'destroy'])->name('admin.products.images.destroy');
+
+    Route::resource('admin/categories', AdminCategoryController::class)
+        ->except(['show'])
+        ->names('admin.categories');
+
+    Route::resource('admin/unit-measures', AdminUnitMeasureController::class)
+        ->except(['show'])
+        ->names('admin.unit-measures');
+
+    Route::get('admin/customers', [AdminCustomerController::class, 'index'])->name('admin.customers.index');
+    Route::get('admin/customers/{customer}', [AdminCustomerController::class, 'show'])->name('admin.customers.show');
+    Route::put('admin/customers/{customer}', [AdminCustomerController::class, 'update'])->name('admin.customers.update');
+
+    Route::get('admin/orders', [AdminOrderController::class, 'index'])->name('admin.orders.index');
+    Route::get('admin/orders/{order}', [AdminOrderController::class, 'show'])->name('admin.orders.show');
+    Route::put('admin/orders/{order}', [AdminOrderController::class, 'update'])->name('admin.orders.update');
 });

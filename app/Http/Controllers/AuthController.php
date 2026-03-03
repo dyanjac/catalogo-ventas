@@ -50,6 +50,7 @@ class AuthController extends Controller
             'document_number' => $data['document_number'] ?? null,
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
+            'role' => 'customer',
             'password' => $data['password'],
             'is_active' => true,
         ]);

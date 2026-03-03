@@ -14,7 +14,11 @@
                 <h1>Compra insumos de alta rotacion con precio claro y entrega rapida</h1>
                 <p>Selecciona arroz, harina, azucar y otros productos de consumo masivo con stock visible y cotizacion inmediata.</p>
             </div>
-            <a href="{{ route('admin.products.index') }}" class="btn btn-light border rounded-pill px-4">Administrar</a>
+            @auth
+                @if(auth()->user()->isSuperAdmin())
+                    <a href="{{ route('admin.products.index') }}" class="btn btn-light border rounded-pill px-4">Administrar</a>
+                @endif
+            @endauth
         </div>
 
         @include('partials.flash')
