@@ -54,6 +54,12 @@
                 </li>
                 <li class="nav-header">SITIO</li>
                 <li class="nav-item">
+                    <a href="{{ route('admin.settings.edit') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-building"></i>
+                        <p>Comercio</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('orders.mine') }}" class="nav-link">
                         <i class="nav-icon fas fa-bag-shopping"></i>
                         <p>Mis pedidos</p>
