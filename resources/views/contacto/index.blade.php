@@ -11,9 +11,15 @@
                 <h1>Estamos listos para atender pedidos, stock y cotizaciones</h1>
                 <p>Habla con el equipo para coordinar abastecimiento, entrega y compras mayoristas de productos de consumo masivo.</p>
             </div>
-            <a href="https://wa.me/51915923681" target="_blank" class="btn btn-primary rounded-pill px-4">
-                <i class="fab fa-whatsapp me-2"></i>WhatsApp directo
-            </a>
+            @if(!empty($commerce['mobile_digits']))
+                <a href="{{ $commerce['whatsapp_url'] }}" target="_blank" class="btn btn-primary rounded-pill px-4">
+                    <i class="fab fa-whatsapp me-2"></i>WhatsApp directo
+                </a>
+            @elseif(!empty($commerce['phone_digits']))
+                <a href="tel:{{ $commerce['phone_digits'] }}" class="btn btn-primary rounded-pill px-4">
+                    <i class="fas fa-phone-alt me-2"></i>Llamar ahora
+                </a>
+            @endif
         </div>
 
         <div class="row g-4">
@@ -48,8 +54,8 @@
                     <div class="mp-contact-card">
                         <i class="fas fa-phone-alt"></i>
                         <div>
-                            <h5>Celular</h5>
-                            <p class="mb-0">{{ $commerce['mobile'] ?: 'Celular no configurado' }}</p>
+                            <h5>{{ $commerce['mobile'] ? 'Celular' : 'Telefono' }}</h5>
+                            <p class="mb-0">{{ $commerce['mobile'] ?: ($commerce['phone'] ?: 'Telefono no configurado') }}</p>
                         </div>
                     </div>
                     <div class="mp-contact-card">
@@ -64,12 +70,19 @@
                         <h4 class="mb-3">Canales directos de venta</h4>
                         <p class="mb-4">Solicita precios por volumen, confirma disponibilidad y coordina entregas con el equipo comercial.</p>
                         <div class="d-grid gap-3">
-                            <a href="https://wa.me/51915923681" target="_blank" class="btn btn-primary btn-lg rounded-pill">
-                                <i class="fab fa-whatsapp me-2"></i>Contactar por WhatsApp
-                            </a>
+                            @if(!empty($commerce['mobile_digits']))
+                                <a href="{{ $commerce['whatsapp_url'] }}" target="_blank" class="btn btn-primary btn-lg rounded-pill">
+                                    <i class="fab fa-whatsapp me-2"></i>Contactar por WhatsApp
+                                </a>
+                            @endif
                             <a href="mailto:{{ $commerce['email'] ?: '' }}" class="btn btn-light border btn-lg rounded-pill">
                                 <i class="fas fa-envelope me-2"></i>Enviar correo
                             </a>
+                            @if(!empty($commerce['phone_digits']))
+                                <a href="tel:{{ $commerce['phone_digits'] }}" class="btn btn-light border btn-lg rounded-pill">
+                                    <i class="fas fa-phone-alt me-2"></i>Llamar al comercio
+                                </a>
+                            @endif
                         </div>
                     </div>
                 </div>

@@ -3,9 +3,27 @@
         <li class="nav-item">
             <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
         </li>
+        <li class="nav-item d-none d-md-flex align-items-center">
+            <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}" style="height: 34px; width: 34px; object-fit: contain;" class="mr-2">
+            <div class="small">
+                <div class="font-weight-bold text-dark">{{ $commerce['name'] }}</div>
+                <div class="text-muted">{{ $commerce['email'] ?: 'Correo no configurado' }}</div>
+            </div>
+        </li>
     </ul>
 
     <ul class="navbar-nav ml-auto align-items-center">
+        <li class="nav-item d-none d-lg-inline-block mr-3">
+            @if($commerce['mobile_digits'])
+                <a href="{{ $commerce['whatsapp_url'] }}?text=Hola%2C%20necesito%20apoyo%20comercial." target="_blank" class="btn btn-success btn-sm">
+                    <i class="fab fa-whatsapp mr-1"></i>{{ $commerce['mobile'] }}
+                </a>
+            @elseif($commerce['phone_digits'])
+                <a href="tel:{{ $commerce['phone_digits'] }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-phone-alt mr-1"></i>{{ $commerce['phone'] }}
+                </a>
+            @endif
+        </li>
         <li class="nav-item d-none d-sm-inline-block mr-3 text-muted small">
             {{ now()->format('d/m/Y H:i') }}
         </li>

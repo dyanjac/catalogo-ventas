@@ -41,9 +41,15 @@
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="{{ route('catalog.index') }}" class="btn btn-primary rounded-pill px-4">Repetir compra</a>
-                    <a href="https://wa.me/51915923681?text=Hola%2C%20quiero%20hacer%20seguimiento%20a%20mi%20pedido%20{{ urlencode($orderCode) }}." target="_blank" rel="noreferrer" class="btn btn-light border rounded-pill px-4">
-                        Seguimiento por WhatsApp
-                    </a>
+                    @if(!empty($commerce['mobile_digits']))
+                        <a href="{{ $commerce['whatsapp_url'] }}?text={{ urlencode('Hola, quiero hacer seguimiento a mi pedido ' . $orderCode . '.') }}" target="_blank" rel="noreferrer" class="btn btn-light border rounded-pill px-4">
+                            Seguimiento por WhatsApp
+                        </a>
+                    @elseif(!empty($commerce['phone_digits']))
+                        <a href="tel:{{ $commerce['phone_digits'] }}" class="btn btn-light border rounded-pill px-4">
+                            Llamar al comercio
+                        </a>
+                    @endif
                 </div>
             </div>
 

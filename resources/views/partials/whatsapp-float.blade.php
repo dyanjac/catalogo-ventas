@@ -30,13 +30,15 @@
   }
 </style>
 
-<a
-  href="https://wa.me/51915923681?text=Hola%2C%20quiero%20realizar%20un%20pedido."
-  class="whatsapp-float"
-  target="_blank"
-  rel="noopener noreferrer"
-  aria-label="Realizar pedido por WhatsApp"
-  title="Realizar pedido por WhatsApp"
->
-  <i class="fab fa-whatsapp" aria-hidden="true"></i>
-</a>
+@if(!empty($commerce['mobile_digits']))
+  <a
+    href="{{ $commerce['whatsapp_url'] }}?text=Hola%2C%20quiero%20realizar%20un%20pedido."
+    class="whatsapp-float"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Realizar pedido por WhatsApp"
+    title="Realizar pedido por WhatsApp"
+  >
+    <i class="fab fa-whatsapp" aria-hidden="true"></i>
+  </a>
+@endif

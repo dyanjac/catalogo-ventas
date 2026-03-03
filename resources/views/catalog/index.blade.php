@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+    $sellerPhone = $commerce['mobile_digits'] ?: preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
 @endphp
 <section class="container-fluid py-5 mt-5 mp-shell">
     <div class="container py-4">
@@ -92,7 +92,7 @@
         const phone = @js($sellerPhone);
 
         if (!phone) {
-            alert('No se ha configurado CELULAR_VENDEDOR1 en el entorno.');
+            alert('No se ha configurado el celular comercial para WhatsApp.');
             return;
         }
 

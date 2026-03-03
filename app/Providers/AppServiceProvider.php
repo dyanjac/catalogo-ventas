@@ -53,14 +53,22 @@ class AppServiceProvider extends ServiceProvider
             ? asset('storage/' . $setting->logo_path)
             : $this->resolveLogoUrl($fallbackLogo);
 
+        $resolvedPhone = $setting?->phone ?: $fallbackPhone;
+        $resolvedMobile = $setting?->mobile ?: $fallbackMobile;
+        $mobileDigits = preg_replace('/\D+/', '', $resolvedMobile);
+        $phoneDigits = preg_replace('/\D+/', '', $resolvedPhone);
+
         View::share('commerce', [
             'name' => $setting?->company_name ?: $fallbackName,
             'tax_id' => $setting?->tax_id ?: $fallbackTaxId,
             'address' => $setting?->address ?: $fallbackAddress,
-            'phone' => $setting?->phone ?: $fallbackPhone,
-            'mobile' => $setting?->mobile ?: $fallbackMobile,
+            'phone' => $resolvedPhone,
+            'phone_digits' => $phoneDigits,
+            'mobile' => $resolvedMobile,
+            'mobile_digits' => $mobileDigits,
             'email' => $setting?->email ?: $fallbackEmail,
             'logo_url' => $resolvedLogoUrl,
+            'whatsapp_url' => $mobileDigits !== '' ? 'https://wa.me/' . $mobileDigits : null,
         ]);
     }
 

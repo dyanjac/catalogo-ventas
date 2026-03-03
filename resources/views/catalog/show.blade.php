@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+    $sellerPhone = $commerce['mobile_digits'] ?: preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
     $mainImage = $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png');
     $gallery = $product->images->isNotEmpty() ? $product->images : collect([(object) ['path' => $product->primary_image_path]]);
 @endphp
@@ -122,7 +122,7 @@
         const phone = @js($sellerPhone);
 
         if (!phone) {
-            alert('No se ha configurado CELULAR_VENDEDOR1 en el entorno.');
+            alert('No se ha configurado el celular comercial para WhatsApp.');
             return;
         }
 
