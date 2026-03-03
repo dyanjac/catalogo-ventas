@@ -3,8 +3,8 @@
         <div class="row g-4 align-items-start">
             <div class="col-lg-4">
                 <div class="mp-footer-brand">
-                    <img src="{{ asset('img/logo-V&V.png') }}" alt="Inversiones V&V" class="mp-footer-logo mb-3">
-                    <h4 class="text-white mb-2">Inversiones V&V</h4>
+                    <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}" class="mp-footer-logo mb-3">
+                    <h4 class="text-white mb-2">{{ $commerce['name'] }}</h4>
                     <p class="text-white-50 mb-3">Venta de insumos de consumo masivo para panaderias, bodegas y negocios que necesitan reposicion constante.</p>
                     <div class="mp-footer-social">
                         <a href="#" class="btn btn-outline-secondary rounded-circle"><i class="fab fa-facebook-f"></i></a>
@@ -46,11 +46,11 @@
         <div class="mp-footer-bottom mt-5 pt-4">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-6">
-                    <p class="text-white-50 mb-0">© {{ now()->year }} Inversiones V&V. Todos los derechos reservados.</p>
+                    <p class="text-white-50 mb-0">© {{ now()->year }} {{ $commerce['name'] }}. Todos los derechos reservados.</p>
                 </div>
                 <div class="col-lg-6 text-lg-end">
-                    <span class="text-white-50 me-3">Psj. Señor de los Milagros 01</span>
-                    <span class="text-white-50">Inversiones@gmail.com</span>
+                    <span class="text-white-50 me-3">{{ $commerce['address'] ?: 'Direccion no configurada' }}</span>
+                    <span class="text-white-50">{{ $commerce['email'] ?: 'Correo no configurado' }}</span>
                 </div>
             </div>
         </div>

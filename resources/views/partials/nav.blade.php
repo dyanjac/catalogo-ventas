@@ -10,8 +10,8 @@
     <div class="container topbar mp-topbar d-none d-lg-block">
         <div class="d-flex justify-content-between align-items-center">
             <div class="top-info ps-2">
-                <small class="me-4"><i class="fas fa-map-marker-alt me-2 text-secondary"></i><a href="#" class="text-white">Psj. Señor de los Milagros 01</a></small>
-                <small><i class="fas fa-envelope me-2 text-secondary"></i><a href="#" class="text-white">inversiones@gmail.com</a></small>
+                <small class="me-4"><i class="fas fa-map-marker-alt me-2 text-secondary"></i><a href="#" class="text-white">{{ $commerce['address'] ?: 'Direccion no configurada' }}</a></small>
+                <small><i class="fas fa-envelope me-2 text-secondary"></i><a href="#" class="text-white">{{ $commerce['email'] ?: 'sin-correo@empresa.local' }}</a></small>
             </div>
             <div class="top-link pe-2">
                 <span class="text-white-50 small me-3">Atencion comercial para productos de alta rotacion</span>
@@ -24,8 +24,8 @@
         <nav class="navbar navbar-light bg-white navbar-expand-xl mp-navbar-shell">
             <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0">
                 <img
-                    src="{{ asset('img/logo-V&V.png') }}"
-                    alt="V&V"
+                    src="{{ $commerce['logo_url'] }}"
+                    alt="{{ $commerce['name'] }}"
                     class="mp-brand-logo"
                 >
             </a>

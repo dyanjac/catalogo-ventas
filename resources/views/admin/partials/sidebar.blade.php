@@ -1,7 +1,7 @@
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <a href="{{ route('admin.dashboard') }}" class="brand-link d-flex align-items-center">
-        <img src="{{ asset('img/logo-V&V.png') }}" alt="V&V" class="brand-image img-circle elevation-2" style="opacity: .95; width: 34px; height: 34px; object-fit: cover;">
-        <span class="brand-text font-weight-light">Panel CMS</span>
+        <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}" class="brand-image img-circle elevation-2" style="opacity: .95; width: 34px; height: 34px; object-fit: cover;">
+        <span class="brand-text font-weight-light">{{ $commerce['name'] }}</span>
     </a>
 
     <div class="sidebar">
