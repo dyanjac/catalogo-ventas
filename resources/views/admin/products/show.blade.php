@@ -1,10 +1,10 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Detalle producto')
 
 @section('content')
-<div class="container-fluid py-5 mt-5">
-    <div class="container py-4">
+<div class="py-2">
+    <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="text-primary mb-0">{{ $product->name }}</h1>
             <div class="d-flex gap-2">
@@ -45,3 +45,4 @@
     </div>
 </div>
 @endsection
+

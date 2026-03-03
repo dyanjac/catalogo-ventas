@@ -4,6 +4,7 @@ use App\Http\Controllers\{ContactoController};
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ProductImageController as AdminProductImageController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -54,6 +55,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
+    Route::get('admin', AdminDashboardController::class)->name('admin.dashboard');
     Route::resource('admin/products', AdminProductController::class)->names('admin.products');
     Route::post('admin/products/{product}/images', [AdminProductImageController::class, 'store'])->name('admin.products.images.store');
     Route::delete('admin/products/{product}/images/{image}', [AdminProductImageController::class, 'destroy'])->name('admin.products.images.destroy');

@@ -1,16 +1,14 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Admin - Productos')
 
 @section('content')
-<div class="container-fluid py-5 mt-5">
-    <div class="container py-4">
+<div class="py-2">
+    <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="text-primary mb-0">Administrar Productos</h1>
             <a href="{{ route('admin.products.create') }}" class="btn btn-primary rounded-pill px-4">Nuevo producto</a>
         </div>
-
-        @include('partials.flash')
 
         <form method="GET" class="card border border-secondary rounded-3 mb-4">
             <div class="card-body">
@@ -121,3 +119,4 @@
     </div>
 </div>
 @endsection
+

@@ -12,3 +12,4 @@
         <textarea name="description" rows="4" class="form-control" placeholder="Describe la familia de productos">{{ old('description', $category->description) }}</textarea>
     </div>
 </div>
+

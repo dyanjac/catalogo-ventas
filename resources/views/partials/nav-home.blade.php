@@ -56,6 +56,7 @@
                                 <span class="dropdown-item-text fw-semibold">{{ auth()->user()->name }}</span>
                                 @if(auth()->user()->isSuperAdmin())
                                     <span class="dropdown-item-text small text-muted">Super usuario</span>
+                                    <a href="{{ route('admin.dashboard') }}" class="dropdown-item">Panel CMS</a>
                                     <a href="{{ route('admin.orders.index') }}" class="dropdown-item">Todos los pedidos</a>
                                     <a href="{{ route('admin.customers.index') }}" class="dropdown-item">Clientes</a>
                                     <a href="{{ route('admin.products.index') }}" class="dropdown-item">Productos</a>

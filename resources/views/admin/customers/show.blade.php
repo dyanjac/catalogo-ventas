@@ -1,10 +1,10 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Gestionar cliente')
 
 @section('content')
-<div class="container-fluid py-5 mt-5">
-    <div class="container py-4">
+<div class="py-2">
+    <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="text-primary mb-0">Gestionar Cliente</h1>
@@ -12,8 +12,6 @@
             </div>
             <a href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
         </div>
-
-        @include('partials.flash')
 
         <div class="row g-4">
             <div class="col-lg-7">
@@ -103,3 +101,4 @@
     </div>
 </div>
 @endsection
+

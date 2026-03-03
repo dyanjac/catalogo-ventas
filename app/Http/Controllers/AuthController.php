@@ -25,7 +25,9 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('home'))
+        $target = Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home');
+
+        return redirect()->intended($target)
             ->with('success', 'Sesión iniciada correctamente.');
     }
 
