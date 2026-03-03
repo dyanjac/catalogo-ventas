@@ -42,7 +42,7 @@
                         <i class="fas fa-envelope"></i>
                         <div>
                             <h5>Correo comercial</h5>
-                            <p class="mb-0">maestropanadero.maestro@gmail.com</p>
+                            <p class="mb-0">inversiones@gmail.com</p>
                         </div>
                     </div>
                     <div class="mp-contact-card">
@@ -67,7 +67,7 @@
                             <a href="https://wa.me/51915923681" target="_blank" class="btn btn-primary btn-lg rounded-pill">
                                 <i class="fab fa-whatsapp me-2"></i>Contactar por WhatsApp
                             </a>
-                            <a href="mailto:maestropanadero.maestro@gmail.com" class="btn btn-light border btn-lg rounded-pill">
+                            <a href="mailto:inversiones@gmail.com" class="btn btn-light border btn-lg rounded-pill">
                                 <i class="fas fa-envelope me-2"></i>Enviar correo
                             </a>
                         </div>

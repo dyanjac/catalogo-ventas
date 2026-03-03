@@ -10,7 +10,7 @@
                 <span class="mp-kicker">Nuestra empresa</span>
                 <h1 class="mp-detail-title">Distribucion confiable para negocios que no pueden detener su operacion</h1>
                 <p class="mp-detail-copy">
-                    Maestro Panadero abastece panaderias, bodegas y negocios de alimentos con una oferta enfocada en harinas, azucares, mantecas y otros productos de consumo masivo.
+                    Inversiones V&V abastece panaderias, bodegas y negocios de alimentos con una oferta enfocada en harinas, azucares, mantecas y otros productos de consumo masivo.
                 </p>
                 <div class="mp-info-strip mt-4">
                     <div class="mp-info-chip"><i class="fa fa-boxes"></i><span>Stock de rotacion diaria</span></div>
@@ -21,7 +21,7 @@
             <div class="col-lg-6">
                 <div class="mp-detail-gallery">
                     <div class="mp-detail-main">
-                        <img src="{{ asset('img/hero-img-1.png') }}" class="img-fluid w-100" alt="Maestro Panadero">
+                        <img src="{{ asset('img/hero-img-1.png') }}" class="img-fluid w-100" alt="Inversiones V&V">
                     </div>
                 </div>
             </div>

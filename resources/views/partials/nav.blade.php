@@ -11,7 +11,7 @@
         <div class="d-flex justify-content-between align-items-center">
             <div class="top-info ps-2">
                 <small class="me-4"><i class="fas fa-map-marker-alt me-2 text-secondary"></i><a href="#" class="text-white">Psj. Señor de los Milagros 01</a></small>
-                <small><i class="fas fa-envelope me-2 text-secondary"></i><a href="#" class="text-white">maestropanadero.maestro@gmail.com</a></small>
+                <small><i class="fas fa-envelope me-2 text-secondary"></i><a href="#" class="text-white">inversiones@gmail.com</a></small>
             </div>
             <div class="top-link pe-2">
                 <span class="text-white-50 small me-3">Atencion comercial para productos de alta rotacion</span>
