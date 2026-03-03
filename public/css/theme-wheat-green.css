@@ -84,6 +84,101 @@ body {
   background-color: #3f3a2f !important;
 }
 
+.mp-topbar {
+  background: linear-gradient(90deg, rgba(79,93,51,0.95), rgba(95,111,61,0.95));
+  border-radius: 0 0 28px 28px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 30px rgba(63,58,47,0.12);
+}
+
+.mp-navbar-shell {
+  margin-top: 0.8rem;
+  border-radius: 28px;
+  padding: 0.85rem 1.35rem;
+  box-shadow: 0 14px 35px rgba(63,58,47,0.08);
+  border: 1px solid rgba(95,111,61,0.08);
+}
+
+.mp-brand-logo {
+  height: 76px;
+  width: auto;
+  max-width: 240px;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,.18));
+}
+
+.mp-navbar-links .nav-link {
+  position: relative;
+  font-weight: 600;
+  color: var(--bs-dark);
+}
+
+.mp-navbar-links .nav-link::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  bottom: 4px;
+  height: 2px;
+  background: var(--bs-secondary);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease;
+}
+
+.mp-navbar-links .nav-link:hover::after,
+.mp-navbar-links .nav-link.active::after {
+  transform: scaleX(1);
+}
+
+.mp-nav-actions {
+  gap: 0.35rem;
+}
+
+.mp-cart-link {
+  color: var(--bs-dark);
+}
+
+.mp-cart-count {
+  top: -6px;
+  left: 16px;
+  height: 22px;
+  min-width: 22px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.mp-footer {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(217,183,122,0.12), transparent 22%),
+    linear-gradient(180deg, #3f3a2f 0%, #332f27 100%) !important;
+}
+
+.mp-footer-logo {
+  max-width: 180px;
+  height: auto;
+  filter: brightness(1.05) drop-shadow(0 6px 16px rgba(0,0,0,.18));
+}
+
+.mp-footer .btn-link {
+  color: rgba(255,255,255,.72);
+  text-decoration: none;
+}
+
+.mp-footer .btn-link:hover {
+  color: var(--bs-secondary) !important;
+}
+
+.mp-footer-social {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.mp-footer-bottom {
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
 .mp-shell {
   position: relative;
 }
@@ -529,6 +624,15 @@ body {
 
   .mp-hero-surface {
     padding-top: 9rem !important;
+  }
+
+  .mp-navbar-shell {
+    padding: 0.8rem 1rem;
+  }
+
+  .mp-brand-logo {
+    height: 62px;
+    max-width: 180px;
   }
 }
 
