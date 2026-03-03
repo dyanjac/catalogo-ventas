@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\OrderItem;
@@ -70,6 +71,8 @@ class OrderController extends Controller
         $tax = round($taxableBase * $taxRate, 2);
         $total = round($taxableBase + $shipping + $tax, 2);
 
+        $createdOrderNumber = null;
+
         DB::transaction(function () use (
             $cart,
             $subtotal,
@@ -81,7 +84,8 @@ class OrderController extends Controller
             $series,
             $currency,
             $paymentMethod,
-            $paymentStatus
+            $paymentStatus,
+            &$createdOrderNumber
         ) {
             $productIds = collect($cart)->pluck('id')->all();
             $products = Product::query()
@@ -121,6 +125,7 @@ class OrderController extends Controller
                 'transaction_id' => $request->input('transaction_id'),
                 'observations' => $request->input('observations'),
             ]);
+            $createdOrderNumber = $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT);
 
             $discountRatio = $subtotal > 0 ? ($discount / $subtotal) : 0;
             $taxableBase = max(0, $subtotal - $discount);
@@ -151,13 +156,55 @@ class OrderController extends Controller
         });
          
         session()->forget('cart');
-        return redirect()->route('orders.mine')->with('success', 'Pedido registrado correctamente.');
+
+        return redirect()
+            ->route('orders.mine')
+            ->with('success', 'Pedido registrado correctamente.')
+            ->with('latest_order_number', $createdOrderNumber);
     }
 
-    public function myOrders()
+    public function myOrders(Request $request)
     {
-        $orders = Order::with('items.product')->whereBelongsTo(auth()->user())->latest()->paginate(10);
-        return view('orders.mine', compact('orders'));
+        $search = trim((string) $request->input('search', ''));
+        $customer = trim((string) $request->input('customer', ''));
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $orders = Order::query()
+            ->whereBelongsTo(auth()->user())
+            ->withCount('items')
+            ->when($search !== '', function (Builder $query) use ($search) {
+                $normalized = strtoupper(str_replace(' ', '', $search));
+
+                $query->where(function (Builder $nested) use ($search, $normalized) {
+                    $nested
+                        ->whereRaw("CONCAT(series, '-', LPAD(order_number, 8, '0')) LIKE ?", ['%' . $normalized . '%'])
+                        ->orWhere('transaction_id', 'like', '%' . $search . '%');
+                });
+            })
+            ->when($customer !== '', function (Builder $query) use ($customer) {
+                $query->where('shipping_address->name', 'like', '%' . $customer . '%');
+            })
+            ->when($dateFrom, function (Builder $query) use ($dateFrom) {
+                $query->whereDate('created_at', '>=', $dateFrom);
+            })
+            ->when($dateTo, function (Builder $query) use ($dateTo) {
+                $query->whereDate('created_at', '<=', $dateTo);
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('orders.mine', compact('orders', 'search', 'customer', 'dateFrom', 'dateTo'));
+    }
+
+    public function show(Order $order)
+    {
+        abort_unless($order->user_id === (int) auth()->id(), 403);
+
+        $order->load(['items.product']);
+
+        return view('orders.show', compact('order'));
     }
 
     private function buildCheckoutData(array $cart, bool $requireStock = false): array

@@ -3,7 +3,9 @@
 @section('title', 'Checkout')
 
 @section('content')
-@php($user = auth()->user())
+@php
+    $user = auth()->user();
+@endphp
 <section class="container-fluid py-5 mt-5 mp-shell">
     <div class="container py-4">
         <div class="mp-section-head mb-4">

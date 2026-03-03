@@ -3,84 +3,139 @@
 @section('title', 'Mis Pedidos')
 
 @section('content')
-<div class="container py-5">
-    <h1 class="mb-4 text-primary">Mis Pedidos</h1>
+@php
+    $latestOrderNumber = session('latest_order_number');
+@endphp
 
-    @include('partials.flash')
-
-    @forelse($orders as $order)
-        <div class="card border border-secondary mb-4">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>Pedido {{ $order->series }}-{{ str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT) }}</strong>
-                    <span class="text-muted ms-2">{{ $order->created_at?->format('d/m/Y H:i') }}</span>
-                </div>
-                <span class="badge bg-primary">{{ strtoupper($order->status) }}</span>
+<section class="container-fluid py-5 mt-5 mp-shell">
+    <div class="container py-4">
+        <div class="mp-section-head mb-4">
+            <div>
+                <span class="mp-kicker">Pedidos</span>
+                <h1>Listado de pedidos</h1>
+                <p>Ubica rápidamente tus órdenes por cliente, número o fecha de emisión y abre el detalle solo cuando lo necesites.</p>
             </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3"><strong>Subtotal:</strong> {{ $order->currency }} {{ number_format((float) $order->subtotal, 2) }}</div>
-                    <div class="col-md-3"><strong>Descuento:</strong> {{ $order->currency }} {{ number_format((float) $order->discount, 2) }}</div>
-                    <div class="col-md-3"><strong>IGV/Impuesto:</strong> {{ $order->currency }} {{ number_format((float) $order->tax, 2) }}</div>
-                    <div class="col-md-3"><strong>Envío:</strong> {{ $order->currency }} {{ number_format((float) $order->shipping, 2) }}</div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-3"><strong>Total:</strong> {{ $order->currency }} {{ number_format((float) $order->total, 2) }}</div>
-                    <div class="col-md-3"><strong>Método pago:</strong> {{ strtoupper((string) $order->payment_method) }}</div>
-                    <div class="col-md-3"><strong>Estado pago:</strong> {{ strtoupper((string) $order->payment_status) }}</div>
-                    <div class="col-md-3"><strong>Pago fecha:</strong> {{ $order->paid_at?->format('d/m/Y H:i') ?? '-' }}</div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-6"><strong>ID Transacción:</strong> {{ $order->transaction_id ?? '-' }}</div>
-                    <div class="col-md-6"><strong>Observaciones:</strong> {{ $order->observations ?? '-' }}</div>
-                </div>
-
-                @if(is_array($order->shipping_address))
-                    <div class="mb-3">
-                        <strong>Entrega:</strong>
-                        {{ $order->shipping_address['name'] ?? '-' }},
-                        {{ $order->shipping_address['address'] ?? '-' }},
-                        {{ $order->shipping_address['city'] ?? '-' }},
-                        Tel: {{ $order->shipping_address['phone'] ?? '-' }}
-                    </div>
-                @endif
-
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-center">Cantidad</th>
-                                <th class="text-end">Moneda</th>
-                                <th class="text-end">Precio Unit.</th>
-                                <th class="text-end">Desc.</th>
-                                <th class="text-end">Imp.</th>
-                                <th class="text-end">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($order->items as $item)
-                                <tr>
-                                    <td>{{ $item->product?->name ?? ('Producto #' . $item->product_id) }}</td>
-                                    <td class="text-center">{{ $item->quantity }}</td>
-                                    <td class="text-end">{{ $item->currency }}</td>
-                                    <td class="text-end">{{ number_format((float) $item->unit_price, 2) }}</td>
-                                    <td class="text-end">{{ number_format((float) $item->discount_amount, 2) }}</td>
-                                    <td class="text-end">{{ number_format((float) $item->tax_amount, 2) }}</td>
-                                    <td class="text-end">{{ number_format((float) $item->line_total, 2) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <a href="{{ route('catalog.index') }}" class="btn btn-light border rounded-pill px-4">Seguir comprando</a>
         </div>
-    @empty
-        <div class="alert alert-light border">Aún no tienes pedidos registrados.</div>
-    @endforelse
 
-    <div class="d-flex justify-content-center mt-4">
-        {{ $orders->links() }}
+        @include('partials.flash')
+
+        @if($latestOrderNumber)
+            <div class="mp-cart-summary mb-4">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                    <div>
+                        <span class="mp-kicker">Pedido confirmado</span>
+                        <h4 class="mb-2">Registro completado: {{ $latestOrderNumber }}</h4>
+                        <p class="mb-0 text-muted">Tu pedido ya quedó grabado. Puedes ubicarlo también con el buscador por número de pedido.</p>
+                    </div>
+                    <a href="{{ route('catalog.index') }}" class="btn btn-primary rounded-pill px-4">Volver al catálogo</a>
+                </div>
+            </div>
+        @endif
+
+        <div class="mp-cart-panel mb-4">
+            <form method="GET" action="{{ route('orders.mine') }}" class="row g-3 align-items-end">
+                <div class="col-lg-4">
+                    <label for="order-search" class="form-label">Número de pedido o transacción</label>
+                    <input
+                        type="text"
+                        name="search"
+                        id="order-search"
+                        class="form-control"
+                        value="{{ $search }}"
+                        placeholder="Ej. PED-00000012 o TRX-001"
+                    >
+                </div>
+                <div class="col-lg-3">
+                    <label for="order-customer" class="form-label">Cliente</label>
+                    <input
+                        type="text"
+                        name="customer"
+                        id="order-customer"
+                        class="form-control"
+                        value="{{ $customer }}"
+                        placeholder="Nombre de entrega"
+                    >
+                </div>
+                <div class="col-lg-2">
+                    <label for="order-date-from" class="form-label">Desde</label>
+                    <input type="date" name="date_from" id="order-date-from" class="form-control" value="{{ $dateFrom }}">
+                </div>
+                <div class="col-lg-2">
+                    <label for="order-date-to" class="form-label">Hasta</label>
+                    <input type="date" name="date_to" id="order-date-to" class="form-control" value="{{ $dateTo }}">
+                </div>
+                <div class="col-lg-1 d-grid">
+                    <button class="btn btn-primary rounded-pill">Filtrar</button>
+                </div>
+                <div class="col-12 d-flex gap-2 flex-wrap">
+                    <a href="{{ route('orders.mine') }}" class="btn btn-light border rounded-pill px-4">Limpiar</a>
+                    <div class="text-muted small align-self-center">
+                        {{ $orders->total() }} resultado(s) encontrados.
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        @forelse($orders as $order)
+            @php
+                $orderCode = $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT);
+                $isLatest = $latestOrderNumber === $orderCode;
+                $customerName = data_get($order->shipping_address, 'name', auth()->user()->name);
+                $statusClass = match ($order->status) {
+                    'confirmed' => 'bg-success',
+                    'pending' => 'bg-warning text-dark',
+                    'canceled' => 'bg-danger',
+                    default => 'bg-primary',
+                };
+                $paymentClass = match ($order->payment_status) {
+                    'paid' => 'bg-success',
+                    'failed' => 'bg-danger',
+                    'refunded' => 'bg-secondary',
+                    default => 'bg-warning text-dark',
+                };
+            @endphp
+
+            <div class="mp-cart-panel mb-3 {{ $isLatest ? 'border border-success shadow-sm' : '' }}">
+                <div class="row g-3 align-items-center">
+                    <div class="col-lg-3">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                            <span class="mp-kicker">{{ $isLatest ? 'Nuevo' : 'Pedido' }}</span>
+                            <span class="badge {{ $statusClass }}">{{ strtoupper((string) $order->status) }}</span>
+                            <span class="badge {{ $paymentClass }}">{{ strtoupper((string) $order->payment_status) }}</span>
+                        </div>
+                        <h5 class="mb-1">{{ $orderCode }}</h5>
+                        <div class="text-muted small">{{ $order->created_at?->format('d/m/Y H:i') }}</div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="text-muted small">Cliente</div>
+                        <div class="fw-semibold">{{ $customerName }}</div>
+                        <div class="text-muted small">{{ data_get($order->shipping_address, 'city', '-') }}</div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="text-muted small">Ítems</div>
+                        <div class="fw-semibold">{{ $order->items_count }}</div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="text-muted small">Total</div>
+                        <div class="fw-semibold">{{ $order->currency }} {{ number_format((float) $order->total, 2) }}</div>
+                    </div>
+                    <div class="col-lg-2 text-lg-end">
+                        <a href="{{ route('orders.show', array_merge(['order' => $order], request()->query())) }}" class="btn btn-primary rounded-pill px-4">Ver detalle</a>
+                    </div>
+                </div>
+            </div>
+        @empty
+            <div class="mp-empty-state">
+                <h3>No se encontraron pedidos</h3>
+                <p>Ajusta los filtros o vuelve al catálogo para registrar una nueva orden.</p>
+                <a href="{{ route('catalog.index') }}" class="btn btn-primary rounded-pill px-4">Ir al catálogo</a>
+            </div>
+        @endforelse
+
+        <div class="d-flex justify-content-center mt-4">
+            {{ $orders->links() }}
+        </div>
     </div>
-</div>
+</section>
 @endsection

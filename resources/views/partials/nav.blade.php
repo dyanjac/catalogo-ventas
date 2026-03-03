@@ -96,7 +96,7 @@
         request()->routeIs('contacto.index') => 'Contacto',
         request()->routeIs('cart.view') => 'Carrito',
         request()->routeIs('checkout.show') => 'Checkout',
-        request()->routeIs('orders.mine') => 'Mis Pedidos',
+        request()->routeIs('orders.mine', 'orders.show') => 'Mis Pedidos',
         default => 'Página',
     };
 @endphp
