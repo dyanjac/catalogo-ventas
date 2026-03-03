@@ -6,6 +6,21 @@
     $unitName = $product->unitMeasure?->name ?? 'UNIDAD';
     $categoryName = $product->category?->name ?? 'Sin categoria';
     $isLowStock = $product->stock <= $product->min_stock;
+    $promoBadges = [];
+
+    if (\Illuminate\Support\Str::startsWith($context, 'home')) {
+        if ($product->wholesale_price) {
+            $promoBadges[] = 'Mayorista';
+        }
+
+        if ($product->average_price && (float) $product->display_price < (float) $product->average_price) {
+            $promoBadges[] = 'Oferta';
+        }
+
+        if ($product->stock > max(5, (int) $product->min_stock * 2)) {
+            $promoBadges[] = 'Alta rotacion';
+        }
+    }
 @endphp
 
 <article class="mp-product-card h-100">
@@ -15,6 +30,13 @@
             <span class="mp-badge mp-badge-category">{{ $categoryName }}</span>
             <span class="mp-badge mp-badge-unit">{{ $unitName }}</span>
         </div>
+        @if(!empty($promoBadges))
+            <div class="mp-product-promos">
+                @foreach(array_slice($promoBadges, 0, 2) as $badge)
+                    <span class="mp-badge mp-badge-promo">{{ $badge }}</span>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     <div class="mp-product-body">

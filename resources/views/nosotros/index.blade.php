@@ -3,66 +3,83 @@
 @section('title', 'Nosotros')
 
 @section('content')
-<div class="container-fluid py-5">
-    <div class="container py-5">
-        <div class="row g-5 align-items-center">
+<section class="container-fluid py-5 mt-5 mp-shell">
+    <div class="container py-4">
+        <div class="row g-4 align-items-center mb-5">
             <div class="col-lg-6">
-                <div class="position-relative">
-                    <img src="{{ asset('img/hero-img-1.png') }}" class="img-fluid rounded-4 shadow-sm" alt="Maestro Panadero">
-                    <div class="position-absolute bg-primary text-white rounded-pill px-4 py-2" style="bottom: 20px; left: 20px;">
-                        Insumos para panificación
-                    </div>
+                <span class="mp-kicker">Nuestra empresa</span>
+                <h1 class="mp-detail-title">Distribucion confiable para negocios que no pueden detener su operacion</h1>
+                <p class="mp-detail-copy">
+                    Maestro Panadero abastece panaderias, bodegas y negocios de alimentos con una oferta enfocada en harinas, azucares, mantecas y otros productos de consumo masivo.
+                </p>
+                <div class="mp-info-strip mt-4">
+                    <div class="mp-info-chip"><i class="fa fa-boxes"></i><span>Stock de rotacion diaria</span></div>
+                    <div class="mp-info-chip"><i class="fa fa-handshake"></i><span>Atencion personalizada</span></div>
+                    <div class="mp-info-chip"><i class="fa fa-store"></i><span>Venta minorista y mayorista</span></div>
                 </div>
             </div>
             <div class="col-lg-6">
-                <h5 class="text-secondary text-uppercase mb-3">Nosotros</h5>
-                <h1 class="display-5 text-primary mb-4">Distribuimos insumos confiables para panaderías y negocios de alimentos</h1>
-                <p class="mb-3">Maestro Panadero nace para atender con rapidez a clientes que necesitan harinas, mantecas, azúcares, esencias y otros insumos clave para su operación diaria.</p>
-                <p class="mb-4">Nuestro enfoque combina stock disponible, atención directa y precios competitivos para compras minoristas y mayoristas.</p>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="border rounded-3 p-4 h-100 bg-light">
-                            <h5 class="text-primary">Misión</h5>
-                            <p class="mb-0">Abastecer a nuestros clientes con productos de calidad, atención rápida y soluciones comerciales prácticas.</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="border rounded-3 p-4 h-100 bg-light">
-                            <h5 class="text-primary">Visión</h5>
-                            <p class="mb-0">Ser un referente local en distribución de insumos para panificación y repostería.</p>
-                        </div>
+                <div class="mp-detail-gallery">
+                    <div class="mp-detail-main">
+                        <img src="{{ asset('img/hero-img-1.png') }}" class="img-fluid w-100" alt="Maestro Panadero">
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4 mt-4">
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="mp-category-panel">
+                    <span class="mp-kicker">Mision</span>
+                    <h4>Abastecer con agilidad y criterio comercial</h4>
+                    <p class="mb-0">Entregar productos confiables, con precios competitivos y una atencion que facilite la compra recurrente de cada cliente.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mp-category-panel">
+                    <span class="mp-kicker">Vision</span>
+                    <h4>Ser referencia local en insumos de alta rotacion</h4>
+                    <p class="mb-0">Consolidarnos como una marca cercana, eficiente y rentable para negocios que requieren reposicion continua.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mp-section-head mb-4">
+            <div>
+                <span class="mp-kicker">Valor comercial</span>
+                <h2>Por que los clientes nos eligen</h2>
+            </div>
+        </div>
+
+        <div class="row g-4">
             <div class="col-md-4">
-                <div class="card border border-secondary h-100">
-                    <div class="card-body">
-                        <h5 class="text-primary">Atención personalizada</h5>
-                        <p class="mb-0">Te ayudamos a elegir productos según el volumen, tipo de negocio y frecuencia de compra.</p>
+                <div class="mp-contact-card h-100">
+                    <i class="fas fa-user-tie"></i>
+                    <div>
+                        <h5>Atencion personalizada</h5>
+                        <p class="mb-0">Recomendamos productos segun el tipo de negocio, volumen y frecuencia de compra.</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border border-secondary h-100">
-                    <div class="card-body">
-                        <h5 class="text-primary">Venta minorista y mayorista</h5>
-                        <p class="mb-0">Trabajamos pedidos unitarios y también abastecimiento comercial para clientes frecuentes.</p>
+                <div class="mp-contact-card h-100">
+                    <i class="fas fa-warehouse"></i>
+                    <div>
+                        <h5>Venta minorista y mayorista</h5>
+                        <p class="mb-0">Atendemos desde compras unitarias hasta pedidos para abastecimiento comercial.</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border border-secondary h-100">
-                    <div class="card-body">
-                        <h5 class="text-primary">Cobertura local</h5>
-                        <p class="mb-0">Coordinamos entregas y atención por canales directos para responder con rapidez.</p>
+                <div class="mp-contact-card h-100">
+                    <i class="fas fa-truck"></i>
+                    <div>
+                        <h5>Respuesta rapida</h5>
+                        <p class="mb-0">Coordinamos entregas y cotizaciones por canales directos para cerrar pedidos con agilidad.</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</section>
 @endsection
