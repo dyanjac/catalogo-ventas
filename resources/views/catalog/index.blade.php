@@ -6,91 +6,60 @@
 @php
     $sellerPhone = preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
 @endphp
-<div class="container-fluid fruite py-5">
-    <div class="container py-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="mb-0">Catálogo de Productos</h1>
+<section class="container-fluid py-5 mt-5 mp-shell">
+    <div class="container py-4">
+        <div class="mp-section-head mb-4">
+            <div>
+                <span class="mp-kicker">Catalogo mayorista</span>
+                <h1>Compra insumos de alta rotacion con precio claro y entrega rapida</h1>
+                <p>Selecciona arroz, harina, azucar y otros productos de consumo masivo con stock visible y cotizacion inmediata.</p>
+            </div>
             <a href="{{ route('admin.products.index') }}" class="btn btn-light border rounded-pill px-4">Administrar</a>
         </div>
 
         @include('partials.flash')
 
-        <form method="GET" class="row g-3 mb-4">
-            <div class="col-md-5">
-                <input type="search" name="q" value="{{ request('q') }}" class="form-control p-3" placeholder="Buscar productos">
-            </div>
-            <div class="col-md-4">
-                <select name="category_id" class="form-select p-3">
-                    <option value="">Todas las categorías</option>
-                    @foreach($categories as $category)
-                        <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>
-                            {{ $category->name }} ({{ $category->products_count }})
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-md-3 d-grid">
-                <button class="btn btn-primary">Filtrar</button>
-            </div>
-        </form>
+        <div class="mp-filter-bar mb-5">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-lg-5">
+                    <label class="form-label">Buscar producto</label>
+                    <input type="search" name="q" value="{{ request('q') }}" class="form-control form-control-lg" placeholder="Ej. harina, arroz, azucar">
+                </div>
+                <div class="col-lg-4">
+                    <label class="form-label">Categoria</label>
+                    <select name="category_id" class="form-select form-select-lg">
+                        <option value="">Todas las categorias</option>
+                        @foreach($categories as $category)
+                            <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>
+                                {{ $category->name }} ({{ $category->products_count }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 d-flex gap-2">
+                    <button class="btn btn-primary btn-lg rounded-pill w-100">Filtrar</button>
+                    <a href="{{ route('catalog.index') }}" class="btn btn-light border btn-lg rounded-pill">Limpiar</a>
+                </div>
+            </form>
+        </div>
 
-        <div class="row g-4 justify-content-center">
+        <div class="mp-info-strip mb-5">
+            <div class="mp-info-chip"><i class="fa fa-truck"></i><span>Despacho para bodegas y panaderias</span></div>
+            <div class="mp-info-chip"><i class="fa fa-boxes"></i><span>Stock actualizado por producto</span></div>
+            <div class="mp-info-chip"><i class="fab fa-whatsapp"></i><span>Cotiza al instante por WhatsApp</span></div>
+        </div>
+
+        <div class="row g-4">
             @forelse($products as $product)
                 <div class="col-md-6 col-lg-4 col-xl-3">
-                    <div class="rounded position-relative fruite-item h-100">
-                        <div class="fruite-img">
-                            <img
-                                src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}"
-                                class="img-fluid w-100 rounded-top"
-                                alt="{{ $product->name }}"
-                            >
-                        </div>
-                        <div class="text-white bg-secondary px-3 py-1 rounded position-absolute" style="top: 10px; left: 10px;">
-                            {{ $product->unitMeasure?->name ?? 'UNIDAD' }}
-                        </div>
-                        <div class="p-4 border border-secondary border-top-0 rounded-bottom">
-                            <h5>{{ $product->name }}</h5>
-                            <p class="mb-1">{{ $product->category?->name ?? '-' }}</p>
-                            <p class="text-dark fs-5 fw-bold mb-2">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }}</p>
-                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                                <a href="{{ route('catalog.show', $product) }}" class="btn border border-secondary rounded-pill px-3 text-primary">
-                                    Ver detalle
-                                </a>
-                                <div class="input-group input-group-sm" style="max-width: 115px;">
-                                    <span class="input-group-text">Cant.</span>
-                                    <input
-                                        id="qty-{{ $product->id }}"
-                                        type="number"
-                                        name="quantity"
-                                        min="1"
-                                        value="1"
-                                        class="form-control"
-                                    >
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center gap-2">
-                                <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
-                                    @csrf
-                                    <input type="hidden" name="quantity" id="add-qty-{{ $product->id }}" value="1">
-                                    <button type="submit" class="btn border border-secondary rounded-pill px-3 text-primary" onclick="syncQtyForCart({{ $product->id }})">
-                                        <i class="fa fa-shopping-bag me-1 text-primary"></i> Agregar
-                                    </button>
-                                </form>
-                                <button
-                                    type="button"
-                                    class="btn border border-success rounded-pill px-3 text-success"
-                                    title="Pedir por WhatsApp"
-                                    onclick="openProductWhatsApp({{ $product->id }}, @js($product->sku ?? ('ID-' . $product->id)), @js($product->name))"
-                                >
-                                    <i class="fab fa-whatsapp me-1"></i> Cotizar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    @include('partials.product-card', ['product' => $product, 'context' => 'catalog'])
                 </div>
             @empty
                 <div class="col-12">
-                    <div class="alert alert-light border">No hay productos disponibles.</div>
+                    <div class="mp-empty-state">
+                        <h3>No hay productos disponibles</h3>
+                        <p>Ajusta los filtros o registra nuevos productos desde administracion.</p>
+                    </div>
                 </div>
             @endforelse
         </div>
@@ -99,20 +68,23 @@
             {{ $products->links() }}
         </div>
     </div>
-</div>
+</section>
 <script>
     function normalizeQty(input) {
         const raw = parseInt(input?.value ?? '1', 10);
         return Number.isFinite(raw) && raw > 0 ? raw : 1;
     }
 
-    function syncQtyForCart(productId) {
-        const qtyInput = document.getElementById(`qty-${productId}`);
-        const hiddenInput = document.getElementById(`add-qty-${productId}`);
-        hiddenInput.value = normalizeQty(qtyInput);
+    function syncProductQty(context, productId) {
+        const qtyInput = document.getElementById(`${context}-qty-${productId}`);
+        const hiddenInput = document.getElementById(`${context}-add-qty-${productId}`);
+
+        if (hiddenInput) {
+            hiddenInput.value = normalizeQty(qtyInput);
+        }
     }
 
-    function openProductWhatsApp(productId, productCode, productName) {
+    function openProductWhatsApp(context, productId, productCode, productName) {
         const phone = @js($sellerPhone);
 
         if (!phone) {
@@ -120,7 +92,7 @@
             return;
         }
 
-        const qtyInput = document.getElementById(`qty-${productId}`);
+        const qtyInput = document.getElementById(`${context}-qty-${productId}`);
         const qty = normalizeQty(qtyInput);
         const message = [
             'Hola, deseo cotizar este producto.',
