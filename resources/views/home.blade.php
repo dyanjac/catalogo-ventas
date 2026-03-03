@@ -59,8 +59,8 @@
                                 <i class="fas fa-car-side fa-3x text-white"></i>
                             </div>
                             <div class="featurs-content text-center">
-                                <h5>Free Shipping</h5>
-                                <p class="mb-0">Free on order over $300</p>
+                                <h5>Envío Gratis</h5>
+                                <p class="mb-0">Gratis en pedidos mayores a S/ 300</p>
                             </div>
                         </div>
                     </div>
@@ -70,8 +70,8 @@
                                 <i class="fas fa-user-shield fa-3x text-white"></i>
                             </div>
                             <div class="featurs-content text-center">
-                                <h5>Security Payment</h5>
-                                <p class="mb-0">100% security payment</p>
+                                <h5>Pago Seguro</h5>
+                                <p class="mb-0">Pago 100% seguro</p>
                             </div>
                         </div>
                     </div>
@@ -81,8 +81,8 @@
                                 <i class="fas fa-exchange-alt fa-3x text-white"></i>
                             </div>
                             <div class="featurs-content text-center">
-                                <h5>30 Day Return</h5>
-                                <p class="mb-0">30 day money guarantee</p>
+                                <h5>Devolución en 30 Días</h5>
+                                <p class="mb-0">Garantía de devolución por 30 días</p>
                             </div>
                         </div>
                     </div>
@@ -92,8 +92,8 @@
                                 <i class="fa fa-phone-alt fa-3x text-white"></i>
                             </div>
                             <div class="featurs-content text-center">
-                                <h5>24/7 Support</h5>
-                                <p class="mb-0">Support every time fast</p>
+                                <h5>Soporte 24/7</h5>
+                                <p class="mb-0">Atención rápida en todo momento</p>
                             </div>
                         </div>
                     </div>
@@ -268,28 +268,28 @@
                         <div class="col-md-6 col-lg-6 col-xl-3">
                             <div class="counter bg-white rounded p-5">
                                 <i class="fa fa-users text-secondary"></i>
-                                <h4>satisfied customers</h4>
+                                <h4>Clientes satisfechos</h4>
                                 <h1>1963</h1>
                             </div>
                         </div>
                         <div class="col-md-6 col-lg-6 col-xl-3">
                             <div class="counter bg-white rounded p-5">
                                 <i class="fa fa-users text-secondary"></i>
-                                <h4>quality of service</h4>
+                                <h4>Calidad de servicio</h4>
                                 <h1>99%</h1>
                             </div>
                         </div>
                         <div class="col-md-6 col-lg-6 col-xl-3">
                             <div class="counter bg-white rounded p-5">
                                 <i class="fa fa-users text-secondary"></i>
-                                <h4>quality certificates</h4>
+                                <h4>Certificados de calidad</h4>
                                 <h1>33</h1>
                             </div>
                         </div>
                         <div class="col-md-6 col-lg-6 col-xl-3">
                             <div class="counter bg-white rounded p-5">
                                 <i class="fa fa-users text-secondary"></i>
-                                <h4>Available Products</h4>
+                                <h4>Productos disponibles</h4>
                                 <h1>789</h1>
                             </div>
                         </div>
@@ -334,4 +334,3 @@
 </script>
 
 @endsection
-
