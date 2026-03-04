@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $sellerPhone = $commerce['mobile_digits'] ?: preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+    $sellerPhone = $commerce['mobile_digits'];
     $currentCategory = $category ?? null;
 @endphp
 

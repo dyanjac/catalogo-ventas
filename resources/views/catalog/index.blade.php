@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $sellerPhone = $commerce['mobile_digits'] ?: preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+    $sellerPhone = $commerce['mobile_digits'];
 @endphp
 <section class="container-fluid py-5 mt-5 mp-shell">
     <div class="container py-4">

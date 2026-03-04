@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $sellerPhone = $commerce['mobile_digits'] ?: preg_replace('/\D+/', '', (string) env('CELULAR_VENDEDOR1', ''));
+    $sellerPhone = $commerce['mobile_digits'];
     $mainImage = $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png');
     $gallery = $product->images->isNotEmpty() ? $product->images : collect([(object) ['path' => $product->primary_image_path]]);
 @endphp
