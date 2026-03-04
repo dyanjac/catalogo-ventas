@@ -5,12 +5,10 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="text-primary mb-0">Gestion de Pedidos</h1>
-        </div>
+        <x-admin.page-header title="Gestion de Pedidos" />
 
-        <form method="GET" class="card border border-secondary rounded-3 mb-4">
-            <div class="card-body">
+        <x-admin.filter-card>
+            <form method="GET">
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Buscar pedido</label>
@@ -39,12 +37,11 @@
                         <a href="{{ route('admin.orders.index') }}" class="btn btn-light border rounded-pill px-4">Limpiar</a>
                     </div>
                 </div>
-            </div>
-        </form>
+            </form>
+        </x-admin.filter-card>
 
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead class="table-light">
+        <x-admin.data-table :colspan="7" empty-message="No hay pedidos para mostrar.">
+            <x-slot:head>
                     <tr>
                         <th>Pedido</th>
                         <th>Cliente</th>
@@ -54,9 +51,8 @@
                         <th>Fecha</th>
                         <th class="text-end">Acciones</th>
                     </tr>
-                </thead>
-                <tbody>
-                    @forelse($orders as $order)
+            </x-slot:head>
+            @forelse($orders as $order)
                         <tr>
                             <td>{{ $order->series }}-{{ str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT) }}</td>
                             <td>
@@ -71,18 +67,11 @@
                                 <a href="{{ route('admin.orders.show', $order) }}" class="btn btn-sm btn-primary">Gestionar</a>
                             </td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center">No hay pedidos para mostrar.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+            @empty
+            @endforelse
+        </x-admin.data-table>
 
-        <div class="d-flex justify-content-center mt-4">
-            {{ $orders->links('pagination::bootstrap-4') }}
-        </div>
+        <x-admin.pagination :paginator="$orders" />
     </div>
 </div>
 @endsection

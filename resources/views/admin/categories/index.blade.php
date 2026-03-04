@@ -5,14 +5,14 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="text-primary mb-0">Administrar Categorias</h1>
-            <a href="{{ route('admin.categories.create') }}" class="btn btn-primary rounded-pill px-4">Nueva categoria</a>
-        </div>
+        <x-admin.page-header
+            title="Administrar Categorias"
+            action-label="Nueva categoria"
+            :action-href="route('admin.categories.create')"
+        />
 
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead class="table-light">
+        <x-admin.data-table :colspan="5" empty-message="No hay categorias registradas.">
+            <x-slot:head>
                     <tr>
                         <th>Nombre</th>
                         <th>Slug</th>
@@ -20,9 +20,8 @@
                         <th>Descripcion</th>
                         <th class="text-end">Acciones</th>
                     </tr>
-                </thead>
-                <tbody>
-                    @forelse($categories as $category)
+            </x-slot:head>
+            @forelse($categories as $category)
                         <tr>
                             <td>{{ $category->name }}</td>
                             <td>{{ $category->slug }}</td>
@@ -37,18 +36,11 @@
                                 </form>
                             </td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="text-center">No hay categorias registradas.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+            @empty
+            @endforelse
+        </x-admin.data-table>
 
-        <div class="d-flex justify-content-center mt-4">
-            {{ $categories->links('pagination::bootstrap-4') }}
-        </div>
+        <x-admin.pagination :paginator="$categories" />
     </div>
 </div>
 @endsection

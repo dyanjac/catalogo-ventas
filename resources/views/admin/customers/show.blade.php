@@ -5,20 +5,26 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="text-primary mb-0">Gestionar Cliente</h1>
-                <p class="text-muted mb-0">{{ $customer->name }} · {{ $customer->email }}</p>
-            </div>
-            <a href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
-        </div>
+        <x-admin.page-header
+            title="Gestionar Cliente"
+            :description="$customer->name . ' · ' . $customer->email"
+        >
+            <x-slot:actions>
+                <x-admin.action-bar>
+                    <a href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                </x-admin.action-bar>
+            </x-slot:actions>
+        </x-admin.page-header>
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <form method="POST" action="{{ route('admin.customers.update', $customer) }}" class="card border border-secondary rounded-3 h-100">
-                    @csrf
-                    @method('PUT')
-                    <div class="card-body">
+                <x-admin.form-card
+                    :action="route('admin.customers.update', $customer)"
+                    method="PUT"
+                    submit-label="Guardar cambios"
+                    :cancel-href="route('admin.customers.index')"
+                    class="h-100"
+                >
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Nombre</label>
@@ -68,34 +74,28 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="card-footer bg-white d-flex justify-content-end">
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar cambios</button>
-                    </div>
-                </form>
+                </x-admin.form-card>
             </div>
             <div class="col-lg-5">
-                <div class="card border border-secondary rounded-3 h-100">
-                    <div class="card-body">
-                        <h4 class="text-primary">Pedidos recientes</h4>
-                        <div class="list-group list-group-flush">
-                            @forelse($customer->orders as $order)
-                                <a href="{{ route('admin.orders.show', $order) }}" class="list-group-item list-group-item-action px-0">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="fw-semibold">{{ $order->series }}-{{ str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT) }}</div>
-                                            <small class="text-muted">{{ $order->created_at?->format('d/m/Y H:i') }}</small>
-                                        </div>
-                                        <span class="badge bg-light text-dark">{{ strtoupper($order->status) }}</span>
-                                    </div>
-                                    <div class="mt-2 text-primary fw-semibold">{{ $order->currency }} {{ number_format((float) $order->total, 2) }}</div>
-                                </a>
-                            @empty
-                                <div class="text-muted">Este usuario aun no registra pedidos.</div>
-                            @endforelse
-                        </div>
+                <x-admin.info-card title="Pedidos recientes" class="h-100">
+                    <div class="list-group list-group-flush">
+                        @forelse($customer->orders as $order)
+                            <a href="{{ route('admin.orders.show', $order) }}" class="list-group-item list-group-item-action px-0">
+                                <x-admin.detail-grid
+                                    :items="[
+                                        ['label' => 'Pedido', 'value' => $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT), 'class' => 'col-8'],
+                                        ['label' => 'Estado', 'value' => strtoupper($order->status), 'class' => 'col-4'],
+                                        ['label' => 'Fecha', 'value' => $order->created_at?->format('d/m/Y H:i'), 'class' => 'col-6'],
+                                        ['label' => 'Total', 'value' => $order->currency . ' ' . number_format((float) $order->total, 2), 'class' => 'col-6'],
+                                    ]"
+                                    columns="col-6"
+                                />
+                            </a>
+                        @empty
+                            <div class="text-muted">Este usuario aun no registra pedidos.</div>
+                        @endforelse
                     </div>
-                </div>
+                </x-admin.info-card>
             </div>
         </div>
     </div>

@@ -5,87 +5,62 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="text-primary mb-0">Pedido {{ $order->series }}-{{ str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT) }}</h1>
-                <p class="text-muted mb-0">Cliente: {{ $order->user?->name ?? 'Sin usuario' }} · {{ $order->created_at?->format('d/m/Y H:i') }}</p>
-            </div>
-            <a href="{{ route('admin.orders.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
-        </div>
+        <x-admin.page-header
+            :title="'Pedido ' . $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT)"
+            :description="'Cliente: ' . ($order->user?->name ?? 'Sin usuario') . ' · ' . ($order->created_at?->format('d/m/Y H:i') ?? '')"
+        >
+            <x-slot:actions>
+                <x-admin.action-bar>
+                    <a href="{{ route('admin.orders.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                </x-admin.action-bar>
+            </x-slot:actions>
+        </x-admin.page-header>
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <div class="card border border-secondary rounded-3">
-                    <div class="card-body">
-                        <h4 class="text-primary mb-3">Detalle del pedido</h4>
-                        <div class="table-responsive">
-                            <table class="table align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th>Cantidad</th>
-                                        <th>Precio</th>
-                                        <th>Imp.</th>
-                                        <th>Desc.</th>
-                                        <th class="text-end">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($order->items as $item)
-                                        <tr>
-                                            <td>
-                                                <div class="fw-semibold">{{ $item->product?->name ?? 'Producto eliminado' }}</div>
-                                                <small class="text-muted">{{ $item->product?->sku ?? 'Sin SKU' }}</small>
-                                            </td>
-                                            <td>{{ $item->quantity }}</td>
-                                            <td>{{ $item->currency }} {{ number_format((float) $item->unit_price, 2) }}</td>
-                                            <td>{{ $item->currency }} {{ number_format((float) $item->tax_amount, 2) }}</td>
-                                            <td>{{ $item->currency }} {{ number_format((float) $item->discount_amount, 2) }}</td>
-                                            <td class="text-end">{{ $item->currency }} {{ number_format((float) $item->line_total, 2) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center">El pedido no tiene items.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
+                <x-admin.info-card title="Detalle del pedido">
+                    <div class="d-grid gap-3">
+                        @forelse($order->items as $item)
+                            <div class="border rounded-3 p-3">
+                                <x-admin.detail-grid
+                                    :items="[
+                                        ['label' => 'Producto', 'value' => ($item->product?->name ?? 'Producto eliminado') . ' · ' . ($item->product?->sku ?? 'Sin SKU'), 'class' => 'col-12'],
+                                        ['label' => 'Cantidad', 'value' => $item->quantity, 'class' => 'col-md-2'],
+                                        ['label' => 'Precio', 'value' => $item->currency . ' ' . number_format((float) $item->unit_price, 2), 'class' => 'col-md-2'],
+                                        ['label' => 'Imp.', 'value' => $item->currency . ' ' . number_format((float) $item->tax_amount, 2), 'class' => 'col-md-2'],
+                                        ['label' => 'Desc.', 'value' => $item->currency . ' ' . number_format((float) $item->discount_amount, 2), 'class' => 'col-md-2'],
+                                        ['label' => 'Total', 'value' => $item->currency . ' ' . number_format((float) $item->line_total, 2), 'class' => 'col-md-4'],
+                                    ]"
+                                />
+                            </div>
+                        @empty
+                            <div class="text-center text-muted">El pedido no tiene items.</div>
+                        @endforelse
                     </div>
-                </div>
+                </x-admin.info-card>
 
-                <div class="card border border-secondary rounded-3 mt-4">
-                    <div class="card-body">
-                        <h4 class="text-primary mb-3">Entrega</h4>
+                <x-admin.info-card title="Entrega" class="mt-4">
                         @php($shipping = $order->shipping_address ?? [])
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="text-muted small">Nombre</div>
-                                <div>{{ $shipping['name'] ?? '-' }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-muted small">Celular</div>
-                                <div>{{ $shipping['phone'] ?? '-' }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-muted small">Ciudad</div>
-                                <div>{{ $shipping['city'] ?? '-' }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-muted small">Direccion</div>
-                                <div>{{ $shipping['address'] ?? '-' }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        <x-admin.detail-grid
+                            :items="[
+                                ['label' => 'Nombre', 'value' => $shipping['name'] ?? '-'],
+                                ['label' => 'Celular', 'value' => $shipping['phone'] ?? '-'],
+                                ['label' => 'Ciudad', 'value' => $shipping['city'] ?? '-'],
+                                ['label' => 'Direccion', 'value' => $shipping['address'] ?? '-'],
+                            ]"
+                            columns="col-md-6"
+                        />
+                </x-admin.info-card>
             </div>
 
             <div class="col-lg-5">
-                <form method="POST" action="{{ route('admin.orders.update', $order) }}" class="card border border-secondary rounded-3">
-                    @csrf
-                    @method('PUT')
-                    <div class="card-body">
-                        <h4 class="text-primary mb-3">Control comercial</h4>
+                <x-admin.form-card
+                    :action="route('admin.orders.update', $order)"
+                    method="PUT"
+                    submit-label="Actualizar pedido"
+                    :cancel-href="route('admin.orders.index')"
+                    title="Control comercial"
+                >
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Estado</label>
@@ -120,24 +95,21 @@
                                 <textarea name="observations" rows="4" class="form-control">{{ old('observations', $order->observations) }}</textarea>
                             </div>
                         </div>
-                    </div>
-                    <div class="card-footer bg-white d-flex justify-content-end">
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">Actualizar pedido</button>
-                    </div>
-                </form>
+                </x-admin.form-card>
 
-                <div class="card border border-secondary rounded-3 mt-4">
-                    <div class="card-body">
-                        <h4 class="text-primary mb-3">Totales</h4>
-                        <div class="d-flex justify-content-between mb-2"><span>Subtotal</span><strong>{{ $order->currency }} {{ number_format((float) $order->subtotal, 2) }}</strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Descuento</span><strong>{{ $order->currency }} {{ number_format((float) $order->discount, 2) }}</strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Impuesto</span><strong>{{ $order->currency }} {{ number_format((float) $order->tax, 2) }}</strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Envio</span><strong>{{ $order->currency }} {{ number_format((float) $order->shipping, 2) }}</strong></div>
-                        <hr>
-                        <div class="d-flex justify-content-between"><span class="fw-semibold">Total</span><strong>{{ $order->currency }} {{ number_format((float) $order->total, 2) }}</strong></div>
-                        <div class="text-muted small mt-3">Pagado el: {{ $order->paid_at?->format('d/m/Y H:i') ?? 'Pendiente' }}</div>
-                    </div>
-                </div>
+                <x-admin.info-card title="Totales" class="mt-4">
+                        <x-admin.detail-grid
+                            :items="[
+                                ['label' => 'Subtotal', 'value' => $order->currency . ' ' . number_format((float) $order->subtotal, 2), 'class' => 'col-6'],
+                                ['label' => 'Descuento', 'value' => $order->currency . ' ' . number_format((float) $order->discount, 2), 'class' => 'col-6'],
+                                ['label' => 'Impuesto', 'value' => $order->currency . ' ' . number_format((float) $order->tax, 2), 'class' => 'col-6'],
+                                ['label' => 'Envio', 'value' => $order->currency . ' ' . number_format((float) $order->shipping, 2), 'class' => 'col-6'],
+                                ['label' => 'Total', 'value' => $order->currency . ' ' . number_format((float) $order->total, 2), 'class' => 'col-6'],
+                                ['label' => 'Pagado el', 'value' => $order->paid_at?->format('d/m/Y H:i') ?? 'Pendiente', 'class' => 'col-6'],
+                            ]"
+                            columns="col-6"
+                        />
+                </x-admin.info-card>
             </div>
         </div>
     </div>

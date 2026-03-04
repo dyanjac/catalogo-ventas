@@ -6,15 +6,16 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
+        <x-admin.page-header title="Configuracion del Comercio" />
         <div class="row">
             <div class="col-lg-8">
-                <form method="POST" action="{{ route('admin.settings.update') }}" class="card" enctype="multipart/form-data">
-                    @csrf
-                    @method('PUT')
-                    <div class="card-header">
-                        <h3 class="card-title">Datos principales del comercio</h3>
-                    </div>
-                    <div class="card-body">
+                <x-admin.form-card
+                    :action="route('admin.settings.update')"
+                    method="PUT"
+                    enctype="multipart/form-data"
+                    submit-label="Guardar configuracion"
+                    title="Datos principales del comercio"
+                >
                         <div class="row g-3">
                             <div class="col-md-8">
                                 <label class="form-label">Nombre de la empresa o compania</label>
@@ -46,19 +47,11 @@
                                 <small class="text-muted">Formato recomendado: PNG o JPG, hasta 4 MB.</small>
                             </div>
                         </div>
-                    </div>
-                    <div class="card-footer d-flex justify-content-end">
-                        <button type="submit" class="btn btn-primary">Guardar configuracion</button>
-                    </div>
-                </form>
+                </x-admin.form-card>
             </div>
 
             <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Vista previa</h3>
-                    </div>
-                    <div class="card-body">
+                <x-admin.info-card title="Vista previa">
                         <div class="text-center mb-3">
                             @if($setting->logo_url)
                                 <img src="{{ $setting->logo_url }}" alt="{{ $setting->company_name }}" class="img-fluid rounded border p-2 bg-white" style="max-height: 180px; object-fit: contain;">
@@ -68,10 +61,16 @@
                         </div>
                         <h4 class="mb-1">{{ $setting->company_name }}</h4>
                         <div class="text-muted mb-2">{{ $setting->email ?: 'Sin correo' }}</div>
-                        <div class="small mb-1"><strong>RUC/ID:</strong> {{ $setting->tax_id ?: '-' }}</div>
-                        <div class="small mb-1"><strong>Telefono:</strong> {{ $setting->phone ?: '-' }}</div>
-                        <div class="small mb-1"><strong>Celular:</strong> {{ $setting->mobile ?: '-' }}</div>
-                        <div class="small"><strong>Direccion:</strong> {{ $setting->address ?: '-' }}</div>
+                        <x-admin.detail-grid
+                            :items="[
+                                ['label' => 'RUC/ID', 'value' => $setting->tax_id ?: '-', 'class' => 'col-12'],
+                                ['label' => 'Telefono', 'value' => $setting->phone ?: '-', 'class' => 'col-12'],
+                                ['label' => 'Celular', 'value' => $setting->mobile ?: '-', 'class' => 'col-12'],
+                                ['label' => 'Direccion', 'value' => $setting->address ?: '-', 'class' => 'col-12'],
+                            ]"
+                            columns="col-12"
+                            class="mt-3"
+                        />
 
                         @if($setting->logo_path)
                             <hr>
@@ -88,8 +87,7 @@
                                 <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar logo</button>
                             </form>
                         @endif
-                    </div>
-                </div>
+                </x-admin.info-card>
             </div>
         </div>
     </div>
