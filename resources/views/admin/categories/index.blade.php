@@ -47,7 +47,7 @@
         </div>
 
         <div class="d-flex justify-content-center mt-4">
-            {{ $categories->links() }}
+            {{ $categories->links('pagination::bootstrap-4') }}
         </div>
     </div>
 </div>
