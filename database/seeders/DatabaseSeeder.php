@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
          $this->call([
+            SuperAdminSeeder::class,
+            CommerceSettingSeeder::class,
             CategorySeeder::class,
             UnitMeasureSeeder::class,
             ProductSeeder::class,

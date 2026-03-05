@@ -14,16 +14,6 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('index');
-});
-
- 
-Route::get('/greeting', function () {
-    return 'Hello World';
-});
-
-
 Route::get('/', [ProductController::class,'home'])->name('home');
 
 Route::get('/productos', [ProductController::class,'index'])->name('products.index');

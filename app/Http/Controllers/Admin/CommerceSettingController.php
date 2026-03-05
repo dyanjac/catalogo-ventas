@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CommerceSetting;
+use App\Services\CommerceSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +12,10 @@ use Illuminate\View\View;
 
 class CommerceSettingController extends Controller
 {
+    public function __construct(private readonly CommerceSettingsService $commerceSettingsService)
+    {
+    }
+
     public function edit(): View
     {
         $setting = CommerceSetting::query()->firstOrCreate(
@@ -55,6 +60,7 @@ class CommerceSettingController extends Controller
         unset($data['logo_file'], $data['remove_logo']);
 
         $setting->update($data);
+        $this->commerceSettingsService->forgetCache();
 
         return redirect()
             ->route('admin.settings.edit')
