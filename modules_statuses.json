@@ -1,0 +1,6 @@
+{
+    "Admin": true,
+    "Catalog": true,
+    "Orders": true,
+    "Core": true
+}

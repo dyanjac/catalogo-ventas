@@ -42,6 +42,12 @@
                         ['label' => 'Activo', 'value' => $product->is_active ? 'Sí' : 'No'],
                         ['label' => 'Usa serie', 'value' => $product->uses_series ? 'Sí' : 'No'],
                         ['label' => 'Cuenta', 'value' => $product->account ?? '-'],
+                        ['label' => 'Genera asiento', 'value' => $product->requires_accounting_entry ? 'Sí' : 'No'],
+                        ['label' => 'Cuenta ingresos', 'value' => $product->account_revenue ?? '-'],
+                        ['label' => 'Cuenta por cobrar', 'value' => $product->account_receivable ?? '-'],
+                        ['label' => 'Cuenta inventario', 'value' => $product->account_inventory ?? '-'],
+                        ['label' => 'Cuenta costo venta', 'value' => $product->account_cogs ?? '-'],
+                        ['label' => 'Cuenta impuesto', 'value' => $product->account_tax ?? '-'],
                         ['label' => 'Descripción', 'value' => $product->description ?: '-', 'class' => 'col-12'],
                     ]"
                 />

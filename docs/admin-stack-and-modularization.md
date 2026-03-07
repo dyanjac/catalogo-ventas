@@ -1,40 +1,72 @@
-# Admin Stack And Pre-Modularization Baseline
+# Admin Stack And Modularization (nwidart/laravel-modules)
 
-## Current Frontend Split
-- Public ecommerce uses `resources/css/app.css` and `resources/js/app.js`.
-- Admin CMS uses `resources/css/admin.css` and `resources/js/admin.js`.
-- Both bundles are compiled through Vite in `vite.config.js`.
+## Current Status (Implemented)
+- Package installed: `nwidart/laravel-modules` (`^12.0`).
+- Composer merge enabled for module autoload:
+  - `extra.merge-plugin.include = ["Modules/*/composer.json"]`
+- Base modules created and enabled:
+  - `Modules/Admin`
+  - `Modules/Catalog`
+  - `Modules/Orders`
+  - `Modules/Core`
+- Main web routes are now split by domain in module route files:
+  - `Modules/Core/routes/web.php`
+  - `Modules/Catalog/routes/web.php`
+  - `Modules/Orders/routes/web.php`
+  - `Modules/Admin/routes/web.php`
+- `routes/web.php` remains as a lightweight entrypoint for compatibility.
+
+## Route Boundaries
+- `Core`:
+  - Home, contacto, nosotros
+  - Login/Register/Logout
+- `Catalog`:
+  - Public products, categories, catalog
+  - Cart operations
+- `Orders`:
+  - Checkout
+  - Customer order index/detail (`orders.mine`, `orders.show`)
+- `Admin`:
+  - Admin dashboard/settings
+  - Admin products/categories/unit measures/customers/orders
+  - Protected with `auth` + `EnsureSuperAdmin`
 
 ## Admin UI Stack (Frozen)
 - AdminLTE `3.2.x`
 - Bootstrap `4.6.x`
 - jQuery `3.7.x`
-- FontAwesome (npm package)
+- FontAwesome
 
-## Rule: Avoid New Bootstrap 5 Classes In Admin
-Admin currently runs on Bootstrap 4 through AdminLTE 3.  
-If a BS5 class is used accidentally, add compatibility only in `resources/css/admin.css`.
+Rule: do not introduce Bootstrap 5 admin classes.  
+If needed, add compatibility only in `resources/css/admin.css`.
 
-## Route Naming And Protection Conventions
-- Public routes: `home`, `catalog.*`, `cart.*`, `checkout.*`, `orders.*`, `contacto.*`, `nosotros.*`
-- Admin routes: `admin.*`
-- Sensitive admin routes must stay under middleware:
-  - `auth`
-  - `EnsureSuperAdmin`
-
-## Commerce Branding Source Of Truth
-- Runtime view data comes from `CommerceSettingsService` (cached).
-- Priority:
+## Service/Branding Baseline
+- `CommerceSettingsService` remains the runtime source for storefront branding data.
+- Data priority remains:
   1. `commerce_settings` table
-  2. `config/commerce.php` from env values
+  2. `config/commerce.php` (`env` fallback)
 
-## Seeds Required For New Environments
+## Seeds Required In New Environments
 - `SuperAdminSeeder`
 - `CommerceSettingSeeder`
 
-## Suggested Modularization Order
-1. `Admin`
-2. `Catalog`
-3. `Orders`
-4. `Customers/Auth`
-5. `Core/Shared`
+## Incremental Migration Plan (Next)
+1. Done: moved Admin controllers from `App\Http\Controllers\Admin/*` to `Modules/Admin/app/Http/Controllers`.
+2. Done: moved Catalog/Cart controllers to `Modules/Catalog/app/Http/Controllers`.
+3. Done: moved checkout/customer order controller to `Modules/Orders/app/Http/Controllers`.
+4. Next: move shared services/middleware (e.g. `CommerceSettingsService`, `EnsureSuperAdmin`) into `Modules/Core` only after stable tests.
+5. Next: add module-level tests (`Modules/*/tests`) and keep integration tests in `tests/Feature`.
+6. Next: migrate view paths by module (`Modules/*/resources/views`) without changing route names.
+
+## Commands
+```bash
+php artisan module:list
+php artisan route:list
+php artisan module:make <ModuleName>
+composer dump-autoload
+```
+
+## Notes
+- Keep route names stable to avoid UI regressions and broken links.
+- Migrate code by module with a strangler pattern (routes first, then controllers/services/models).
+- Avoid big-bang moves of Eloquent models until bounded contexts are validated.

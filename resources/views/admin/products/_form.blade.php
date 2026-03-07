@@ -72,11 +72,36 @@
         <label class="form-label">Cuenta contable</label>
         <input type="text" name="account" class="form-control" value="{{ old('account', $product->account) }}">
     </div>
-    <div class="col-md-3 d-flex align-items-end">
+    <div class="col-md-3">
+        <label class="form-label">Cuenta ingresos</label>
+        <input type="text" name="account_revenue" class="form-control" value="{{ old('account_revenue', $product->account_revenue) }}" placeholder="70XXXX">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Cuenta por cobrar</label>
+        <input type="text" name="account_receivable" class="form-control" value="{{ old('account_receivable', $product->account_receivable) }}" placeholder="12XXXX">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Cuenta inventario</label>
+        <input type="text" name="account_inventory" class="form-control" value="{{ old('account_inventory', $product->account_inventory) }}" placeholder="20XXXX">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Cuenta costo venta</label>
+        <input type="text" name="account_cogs" class="form-control" value="{{ old('account_cogs', $product->account_cogs) }}" placeholder="69XXXX">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Cuenta impuesto</label>
+        <input type="text" name="account_tax" class="form-control" value="{{ old('account_tax', $product->account_tax) }}" placeholder="40XXXX">
+    </div>
+    <div class="col-md-6 d-flex align-items-end">
         <div class="form-check me-4">
             <input type="hidden" name="uses_series" value="0">
             <input class="form-check-input" type="checkbox" name="uses_series" id="uses_series" value="1" @checked(old('uses_series', $product->uses_series))>
             <label class="form-check-label" for="uses_series">Usa serie</label>
+        </div>
+        <div class="form-check me-4">
+            <input type="hidden" name="requires_accounting_entry" value="0">
+            <input class="form-check-input" type="checkbox" name="requires_accounting_entry" id="requires_accounting_entry" value="1" @checked(old('requires_accounting_entry', $product->requires_accounting_entry ?? true))>
+            <label class="form-check-label" for="requires_accounting_entry">Genera asiento contable</label>
         </div>
         <div class="form-check">
             <input type="hidden" name="is_active" value="0">
