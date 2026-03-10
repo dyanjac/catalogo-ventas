@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('billing_document_response_histories')) {
+            return;
+        }
+
         Schema::create('billing_document_response_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('billing_document_id')->constrained('billing_documents')->cascadeOnDelete();

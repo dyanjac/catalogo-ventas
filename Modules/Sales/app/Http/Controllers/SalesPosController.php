@@ -215,7 +215,11 @@ class SalesPosController extends Controller
 
         if ($createdBillingDocument) {
             try {
-                $billingResult = $electronicBilling->issue($createdBillingDocument, $payload);
+                $billingResult = $electronicBilling->issueOrQueue($createdBillingDocument, $payload);
+
+                if ((bool) ($billingResult['queued'] ?? false)) {
+                    return back()->with('warning', 'Venta registrada. Emisión electrónica en cola ('.$billingResult['connection'].'/'.$billingResult['queue'].').');
+                }
 
                 if (! ($billingResult['ok'] ?? false)) {
                     return back()->with('warning', 'Venta registrada, pero la emisión electrónica quedó pendiente: '.($billingResult['message'] ?? 'Error no especificado.'));

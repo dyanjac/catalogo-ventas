@@ -5,6 +5,7 @@ namespace Modules\Billing\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\BillingProviderResolver;
@@ -27,6 +28,9 @@ class BillingSettingsController extends Controller
             'country' => ['required', 'in:PE'],
             'provider' => ['required', 'in:greenter,nubefact,tefacturo,efact'],
             'environment' => ['required', 'in:sandbox,production'],
+            'dispatch_mode' => ['required', 'in:sync,queue'],
+            'queue_connection' => ['nullable', 'string', 'max:40'],
+            'queue_name' => ['nullable', 'string', 'max:80'],
             'invoice_series' => ['nullable', 'string', 'max:10'],
             'receipt_series' => ['nullable', 'string', 'max:10'],
             'credit_note_series' => ['nullable', 'string', 'max:10'],
@@ -35,7 +39,7 @@ class BillingSettingsController extends Controller
         ]);
 
         $setting = $this->setting();
-        $setting->update([
+        $updateData = [
             'enabled' => (bool) ($data['enabled'] ?? false),
             'country' => $data['country'],
             'provider' => $data['provider'],
@@ -45,7 +49,19 @@ class BillingSettingsController extends Controller
             'credit_note_series' => $this->normalizeSeries($data['credit_note_series'] ?? null),
             'debit_note_series' => $this->normalizeSeries($data['debit_note_series'] ?? null),
             'provider_credentials' => $this->normalizeCredentials($data['provider_credentials'] ?? []),
-        ]);
+        ];
+
+        if (Schema::hasColumn('billing_settings', 'dispatch_mode')) {
+            $updateData['dispatch_mode'] = $data['dispatch_mode'];
+        }
+        if (Schema::hasColumn('billing_settings', 'queue_connection')) {
+            $updateData['queue_connection'] = $this->normalizeNullableString($data['queue_connection'] ?? null);
+        }
+        if (Schema::hasColumn('billing_settings', 'queue_name')) {
+            $updateData['queue_name'] = $this->normalizeNullableString($data['queue_name'] ?? null);
+        }
+
+        $setting->update($updateData);
 
         return back()->with('success', 'Configuración de facturación electrónica actualizada.');
     }
@@ -70,13 +86,25 @@ class BillingSettingsController extends Controller
 
     private function setting(): BillingSetting
     {
-        return BillingSetting::query()->firstOrCreate([], [
+        $defaults = [
             'enabled' => false,
             'country' => 'PE',
             'provider' => 'greenter',
             'environment' => 'sandbox',
             'provider_credentials' => [],
-        ]);
+        ];
+
+        if (Schema::hasColumn('billing_settings', 'dispatch_mode')) {
+            $defaults['dispatch_mode'] = 'sync';
+        }
+        if (Schema::hasColumn('billing_settings', 'queue_connection')) {
+            $defaults['queue_connection'] = null;
+        }
+        if (Schema::hasColumn('billing_settings', 'queue_name')) {
+            $defaults['queue_name'] = null;
+        }
+
+        return BillingSetting::query()->firstOrCreate([], $defaults);
     }
 
     private function normalizeSeries(?string $series): ?string
@@ -84,6 +112,13 @@ class BillingSettingsController extends Controller
         $value = strtoupper(trim((string) $series));
 
         return $value !== '' ? $value : null;
+    }
+
+    private function normalizeNullableString(?string $value): ?string
+    {
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     /**

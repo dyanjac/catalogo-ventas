@@ -51,6 +51,21 @@
                             <label class="form-check-label" for="enabled">Activar módulo</label>
                         </div>
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Modo declaración</label>
+                        <select name="dispatch_mode" class="form-select" required>
+                            <option value="sync" @selected(old('dispatch_mode', $setting->dispatch_mode ?? 'sync') === 'sync')>Sin cola (en línea)</option>
+                            <option value="queue" @selected(old('dispatch_mode', $setting->dispatch_mode ?? 'sync') === 'queue')>Con cola</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Conexión de cola</label>
+                        <input type="text" name="queue_connection" class="form-control" placeholder="rabbitmq / redis / database" value="{{ old('queue_connection', $setting->queue_connection) }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Nombre de cola</label>
+                        <input type="text" name="queue_name" class="form-control" placeholder="billing" value="{{ old('queue_name', $setting->queue_name) }}">
+                    </div>
                 </div>
 
                 <hr>

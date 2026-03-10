@@ -76,7 +76,11 @@ class BillingDocumentController extends Controller
             ]);
         }
 
-        $result = $electronicBilling->issue($document, $payload);
+        $result = $electronicBilling->issueOrQueue($document, $payload);
+
+        if ((bool) ($result['queued'] ?? false)) {
+            return back()->with('warning', 'Re-declaración encolada ('.$result['connection'].'/'.$result['queue'].').');
+        }
 
         if (! (bool) ($result['ok'] ?? false)) {
             return back()->with('warning', 'Re-declaración enviada con error: '.($result['message'] ?? 'Error no especificado.'));

@@ -2,7 +2,9 @@
 
 namespace Modules\Billing\Services;
 
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use Modules\Billing\Jobs\IssueBillingDocumentJob;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingDocumentFile;
 use Modules\Billing\Models\BillingDocumentResponseHistory;
@@ -17,6 +19,54 @@ class ElectronicBillingService
         private readonly BillingXmlGenerator $xmlGenerator
     )
     {
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    public function issueOrQueue(BillingDocument $document, array $payload): array
+    {
+        $setting = BillingSetting::query()->first();
+        if (! $setting || ! $setting->enabled) {
+            return [
+                'ok' => false,
+                'queued' => false,
+                'message' => 'La facturación electrónica está desactivada.',
+            ];
+        }
+
+        if ($setting->dispatch_mode !== 'queue') {
+            $result = $this->issue($document, $payload);
+            $result['queued'] = false;
+
+            return $result;
+        }
+
+        $job = new IssueBillingDocumentJob($document->id, $payload);
+        if (is_string($setting->queue_connection) && trim($setting->queue_connection) !== '') {
+            $job->onConnection(trim($setting->queue_connection));
+        }
+        if (is_string($setting->queue_name) && trim($setting->queue_name) !== '') {
+            $job->onQueue(trim($setting->queue_name));
+        }
+
+        Bus::dispatch($job);
+
+        $document->update([
+            'provider' => $setting->provider,
+            'request_payload' => $payload,
+            'status' => 'queued',
+            'issued_at' => null,
+        ]);
+
+        return [
+            'ok' => true,
+            'queued' => true,
+            'message' => 'Comprobante encolado para emisión electrónica.',
+            'connection' => $setting->queue_connection ?: config('queue.default'),
+            'queue' => $setting->queue_name ?: 'default',
+        ];
     }
 
     /**
