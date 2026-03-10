@@ -11,7 +11,14 @@ body {
 }
 
 .main-sidebar {
-    background: linear-gradient(180deg, #2f3a20 0%, #4f5f2f 100%);
+    background: linear-gradient(180deg, var(--admin-sidebar-bg) 0%, var(--admin-sidebar-gradient-to) 100%);
+    color: var(--admin-sidebar-text);
+}
+.main-sidebar .nav-link,
+.main-sidebar .brand-link,
+.main-sidebar .user-panel,
+.main-sidebar .nav-header {
+    color: var(--admin-sidebar-text) !important;
 }
 
 .brand-link {
@@ -25,8 +32,8 @@ body {
 }
 
 .nav-sidebar .nav-link.active {
-    background: #d4a64a;
-    color: #1f2d3d;
+    background: var(--admin-active-link-bg);
+    color: var(--admin-active-link-text);
 }
 
 .nav-sidebar .nav-link:not(.active):hover {
@@ -34,7 +41,14 @@ body {
 }
 
 .main-header.navbar {
+    background-color: var(--admin-topbar-bg);
+    color: var(--admin-topbar-text);
     border-bottom: 1px solid #e5e7eb;
+}
+.main-header.navbar .nav-link,
+.main-header.navbar .text-dark,
+.main-header.navbar .text-muted {
+    color: var(--admin-topbar-text) !important;
 }
 
 .content-header h1 {
@@ -49,27 +63,27 @@ body {
 
 .admin-shell .card {
     border-radius: 1rem;
-    border: 1px solid rgba(111, 125, 92, .18);
+    border: 1px solid var(--admin-card-border);
     box-shadow: 0 12px 24px rgba(31, 45, 61, .05);
 }
 
 .admin-shell .btn-primary {
-    background-color: #6c7f3e;
-    border-color: #6c7f3e;
+    background-color: var(--admin-primary-button);
+    border-color: var(--admin-primary-button);
 }
 
 .admin-shell .btn-primary:hover {
-    background-color: #5d6e35;
-    border-color: #5d6e35;
+    background-color: var(--admin-primary-button-hover);
+    border-color: var(--admin-primary-button-hover);
 }
 
 .admin-shell .page-link {
-    color: #6c7f3e;
+    color: var(--admin-primary-button);
 }
 
 .admin-shell .page-item.active .page-link {
-    background-color: #6c7f3e;
-    border-color: #6c7f3e;
+    background-color: var(--admin-primary-button);
+    border-color: var(--admin-primary-button);
 }
 
 .admin-shell .table thead th {
@@ -291,6 +305,6 @@ body {
 
 .btn-close:focus {
     outline: 0;
-    box-shadow: 0 0 0 .2rem rgba(108, 127, 62, .25);
+    box-shadow: 0 0 0 .2rem var(--admin-focus-ring);
     opacity: 1;
 }

@@ -1,0 +1,18 @@
+<?php
+
+return [
+    'name' => 'AdminTheme',
+    'defaults' => [
+        'sidebar_bg' => '#2f3a20',
+        'sidebar_gradient_to' => '#4f5f2f',
+        'sidebar_text' => '#ffffff',
+        'topbar_bg' => '#ffffff',
+        'topbar_text' => '#1f2d3d',
+        'primary_button' => '#6c7f3e',
+        'primary_button_hover' => '#5d6e35',
+        'active_link_bg' => '#d4a64a',
+        'active_link_text' => '#1f2d3d',
+        'card_border' => '#6f7d5c2e',
+        'focus_ring' => '#6c7f3e40',
+    ],
+];

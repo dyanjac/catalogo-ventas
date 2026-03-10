@@ -60,6 +60,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{{ route('admin.theme.edit') }}" class="nav-link {{ request()->routeIs('admin.theme.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-palette"></i>
+                        <p>Paleta Admin</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('orders.mine') }}" class="nav-link">
                         <i class="nav-icon fas fa-bag-shopping"></i>
                         <p>Mis pedidos</p>

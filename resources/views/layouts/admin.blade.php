@@ -7,6 +7,24 @@
     <title>@yield('title', 'Panel CMS')</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+3:300,400,400i,700&display=fallback">
     @vite(['resources/css/admin.css', 'resources/js/admin.js'])
+    @php
+        $palette = array_merge(config('admintheme.defaults', []), $adminPalette ?? []);
+    @endphp
+    <style>
+        .admin-shell {
+            --admin-sidebar-bg: {{ $palette['sidebar_bg'] ?? '#2f3a20' }};
+            --admin-sidebar-gradient-to: {{ $palette['sidebar_gradient_to'] ?? '#4f5f2f' }};
+            --admin-sidebar-text: {{ $palette['sidebar_text'] ?? '#ffffff' }};
+            --admin-topbar-bg: {{ $palette['topbar_bg'] ?? '#ffffff' }};
+            --admin-topbar-text: {{ $palette['topbar_text'] ?? '#1f2d3d' }};
+            --admin-primary-button: {{ $palette['primary_button'] ?? '#6c7f3e' }};
+            --admin-primary-button-hover: {{ $palette['primary_button_hover'] ?? '#5d6e35' }};
+            --admin-active-link-bg: {{ $palette['active_link_bg'] ?? '#d4a64a' }};
+            --admin-active-link-text: {{ $palette['active_link_text'] ?? '#1f2d3d' }};
+            --admin-card-border: {{ $palette['card_border'] ?? '#6f7d5c2e' }};
+            --admin-focus-ring: {{ $palette['focus_ring'] ?? '#6c7f3e40' }};
+        }
+    </style>
     @stack('styles')
 </head>
 <body class="hold-transition sidebar-mini layout-fixed admin-shell">
