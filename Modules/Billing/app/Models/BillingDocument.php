@@ -5,6 +5,7 @@ namespace Modules\Billing\Models;
 use App\Models\Order;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BillingDocument extends Model
 {
@@ -47,5 +48,22 @@ class BillingDocument extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(BillingDocumentFile::class, 'billing_document_id');
+    }
+
+    public function xmlFile(): ?BillingDocumentFile
+    {
+        return $this->files->firstWhere('file_type', 'xml')
+            ?? $this->files()->where('file_type', 'xml')->latest('id')->first();
+    }
+
+    public function cdrFile(): ?BillingDocumentFile
+    {
+        return $this->files->firstWhere('file_type', 'cdr')
+            ?? $this->files()->where('file_type', 'cdr')->latest('id')->first();
     }
 }

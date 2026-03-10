@@ -55,10 +55,18 @@ class SalesPosController extends Controller
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        if (in_array($data['document_type'], ['boleta', 'factura'], true)) {
+        if ($data['document_type'] === 'boleta') {
             if (empty($data['customer']['document_type']) || empty($data['customer']['document_number'])) {
                 throw ValidationException::withMessages([
-                    'customer.document_number' => 'Para emitir boleta/factura se requiere tipo y número de documento del cliente.',
+                    'customer.document_number' => 'Para emitir boleta electrónica se requiere tipo y número de documento del cliente.',
+                ]);
+            }
+        }
+
+        if ($data['document_type'] === 'factura') {
+            if (($data['customer']['document_type'] ?? null) !== 'RUC' || empty($data['customer']['document_number'])) {
+                throw ValidationException::withMessages([
+                    'customer.document_type' => 'Para factura electrónica el cliente debe tener tipo de documento RUC.',
                 ]);
             }
         }

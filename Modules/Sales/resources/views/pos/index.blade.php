@@ -18,9 +18,9 @@
                     <div class="col-md-3">
                         <label class="form-label">Tipo operación</label>
                         <select name="document_type" class="form-select" required>
-                            <option value="order" @selected(old('document_type') === 'order')>Pedido</option>
-                            <option value="boleta" @selected(old('document_type') === 'boleta')>Boleta</option>
-                            <option value="factura" @selected(old('document_type') === 'factura')>Factura</option>
+                            <option value="order" @selected(old('document_type', 'order') === 'order')>Pedido POS</option>
+                            <option value="boleta" @selected(old('document_type') === 'boleta')>Boleta electrónica</option>
+                            <option value="factura" @selected(old('document_type') === 'factura')>Factura electrónica</option>
                         </select>
                     </div>
                     <div class="col-md-2">

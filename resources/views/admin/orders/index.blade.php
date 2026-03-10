@@ -64,6 +64,9 @@
                             <td>{{ $order->currency }} {{ number_format((float) $order->total, 2) }}</td>
                             <td>{{ $order->created_at?->format('d/m/Y H:i') }}</td>
                             <td class="text-end">
+                                <a href="{{ route('admin.orders.download.pdf', $order) }}" class="btn btn-sm btn-light border" title="Descargar PDF">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
                                 <a href="{{ route('admin.orders.show', $order) }}" class="btn btn-sm btn-primary">Gestionar</a>
                             </td>
                         </tr>

@@ -11,6 +11,9 @@
         >
             <x-slot:actions>
                 <x-admin.action-bar>
+                    <a href="{{ route('admin.orders.download.pdf', $order) }}" class="btn btn-light border rounded-pill px-4">
+                        <i class="fas fa-file-pdf mr-1"></i> PDF
+                    </a>
                     <a href="{{ route('admin.orders.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
                 </x-admin.action-bar>
             </x-slot:actions>

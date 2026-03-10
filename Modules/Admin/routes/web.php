@@ -33,5 +33,6 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
 
     Route::get('admin/orders', [AdminOrderController::class, 'index'])->name('admin.orders.index');
     Route::get('admin/orders/{order}', [AdminOrderController::class, 'show'])->name('admin.orders.show');
+    Route::get('admin/orders/{order}/pdf', [AdminOrderController::class, 'downloadPdf'])->name('admin.orders.download.pdf');
     Route::put('admin/orders/{order}', [AdminOrderController::class, 'update'])->name('admin.orders.update');
 });

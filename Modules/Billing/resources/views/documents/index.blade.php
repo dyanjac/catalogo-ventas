@@ -65,11 +65,16 @@
                             <th>Proveedor</th>
                             <th class="text-end">Total</th>
                             <th>Estado</th>
+                            <th class="text-end">Descargas</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($documents as $document)
                             <tr>
+                                @php
+                                    $hasXml = (bool) ($document->xmlFile() || $document->xml_path || data_get($document->request_payload, 'xml_path'));
+                                    $hasCdr = (bool) ($document->cdrFile() || data_get($document->response_payload, 'cdr_path') || data_get($document->response_payload, 'cdr_base64') || data_get($document->response_payload, 'body.cdr_base64') || data_get($document->response_payload, 'body.cdrZipBase64'));
+                                @endphp
                                 <td>{{ $document->issue_date?->format('d/m/Y') }}</td>
                                 <td>{{ strtoupper($document->document_type) }}</td>
                                 <td>{{ $document->series }}-{{ $document->number }}</td>
@@ -84,10 +89,21 @@
                                 <td>{{ strtoupper($document->provider) }}</td>
                                 <td class="text-end">{{ number_format((float) $document->total, 2) }} {{ $document->currency }}</td>
                                 <td><span class="badge bg-secondary">{{ strtoupper($document->status) }}</span></td>
+                                <td class="text-end">
+                                    <a href="{{ $hasXml ? route('admin.billing.documents.download.xml', $document) : '#' }}" class="btn btn-sm btn-light border {{ $hasXml ? '' : 'disabled' }}" title="Descargar XML">
+                                        <i class="fas fa-file-code"></i>
+                                    </a>
+                                    <a href="{{ $hasCdr ? route('admin.billing.documents.download.cdr', $document) : '#' }}" class="btn btn-sm btn-light border {{ $hasCdr ? '' : 'disabled' }}" title="Descargar CDR">
+                                        <i class="fas fa-file-circle-check"></i>
+                                    </a>
+                                    <a href="{{ route('admin.billing.documents.download.pdf', $document) }}" class="btn btn-sm btn-light border" title="Descargar PDF">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </a>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">No hay documentos electrónicos registrados.</td>
+                                <td colspan="9" class="text-center py-4 text-muted">No hay documentos electrónicos registrados.</td>
                             </tr>
                         @endforelse
                     </tbody>
