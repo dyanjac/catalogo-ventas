@@ -3,5 +3,6 @@
     "Catalog": true,
     "Orders": true,
     "Core": true,
-    "AdminTheme": true
+    "AdminTheme": true,
+    "Accounting": true
 }

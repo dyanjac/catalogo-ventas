@@ -28,6 +28,30 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{{ route('admin.accounting.entries.index') }}" class="nav-link {{ request()->routeIs('admin.accounting.entries.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-book"></i>
+                        <p>Asientos contables</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.accounting.accounts.index') }}" class="nav-link {{ request()->routeIs('admin.accounting.accounts.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-sitemap"></i>
+                        <p>Plan de cuentas</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.accounting.periods.index') }}" class="nav-link {{ request()->routeIs('admin.accounting.periods.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-calendar-check"></i>
+                        <p>Periodos contables</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.accounting.cost-centers.index') }}" class="nav-link {{ request()->routeIs('admin.accounting.cost-centers.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-diagram-project"></i>
+                        <p>Centros de costo</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('admin.customers.index') }}" class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
                         <i class="nav-icon fas fa-users"></i>
                         <p>Clientes</p>
@@ -63,6 +87,12 @@
                     <a href="{{ route('admin.theme.edit') }}" class="nav-link {{ request()->routeIs('admin.theme.*') ? 'active' : '' }}">
                         <i class="nav-icon fas fa-palette"></i>
                         <p>Paleta Admin</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.accounting.settings.edit') }}" class="nav-link {{ request()->routeIs('admin.accounting.settings.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-calculator"></i>
+                        <p>Config. contable</p>
                     </a>
                 </li>
                 <li class="nav-item">
