@@ -17,6 +17,7 @@
         <x-admin.page-header title="Facturación electrónica Perú">
             <x-slot:actions>
                 <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
+                <a href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Plantillas PDF</a>
             </x-slot:actions>
         </x-admin.page-header>
 

@@ -3,7 +3,6 @@
 namespace Modules\Billing\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Support\SimplePdfBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Services\ElectronicBillingService;
+use Modules\ElectronicDocuments\Services\InvoicePdfService;
+use RuntimeException;
 
 class BillingDocumentController extends Controller
 {
@@ -147,41 +148,45 @@ class BillingDocumentController extends Controller
         abort(404, 'CDR no disponible para este comprobante.');
     }
 
-    public function downloadPdf(BillingDocument $document)
+    public function downloadPdf(BillingDocument $document, InvoicePdfService $invoicePdfService)
     {
-        $items = collect(data_get($document->request_payload, 'items', []))
-            ->map(function (array $row): string {
-                $name = (string) ($row['name'] ?? '-');
-                $qty = (float) ($row['quantity'] ?? 0);
-                $price = (float) ($row['unit_price'] ?? 0);
-                $subtotal = (float) ($row['line_subtotal'] ?? 0);
+        $xmlPath = $this->resolveXmlPathFromDocument($document);
+        if (! $xmlPath) {
+            abort(404, 'XML no disponible para generar PDF.');
+        }
 
-                return "{$name} | Cant: {$qty} | P.Unit: " . number_format($price, 2) . ' | Subt: ' . number_format($subtotal, 2);
-            })
-            ->all();
+        try {
+            $pdfPath = $invoicePdfService->generateFromXml($xmlPath);
+        } catch (RuntimeException $e) {
+            abort(422, $e->getMessage());
+        }
+        if (! Storage::disk('local')->exists($pdfPath)) {
+            abort(404, 'No se pudo generar el PDF del comprobante.');
+        }
 
-        $lines = [
-            'Comprobante: ' . strtoupper((string) $document->document_type),
-            'Numero: ' . $document->series . '-' . $document->number,
-            'Fecha: ' . optional($document->issue_date)->format('d/m/Y'),
-            'Cliente Doc: ' . ($document->customer_document_number ?: '-'),
-            'Moneda: ' . $document->currency,
-            'Subtotal: ' . number_format((float) $document->subtotal, 2),
-            'IGV: ' . number_format((float) $document->tax, 2),
-            'Total: ' . number_format((float) $document->total, 2),
-            'Estado: ' . strtoupper((string) $document->status),
-            '--- Detalle ---',
-            ...$items,
-        ];
-
-        $pdf = SimplePdfBuilder::fromLines(
-            'Comprobante electronico ' . $document->series . '-' . $document->number,
-            $lines
+        return response()->download(
+            Storage::disk('local')->path($pdfPath),
+            "{$document->series}-{$document->number}.pdf",
+            ['Content-Type' => 'application/pdf']
         );
+    }
 
-        return response($pdf, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $document->series . '-' . $document->number . '.pdf"',
-        ]);
+    private function resolveXmlPathFromDocument(BillingDocument $document): ?string
+    {
+        $file = $document->xmlFile();
+        if ($file && $file->storage_path !== '') {
+            return $file->storage_path;
+        }
+
+        if (is_string($document->xml_path) && trim($document->xml_path) !== '') {
+            return $document->xml_path;
+        }
+
+        $requestPath = data_get($document->request_payload, 'xml_path');
+        if (is_string($requestPath) && trim($requestPath) !== '') {
+            return $requestPath;
+        }
+
+        return null;
     }
 }

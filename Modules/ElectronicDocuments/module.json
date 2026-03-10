@@ -1,0 +1,12 @@
+{
+    "name": "ElectronicDocuments",
+    "alias": "electronicdocuments",
+    "description": "Plantillas XSLT y generación PDF de documentos electrónicos",
+    "keywords": ["electronic-documents", "xslt", "pdf", "billing"],
+    "priority": 0,
+    "providers": [
+        "Modules\\ElectronicDocuments\\Providers\\ElectronicDocumentsServiceProvider"
+    ],
+    "files": []
+}
+

@@ -1,0 +1,29 @@
+{
+    "name": "nwidart/electronicdocuments",
+    "description": "Modulo de plantillas y PDF de documentos electronicos",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ElectronicDocuments\\": "app/",
+            "Modules\\ElectronicDocuments\\Database\\Factories\\": "database/factories/",
+            "Modules\\ElectronicDocuments\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\ElectronicDocuments\\Tests\\": "tests/"
+        }
+    }
+}
+

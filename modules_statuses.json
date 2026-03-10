@@ -6,5 +6,6 @@
     "AdminTheme": true,
     "Accounting": true,
     "Billing": true,
-    "Sales": true
+    "Sales": true,
+    "ElectronicDocuments": true
 }
