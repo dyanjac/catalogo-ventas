@@ -69,58 +69,20 @@ class GreenterBillingProvider extends AbstractBillingProvider
         }
 
         try {
-            [$see, $invoice] = $this->buildSeeAndInvoice($setting, $payload);
-            $xmlPath = $this->storeSignedXml($see, $invoice);
-            $xmlContent = Storage::disk('public')->get($xmlPath);
+            $primaryUblVersion = $this->resolveUblVersion($setting);
+            $response = $this->issueWithUblVersion($setting, $payload, $test, $primaryUblVersion);
 
-            $sendResult = $see->send($invoice);
-            if (! $sendResult) {
-                return [
-                    'ok' => false,
-                    'message' => 'Greenter no devolvió respuesta al enviar el comprobante.',
-                    'provider' => $this->code(),
-                    'environment' => $setting->environment,
-                    'xml_path' => $xmlPath,
-                    'xml_hash' => hash('sha256', $xmlContent),
-                    'xml_source' => 'greenter-signed',
-                ];
+            if (! (bool) ($response['ok'] ?? false)
+                && (int) ($response['status_code'] ?? 0) === 3244
+                && $primaryUblVersion === '2.1') {
+                $fallback = $this->issueWithUblVersion($setting, $payload, $test, '2.0');
+                $fallback['message'] = '[Fallback UBL 2.0] '.($fallback['message'] ?? '');
+                $fallback['ubl_version'] = '2.0';
+
+                return $fallback;
             }
 
-            $ok = (bool) $sendResult->isSuccess();
-            $error = $sendResult->getError();
-            $message = $ok
-                ? 'Comprobante enviado correctamente a SUNAT mediante Greenter.'
-                : (string) ($error?->getMessage() ?: 'SUNAT/OSE devolvió error de emisión.');
-            $statusCode = $error?->getCode();
-
-            $response = [
-                'ok' => $ok,
-                'message' => $message,
-                'provider' => $this->code(),
-                'environment' => $setting->environment,
-                'status_code' => is_string($statusCode) && is_numeric($statusCode) ? (int) $statusCode : null,
-                'xml_path' => $xmlPath,
-                'xml_hash' => hash('sha256', $xmlContent),
-                'xml_source' => 'greenter-signed',
-                'credentials_source' => $test['credentials_source'] ?? null,
-                'certificate_path' => $test['certificate_path'] ?? null,
-            ];
-
-            if ($sendResult instanceof \Greenter\Model\Response\BillResult) {
-                $cdrZip = $sendResult->getCdrZip();
-                $cdrResponse = $sendResult->getCdrResponse();
-
-                if (is_string($cdrZip) && $cdrZip !== '') {
-                    $response['cdr_base64'] = base64_encode($cdrZip);
-                }
-
-                if ($cdrResponse) {
-                    $response['sunat_cdr_code'] = $cdrResponse->getCode();
-                    $response['sunat_cdr_description'] = $cdrResponse->getDescription();
-                    $response['sunat_cdr_reference'] = $cdrResponse->getReference();
-                    $response['sunat_cdr_notes'] = $cdrResponse->getNotes();
-                }
-            }
+            $response['ubl_version'] = $primaryUblVersion;
 
             return $response;
         } catch (Throwable $e) {
@@ -174,7 +136,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     /**
      * @param array<string,mixed> $payload
      */
-    private function buildSeeAndInvoice(BillingSetting $setting, array $payload): array
+    private function buildSeeAndInvoice(BillingSetting $setting, array $payload, string $ublVersion): array
     {
         if (! class_exists(\Greenter\See::class)) {
             throw new \RuntimeException('Greenter no está instalado.');
@@ -200,7 +162,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
         );
         $see->setCertificate($certificate);
 
-        $invoice = $this->buildInvoiceFromPayload($setting, $payload);
+        $invoice = $this->buildInvoiceFromPayload($setting, $payload, $ublVersion);
 
         return [$see, $invoice];
     }
@@ -223,7 +185,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     /**
      * @param array<string,mixed> $payload
      */
-    private function buildInvoiceFromPayload(BillingSetting $setting, array $payload): \Greenter\Model\Sale\Invoice
+    private function buildInvoiceFromPayload(BillingSetting $setting, array $payload, string $ublVersion): \Greenter\Model\Sale\Invoice
     {
         $documentType = $this->mapSaleDocumentType((string) ($payload['document_type'] ?? 'boleta'));
         $currency = strtoupper((string) ($payload['currency'] ?? 'PEN'));
@@ -242,7 +204,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
 
         $invoice = new \Greenter\Model\Sale\Invoice();
         $invoice
-            ->setUblVersion('2.1')
+            ->setUblVersion($ublVersion)
             ->setTipoOperacion('0101')
             ->setTipoDoc($documentType)
             ->setSerie((string) ($payload['series'] ?? 'F001'))
@@ -262,6 +224,75 @@ class GreenterBillingProvider extends AbstractBillingProvider
             ->setDetails($details);
 
         return $invoice;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @param array<string,mixed> $test
+     * @return array<string,mixed>
+     */
+    private function issueWithUblVersion(
+        BillingSetting $setting,
+        array $payload,
+        array $test,
+        string $ublVersion
+    ): array {
+        [$see, $invoice] = $this->buildSeeAndInvoice($setting, $payload, $ublVersion);
+        $xmlPath = $this->storeSignedXml($see, $invoice);
+        $xmlContent = Storage::disk('public')->get($xmlPath);
+
+        $sendResult = $see->send($invoice);
+        if (! $sendResult) {
+            return [
+                'ok' => false,
+                'message' => 'Greenter no devolvió respuesta al enviar el comprobante.',
+                'provider' => $this->code(),
+                'environment' => $setting->environment,
+                'xml_path' => $xmlPath,
+                'xml_hash' => hash('sha256', $xmlContent),
+                'xml_source' => 'greenter-signed',
+                'credentials_source' => $test['credentials_source'] ?? null,
+                'certificate_path' => $test['certificate_path'] ?? null,
+            ];
+        }
+
+        $ok = (bool) $sendResult->isSuccess();
+        $error = $sendResult->getError();
+        $message = $ok
+            ? 'Comprobante enviado correctamente a SUNAT mediante Greenter.'
+            : (string) ($error?->getMessage() ?: 'SUNAT/OSE devolvió error de emisión.');
+        $statusCode = $error?->getCode();
+
+        $response = [
+            'ok' => $ok,
+            'message' => $message,
+            'provider' => $this->code(),
+            'environment' => $setting->environment,
+            'status_code' => is_string($statusCode) && is_numeric($statusCode) ? (int) $statusCode : null,
+            'xml_path' => $xmlPath,
+            'xml_hash' => hash('sha256', $xmlContent),
+            'xml_source' => 'greenter-signed',
+            'credentials_source' => $test['credentials_source'] ?? null,
+            'certificate_path' => $test['certificate_path'] ?? null,
+        ];
+
+        if ($sendResult instanceof \Greenter\Model\Response\BillResult) {
+            $cdrZip = $sendResult->getCdrZip();
+            $cdrResponse = $sendResult->getCdrResponse();
+
+            if (is_string($cdrZip) && $cdrZip !== '') {
+                $response['cdr_base64'] = base64_encode($cdrZip);
+            }
+
+            if ($cdrResponse) {
+                $response['sunat_cdr_code'] = $cdrResponse->getCode();
+                $response['sunat_cdr_description'] = $cdrResponse->getDescription();
+                $response['sunat_cdr_reference'] = $cdrResponse->getReference();
+                $response['sunat_cdr_notes'] = $cdrResponse->getNotes();
+            }
+        }
+
+        return $response;
     }
 
     private function buildCompany(BillingSetting $setting): \Greenter\Model\Company\Company
@@ -413,6 +444,14 @@ class GreenterBillingProvider extends AbstractBillingProvider
         }
 
         return round($computed, 4);
+    }
+
+    private function resolveUblVersion(BillingSetting $setting): string
+    {
+        $raw = (array) ($setting->provider_credentials['greenter'] ?? []);
+        $value = trim((string) ($raw['ubl_version'] ?? '2.1'));
+
+        return in_array($value, ['2.0', '2.1'], true) ? $value : '2.1';
     }
 
     private function resolveCertificateForSigning(string $absolutePath, string $password): string

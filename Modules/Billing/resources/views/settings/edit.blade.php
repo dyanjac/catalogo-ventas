@@ -99,6 +99,13 @@
                         <label class="form-label">Clave certificado</label>
                         <input type="password" name="provider_credentials[greenter][certificate_password]" class="form-control" value="{{ $greenter['certificate_password'] ?? '' }}">
                     </div>
+                    <div class="col-md-2">
+                        <label class="form-label">UBL Version</label>
+                        <select name="provider_credentials[greenter][ubl_version]" class="form-select">
+                            <option value="2.1" @selected(($greenter['ubl_version'] ?? '2.1') === '2.1')>2.1</option>
+                            <option value="2.0" @selected(($greenter['ubl_version'] ?? '') === '2.0')>2.0</option>
+                        </select>
+                    </div>
                 </div>
 
                 <h6 class="mb-3">Datos del emisor (Greenter)</h6>
