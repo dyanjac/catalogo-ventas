@@ -50,11 +50,23 @@
                     </div>
                     <div class="card-body">
                         @forelse($document->responseHistories as $history)
+                            @php
+                                $dispatchMode = (string) data_get($history->request_payload, '_dispatch.mode', data_get($history->response_payload, 'dispatch.mode', 'sync'));
+                                $dispatchConnection = data_get($history->request_payload, '_dispatch.connection', data_get($history->response_payload, 'dispatch.connection'));
+                                $dispatchQueue = data_get($history->request_payload, '_dispatch.queue', data_get($history->response_payload, 'dispatch.queue'));
+                                $eventLabel = str_replace('_', ' ', strtoupper((string) $history->event));
+                            @endphp
                             <div class="border rounded-3 p-3 mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <div>
                                         <strong>{{ strtoupper($history->provider ?? '-') }}</strong>
                                         <span class="text-muted"> · {{ strtoupper($history->environment ?? '-') }}</span>
+                                        <span class="badge bg-light text-dark border ms-2">{{ $eventLabel }}</span>
+                                        @if($dispatchMode === 'queue')
+                                            <span class="badge bg-info text-dark ms-1">COLA</span>
+                                        @else
+                                            <span class="badge bg-primary ms-1">EN LÍNEA</span>
+                                        @endif
                                     </div>
                                     <div>
                                         @if($history->ok)
@@ -66,6 +78,14 @@
                                     </div>
                                 </div>
                                 <div class="mb-2"><strong>Mensaje:</strong> {{ $history->message ?: '-' }}</div>
+                                @if($dispatchMode === 'queue')
+                                    <div class="mb-2">
+                                        <strong>Canal:</strong>
+                                        cola{{ $dispatchConnection ? ' · '.$dispatchConnection : '' }}{{ $dispatchQueue ? ' / '.$dispatchQueue : '' }}
+                                    </div>
+                                @else
+                                    <div class="mb-2"><strong>Canal:</strong> en línea</div>
+                                @endif
                                 @if($history->status_code)
                                     <div class="mb-2"><strong>Status HTTP:</strong> {{ $history->status_code }}</div>
                                 @endif

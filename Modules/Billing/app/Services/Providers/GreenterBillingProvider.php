@@ -71,17 +71,6 @@ class GreenterBillingProvider extends AbstractBillingProvider
         try {
             $primaryUblVersion = $this->resolveUblVersion($setting);
             $response = $this->issueWithUblVersion($setting, $payload, $test, $primaryUblVersion);
-
-            if (! (bool) ($response['ok'] ?? false)
-                && (int) ($response['status_code'] ?? 0) === 3244
-                && $primaryUblVersion === '2.1') {
-                $fallback = $this->issueWithUblVersion($setting, $payload, $test, '2.0');
-                $fallback['message'] = '[Fallback UBL 2.0] '.($fallback['message'] ?? '');
-                $fallback['ubl_version'] = '2.0';
-
-                return $fallback;
-            }
-
             $response['ubl_version'] = $primaryUblVersion;
 
             return $response;
@@ -449,9 +438,15 @@ class GreenterBillingProvider extends AbstractBillingProvider
     private function resolveUblVersion(BillingSetting $setting): string
     {
         $raw = (array) ($setting->provider_credentials['greenter'] ?? []);
-        $value = trim((string) ($raw['ubl_version'] ?? '2.1'));
+        $defaultVersion = $setting->environment === 'sandbox' ? '2.0' : '2.1';
+        $value = trim((string) ($raw['ubl_version'] ?? $defaultVersion));
 
-        return in_array($value, ['2.0', '2.1'], true) ? $value : '2.1';
+        // En sandbox SUNAT beta suele validar catálogo de transacción bajo esquema UBL 2.0.
+        if ($setting->environment === 'sandbox' && $value === '2.1') {
+            return '2.0';
+        }
+
+        return in_array($value, ['2.0', '2.1'], true) ? $value : $defaultVersion;
     }
 
     private function resolveCertificateForSigning(string $absolutePath, string $password): string

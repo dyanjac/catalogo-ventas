@@ -117,8 +117,8 @@
                     <div class="col-md-2">
                         <label class="form-label">UBL Version</label>
                         <select name="provider_credentials[greenter][ubl_version]" class="form-select">
-                            <option value="2.1" @selected(($greenter['ubl_version'] ?? '2.1') === '2.1')>2.1</option>
-                            <option value="2.0" @selected(($greenter['ubl_version'] ?? '') === '2.0')>2.0</option>
+                            <option value="2.0" @selected(($greenter['ubl_version'] ?? '2.0') === '2.0')>2.0</option>
+                            <option value="2.1" @selected(($greenter['ubl_version'] ?? '') === '2.1')>2.1</option>
                         </select>
                     </div>
                 </div>

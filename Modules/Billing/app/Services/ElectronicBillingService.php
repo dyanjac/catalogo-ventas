@@ -37,11 +37,21 @@ class ElectronicBillingService
         }
 
         if ($setting->dispatch_mode !== 'queue') {
+            $payload = $this->withDispatchMeta($payload, 'sync', null, null, false);
             $result = $this->issue($document, $payload);
             $result['queued'] = false;
 
             return $result;
         }
+
+        $connection = is_string($setting->queue_connection) && trim($setting->queue_connection) !== ''
+            ? trim($setting->queue_connection)
+            : (string) config('queue.default');
+        $queueName = is_string($setting->queue_name) && trim($setting->queue_name) !== ''
+            ? trim($setting->queue_name)
+            : 'default';
+
+        $payload = $this->withDispatchMeta($payload, 'queue', $connection, $queueName, true);
 
         $job = new IssueBillingDocumentJob($document->id, $payload);
         if (is_string($setting->queue_connection) && trim($setting->queue_connection) !== '') {
@@ -60,12 +70,14 @@ class ElectronicBillingService
             'issued_at' => null,
         ]);
 
+        $this->storeQueueDispatchedHistory($document, $setting, $payload, $connection, $queueName);
+
         return [
             'ok' => true,
             'queued' => true,
             'message' => 'Comprobante encolado para emisión electrónica.',
-            'connection' => $setting->queue_connection ?: config('queue.default'),
-            'queue' => $setting->queue_name ?: 'default',
+            'connection' => $connection,
+            'queue' => $queueName,
         ];
     }
 
@@ -267,13 +279,17 @@ class ElectronicBillingService
         BillingSetting $setting,
         array $requestPayload,
         array $responsePayload,
-        ?Throwable $exception = null
+        ?Throwable $exception = null,
+        ?string $event = null
     ): void {
+        $dispatchMode = (string) data_get($requestPayload, '_dispatch.mode', 'sync');
+        $resolvedEvent = $event ?: $this->resolveIssueEvent($dispatchMode);
+
         BillingDocumentResponseHistory::query()->create([
             'billing_document_id' => $document->id,
             'provider' => $setting->provider,
             'environment' => $setting->environment,
-            'event' => 'issue',
+            'event' => $resolvedEvent,
             'ok' => (bool) ($responsePayload['ok'] ?? false),
             'status_code' => isset($responsePayload['status_code']) ? (int) $responsePayload['status_code'] : null,
             'message' => (string) ($responsePayload['message'] ?? ''),
@@ -281,6 +297,66 @@ class ElectronicBillingService
             'response_payload' => $responsePayload,
             'error_class' => $exception ? $exception::class : null,
             'error_message' => $exception?->getMessage(),
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    private function withDispatchMeta(
+        array $payload,
+        string $mode,
+        ?string $connection,
+        ?string $queue,
+        bool $queued
+    ): array {
+        $payload['_dispatch'] = [
+            'mode' => $mode,
+            'connection' => $connection,
+            'queue' => $queue,
+            'queued' => $queued,
+            'at' => now()->toDateTimeString(),
+        ];
+
+        return $payload;
+    }
+
+    private function resolveIssueEvent(string $dispatchMode): string
+    {
+        return $dispatchMode === 'queue' ? 'issue_queue' : 'issue_sync';
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function storeQueueDispatchedHistory(
+        BillingDocument $document,
+        BillingSetting $setting,
+        array $payload,
+        string $connection,
+        string $queueName
+    ): void {
+        BillingDocumentResponseHistory::query()->create([
+            'billing_document_id' => $document->id,
+            'provider' => $setting->provider,
+            'environment' => $setting->environment,
+            'event' => 'queue_dispatched',
+            'ok' => true,
+            'status_code' => null,
+            'message' => "Comprobante encolado para emisión (connection={$connection}, queue={$queueName}).",
+            'request_payload' => $payload,
+            'response_payload' => [
+                'ok' => true,
+                'queued' => true,
+                'dispatch' => [
+                    'mode' => 'queue',
+                    'connection' => $connection,
+                    'queue' => $queueName,
+                ],
+            ],
+            'error_class' => null,
+            'error_message' => null,
         ]);
     }
 }
