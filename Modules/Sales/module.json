@@ -1,0 +1,11 @@
+{
+    "name": "Sales",
+    "alias": "sales",
+    "description": "Punto de venta y emisión de comprobantes",
+    "keywords": ["sales", "pos", "orders", "billing"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Sales\\Providers\\SalesServiceProvider"
+    ],
+    "files": []
+}

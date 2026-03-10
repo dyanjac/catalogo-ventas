@@ -27,6 +27,8 @@ class BillingDocument extends Model
         'sunat_cdr_description',
         'request_payload',
         'response_payload',
+        'xml_path',
+        'xml_hash',
         'issued_at',
         'voided_at',
     ];

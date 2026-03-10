@@ -5,5 +5,6 @@
     "Core": true,
     "AdminTheme": true,
     "Accounting": true,
-    "Billing": true
+    "Billing": true,
+    "Sales": true
 }

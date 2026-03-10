@@ -37,4 +37,24 @@ class GreenterBillingProvider extends AbstractBillingProvider
             'message' => 'Greenter configurado correctamente para '.$setting->environment.'.',
         ];
     }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    public function issueDocument(BillingSetting $setting, array $payload): array
+    {
+        $test = $this->testConnection($setting);
+        if (! $test['ok']) {
+            return $test;
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'XML generado y preparado para envío con Greenter.',
+            'provider' => $this->code(),
+            'environment' => $setting->environment,
+            'xml_path' => $payload['xml_path'] ?? null,
+        ];
+    }
 }

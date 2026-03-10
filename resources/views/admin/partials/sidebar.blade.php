@@ -22,6 +22,12 @@
                 </li>
                 <li class="nav-header">GESTION COMERCIAL</li>
                 <li class="nav-item">
+                    <a href="{{ route('admin.sales.pos.index') }}" class="nav-link {{ request()->routeIs('admin.sales.pos.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-cash-register"></i>
+                        <p>Punto de venta</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('admin.orders.index') }}" class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
                         <i class="nav-icon fas fa-receipt"></i>
                         <p>Pedidos</p>

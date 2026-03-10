@@ -2,12 +2,17 @@
 
 namespace Modules\Billing\Services;
 
+use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Services\Xml\BillingXmlGenerator;
 
 class ElectronicBillingService
 {
-    public function __construct(private readonly BillingProviderResolver $resolver)
+    public function __construct(
+        private readonly BillingProviderResolver $resolver,
+        private readonly BillingXmlGenerator $xmlGenerator
+    )
     {
     }
 
@@ -26,6 +31,12 @@ class ElectronicBillingService
             ];
         }
 
+        $xmlPath = $this->xmlGenerator->generate($document, $payload);
+        $xmlHash = hash('sha256', Storage::disk('public')->get($xmlPath));
+
+        $payload['xml_path'] = $xmlPath;
+        $payload['xml_hash'] = $xmlHash;
+
         $provider = $this->resolver->resolveFromSetting($setting);
         $result = $provider->issueDocument($setting, $payload);
 
@@ -33,6 +44,8 @@ class ElectronicBillingService
             'provider' => $setting->provider,
             'request_payload' => $payload,
             'response_payload' => $result,
+            'xml_path' => $xmlPath,
+            'xml_hash' => $xmlHash,
             'status' => (bool) ($result['ok'] ?? false) ? 'issued' : 'error',
             'issued_at' => (bool) ($result['ok'] ?? false) ? now() : null,
         ]);
