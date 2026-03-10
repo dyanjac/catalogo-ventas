@@ -75,6 +75,21 @@ class GreenterBillingProvider extends AbstractBillingProvider
             $response = $this->issueWithUblVersion($setting, $payload, $test, $primaryUblVersion);
             $response['ubl_version'] = $primaryUblVersion;
 
+            $statusCode = isset($response['status_code']) ? (int) $response['status_code'] : null;
+            $mustFallbackTo20 = $setting->environment === 'sandbox'
+                && $primaryUblVersion === '2.1'
+                && ! (bool) ($response['ok'] ?? false)
+                && in_array($statusCode, [3206, 3244], true);
+
+            if ($mustFallbackTo20) {
+                $fallback = $this->issueWithUblVersion($setting, $payload, $test, '2.0');
+                $fallback['ubl_version'] = '2.0';
+                $fallback['ubl_fallback_from'] = '2.1';
+                $fallback['ubl_fallback_reason'] = 'sandbox_catalog_validation';
+
+                return $fallback;
+            }
+
             return $response;
         } catch (Throwable $e) {
             return [
