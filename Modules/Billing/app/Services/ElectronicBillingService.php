@@ -70,6 +70,9 @@ class ElectronicBillingService
             'response_payload' => $result,
             'status' => (bool) ($result['ok'] ?? false) ? 'issued' : 'error',
             'issued_at' => (bool) ($result['ok'] ?? false) ? now() : null,
+            'sunat_ticket' => data_get($result, 'ticket') ?? data_get($result, 'sunat_ticket'),
+            'sunat_cdr_code' => data_get($result, 'sunat_cdr_code') ?? data_get($result, 'cdr_code'),
+            'sunat_cdr_description' => data_get($result, 'sunat_cdr_description') ?? data_get($result, 'cdr_description'),
         ]);
 
         $this->persistCdrFromResult($document, $result);

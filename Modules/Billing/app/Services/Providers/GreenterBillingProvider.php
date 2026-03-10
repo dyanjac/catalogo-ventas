@@ -69,28 +69,68 @@ class GreenterBillingProvider extends AbstractBillingProvider
         }
 
         try {
-            $xmlPath = $this->generateSignedXml($setting, $payload);
+            [$see, $invoice] = $this->buildSeeAndInvoice($setting, $payload);
+            $xmlPath = $this->storeSignedXml($see, $invoice);
             $xmlContent = Storage::disk('public')->get($xmlPath);
+
+            $sendResult = $see->send($invoice);
+            if (! $sendResult) {
+                return [
+                    'ok' => false,
+                    'message' => 'Greenter no devolvió respuesta al enviar el comprobante.',
+                    'provider' => $this->code(),
+                    'environment' => $setting->environment,
+                    'xml_path' => $xmlPath,
+                    'xml_hash' => hash('sha256', $xmlContent),
+                    'xml_source' => 'greenter-signed',
+                ];
+            }
+
+            $ok = (bool) $sendResult->isSuccess();
+            $error = $sendResult->getError();
+            $message = $ok
+                ? 'Comprobante enviado correctamente a SUNAT mediante Greenter.'
+                : (string) ($error?->getMessage() ?: 'SUNAT/OSE devolvió error de emisión.');
+            $statusCode = $error?->getCode();
+
+            $response = [
+                'ok' => $ok,
+                'message' => $message,
+                'provider' => $this->code(),
+                'environment' => $setting->environment,
+                'status_code' => is_string($statusCode) && is_numeric($statusCode) ? (int) $statusCode : null,
+                'xml_path' => $xmlPath,
+                'xml_hash' => hash('sha256', $xmlContent),
+                'xml_source' => 'greenter-signed',
+                'credentials_source' => $test['credentials_source'] ?? null,
+                'certificate_path' => $test['certificate_path'] ?? null,
+            ];
+
+            if ($sendResult instanceof \Greenter\Model\Response\BillResult) {
+                $cdrZip = $sendResult->getCdrZip();
+                $cdrResponse = $sendResult->getCdrResponse();
+
+                if (is_string($cdrZip) && $cdrZip !== '') {
+                    $response['cdr_base64'] = base64_encode($cdrZip);
+                }
+
+                if ($cdrResponse) {
+                    $response['sunat_cdr_code'] = $cdrResponse->getCode();
+                    $response['sunat_cdr_description'] = $cdrResponse->getDescription();
+                    $response['sunat_cdr_reference'] = $cdrResponse->getReference();
+                    $response['sunat_cdr_notes'] = $cdrResponse->getNotes();
+                }
+            }
+
+            return $response;
         } catch (Throwable $e) {
             return [
                 'ok' => false,
-                'message' => 'Error al generar XML firmado con Greenter: '.$e->getMessage(),
+                'message' => 'Error al emitir con Greenter: '.$e->getMessage(),
                 'provider' => $this->code(),
                 'environment' => $setting->environment,
             ];
         }
-
-        return [
-            'ok' => true,
-            'message' => 'XML generado y preparado para envío con Greenter.',
-            'provider' => $this->code(),
-            'environment' => $setting->environment,
-            'xml_path' => $xmlPath,
-            'xml_hash' => hash('sha256', $xmlContent),
-            'xml_source' => 'greenter-signed',
-            'credentials_source' => $test['credentials_source'] ?? null,
-            'certificate_path' => $test['certificate_path'] ?? null,
-        ];
     }
 
     /**
@@ -134,7 +174,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     /**
      * @param array<string,mixed> $payload
      */
-    private function generateSignedXml(BillingSetting $setting, array $payload): string
+    private function buildSeeAndInvoice(BillingSetting $setting, array $payload): array
     {
         if (! class_exists(\Greenter\See::class)) {
             throw new \RuntimeException('Greenter no está instalado.');
@@ -161,6 +201,12 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $see->setCertificate($certificate);
 
         $invoice = $this->buildInvoiceFromPayload($setting, $payload);
+
+        return [$see, $invoice];
+    }
+
+    private function storeSignedXml(\Greenter\See $see, \Greenter\Model\Sale\Invoice $invoice): string
+    {
         $xml = $see->getXmlSigned($invoice);
 
         if (! is_string($xml) || trim($xml) === '') {
@@ -187,7 +233,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $subtotal = round((float) ($totals['subtotal'] ?? 0), 2);
         $tax = round((float) ($totals['tax'] ?? 0), 2);
         $total = round((float) ($totals['total'] ?? ($subtotal + $tax)), 2);
-        $taxRate = $subtotal > 0 ? ($tax / $subtotal) : 0.18;
+        $taxRate = $this->resolveIgvRate($payload, $subtotal, $tax);
         $taxPercent = round($taxRate * 100, 2);
 
         $company = $this->buildCompany($setting);
@@ -339,6 +385,34 @@ class GreenterBillingProvider extends AbstractBillingProvider
     {
         $trimmed = ltrim(trim($number), '0');
         return $trimmed !== '' ? $trimmed : '1';
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function resolveIgvRate(array $payload, float $subtotal, float $tax): float
+    {
+        $explicit = $payload['tax_rate'] ?? null;
+        if (is_numeric($explicit)) {
+            $value = (float) $explicit;
+            if ($value > 1) {
+                $value = $value / 100;
+            }
+
+            return round($value, 4);
+        }
+
+        if ($subtotal <= 0 || $tax <= 0) {
+            return 0.18;
+        }
+
+        $computed = $tax / $subtotal;
+        // Evita rechazos SUNAT por tasas no exactas derivadas de redondeos (ej: 17.988%)
+        if (abs($computed - 0.18) <= 0.01) {
+            return 0.18;
+        }
+
+        return round($computed, 4);
     }
 
     private function resolveCertificateForSigning(string $absolutePath, string $password): string

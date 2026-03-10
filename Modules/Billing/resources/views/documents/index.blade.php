@@ -74,6 +74,15 @@
                                 @php
                                     $hasXml = (bool) ($document->xmlFile() || $document->xml_path || data_get($document->request_payload, 'xml_path'));
                                     $hasCdr = (bool) ($document->cdrFile() || data_get($document->response_payload, 'cdr_path') || data_get($document->response_payload, 'cdr_base64') || data_get($document->response_payload, 'body.cdr_base64') || data_get($document->response_payload, 'body.cdrZipBase64'));
+                                    $statusValue = strtolower((string) $document->status);
+                                    $statusClass = match ($statusValue) {
+                                        'issued' => 'bg-success',
+                                        'error', 'rejected', 'accepted_with_observation', 'accepted-observation', 'accepted_observation' => 'bg-danger',
+                                        'accepted' => 'bg-success',
+                                        'queued' => 'bg-warning text-dark',
+                                        default => 'bg-secondary',
+                                    };
+                                    $statusLabel = str_replace('_', ' ', strtoupper((string) $document->status));
                                 @endphp
                                 <td>{{ $document->issue_date?->format('d/m/Y') }}</td>
                                 <td>{{ strtoupper($document->document_type) }}</td>
@@ -88,7 +97,7 @@
                                 <td>{{ $document->customer_document_number ?? '-' }}</td>
                                 <td>{{ strtoupper($document->provider) }}</td>
                                 <td class="text-end">{{ number_format((float) $document->total, 2) }} {{ $document->currency }}</td>
-                                <td><span class="badge bg-secondary">{{ strtoupper($document->status) }}</span></td>
+                                <td><span class="badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
                                 <td class="text-end">
                                     <form method="POST" action="{{ route('admin.billing.documents.redeclare', $document) }}" class="d-inline">
                                         @csrf

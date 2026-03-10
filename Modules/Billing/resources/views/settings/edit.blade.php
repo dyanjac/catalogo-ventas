@@ -101,6 +101,46 @@
                     </div>
                 </div>
 
+                <h6 class="mb-3">Datos del emisor (Greenter)</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Razón social</label>
+                        <input type="text" name="provider_credentials[greenter][company_business_name]" class="form-control" placeholder="EMPRESA S.A.C." value="{{ $greenter['company_business_name'] ?? '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre comercial</label>
+                        <input type="text" name="provider_credentials[greenter][company_trade_name]" class="form-control" placeholder="MI NEGOCIO" value="{{ $greenter['company_trade_name'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Ubigeo</label>
+                        <input type="text" name="provider_credentials[greenter][company_ubigeo]" class="form-control" placeholder="150101" value="{{ $greenter['company_ubigeo'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Departamento</label>
+                        <input type="text" name="provider_credentials[greenter][company_department]" class="form-control" placeholder="LIMA" value="{{ $greenter['company_department'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Provincia</label>
+                        <input type="text" name="provider_credentials[greenter][company_province]" class="form-control" placeholder="LIMA" value="{{ $greenter['company_province'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Distrito</label>
+                        <input type="text" name="provider_credentials[greenter][company_district]" class="form-control" placeholder="LIMA" value="{{ $greenter['company_district'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Urbanización</label>
+                        <input type="text" name="provider_credentials[greenter][company_urbanization]" class="form-control" placeholder="-" value="{{ $greenter['company_urbanization'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Código local</label>
+                        <input type="text" name="provider_credentials[greenter][company_local_code]" class="form-control" placeholder="0000" value="{{ $greenter['company_local_code'] ?? '' }}">
+                    </div>
+                    <div class="col-md-10">
+                        <label class="form-label">Dirección fiscal</label>
+                        <input type="text" name="provider_credentials[greenter][company_address]" class="form-control" placeholder="Dirección completa del emisor" value="{{ $greenter['company_address'] ?? '' }}">
+                    </div>
+                </div>
+
                 <h6 class="mb-3">Credenciales NubeFact</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
