@@ -8,16 +8,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Models\SunatOperationType;
 use Modules\Billing\Services\BillingProviderResolver;
 
 class BillingSettingsController extends Controller
 {
     public function edit(): View
     {
+        $operationTypes = SunatOperationType::query()
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->get();
+
         return view('billing::settings.edit', [
             'setting' => $this->setting(),
             'providers' => config('billing.providers', []),
             'environments' => config('billing.environments', []),
+            'operationTypes' => $operationTypes,
         ]);
     }
 
@@ -35,10 +42,35 @@ class BillingSettingsController extends Controller
             'receipt_series' => ['nullable', 'string', 'max:10'],
             'credit_note_series' => ['nullable', 'string', 'max:10'],
             'debit_note_series' => ['nullable', 'string', 'max:10'],
+            'default_invoice_operation_code' => ['nullable', 'string', 'max:2'],
+            'default_receipt_operation_code' => ['nullable', 'string', 'max:2'],
             'provider_credentials' => ['nullable', 'array'],
+            'operation_types' => ['nullable', 'array'],
+            'operation_types.*.description' => ['nullable', 'string', 'max:160'],
         ]);
 
         $setting = $this->setting();
+        $this->syncSunatOperationTypes($request);
+
+        $activeCodes = SunatOperationType::query()
+            ->where('is_active', true)
+            ->pluck('code')
+            ->all();
+
+        $invoiceCode = $this->normalizeNullableString($data['default_invoice_operation_code'] ?? null);
+        $receiptCode = $this->normalizeNullableString($data['default_receipt_operation_code'] ?? null);
+
+        if ($invoiceCode !== null && ! in_array($invoiceCode, $activeCodes, true)) {
+            return back()->withErrors([
+                'default_invoice_operation_code' => 'Selecciona un código activo del catálogo SUNAT 17 para Factura.',
+            ])->withInput();
+        }
+        if ($receiptCode !== null && ! in_array($receiptCode, $activeCodes, true)) {
+            return back()->withErrors([
+                'default_receipt_operation_code' => 'Selecciona un código activo del catálogo SUNAT 17 para Boleta.',
+            ])->withInput();
+        }
+
         $updateData = [
             'enabled' => (bool) ($data['enabled'] ?? false),
             'country' => $data['country'],
@@ -50,6 +82,12 @@ class BillingSettingsController extends Controller
             'debit_note_series' => $this->normalizeSeries($data['debit_note_series'] ?? null),
             'provider_credentials' => $this->normalizeCredentials($data['provider_credentials'] ?? []),
         ];
+        if (Schema::hasColumn('billing_settings', 'default_invoice_operation_code')) {
+            $updateData['default_invoice_operation_code'] = $invoiceCode ?? '01';
+        }
+        if (Schema::hasColumn('billing_settings', 'default_receipt_operation_code')) {
+            $updateData['default_receipt_operation_code'] = $receiptCode ?? '01';
+        }
 
         if (Schema::hasColumn('billing_settings', 'dispatch_mode')) {
             $updateData['dispatch_mode'] = $data['dispatch_mode'];
@@ -93,6 +131,12 @@ class BillingSettingsController extends Controller
             'environment' => 'sandbox',
             'provider_credentials' => [],
         ];
+        if (Schema::hasColumn('billing_settings', 'default_invoice_operation_code')) {
+            $defaults['default_invoice_operation_code'] = '01';
+        }
+        if (Schema::hasColumn('billing_settings', 'default_receipt_operation_code')) {
+            $defaults['default_receipt_operation_code'] = '01';
+        }
 
         if (Schema::hasColumn('billing_settings', 'dispatch_mode')) {
             $defaults['dispatch_mode'] = 'sync';
@@ -147,5 +191,34 @@ class BillingSettingsController extends Controller
         }
 
         return $normalized;
+    }
+
+    private function syncSunatOperationTypes(Request $request): void
+    {
+        $input = $request->input('operation_types', []);
+        if (! is_array($input)) {
+            return;
+        }
+
+        $types = SunatOperationType::query()->get();
+        foreach ($types as $type) {
+            $row = $input[$type->code] ?? null;
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $type->description = $this->normalizeOperationDescription(
+                $row['description'] ?? $type->description
+            );
+            $type->is_active = isset($row['enabled']) && (string) $row['enabled'] === '1';
+            $type->save();
+        }
+    }
+
+    private function normalizeOperationDescription(?string $value): string
+    {
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : 'Sin descripción';
     }
 }

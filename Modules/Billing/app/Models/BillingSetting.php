@@ -19,6 +19,8 @@ class BillingSetting extends Model
         'receipt_series',
         'credit_note_series',
         'debit_note_series',
+        'default_invoice_operation_code',
+        'default_receipt_operation_code',
     ];
 
     protected $casts = [

@@ -8,6 +8,7 @@
     $nubefact = $creds['nubefact'] ?? [];
     $tefacturo = $creds['tefacturo'] ?? [];
     $efact = $creds['efact'] ?? [];
+    $opTypes = $operationTypes ?? collect();
 @endphp
 
 @section('content')
@@ -66,6 +67,69 @@
                         <label class="form-label">Nombre de cola</label>
                         <input type="text" name="queue_name" class="form-control" placeholder="billing" value="{{ old('queue_name', $setting->queue_name) }}">
                     </div>
+                </div>
+
+                <hr>
+
+                <h6 class="mb-3">Catálogo SUNAT 51 - Tipo de operación</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Default Factura</label>
+                        <select name="default_invoice_operation_code" class="form-select">
+                            @foreach($opTypes as $type)
+                                <option value="{{ $type->code }}"
+                                    @selected(old('default_invoice_operation_code', $setting->default_invoice_operation_code ?? '01') === $type->code)>
+                                    {{ $type->code }} - {{ $type->description }}{{ $type->is_active ? '' : ' (inactivo)' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Default Boleta</label>
+                        <select name="default_receipt_operation_code" class="form-select">
+                            @foreach($opTypes as $type)
+                                <option value="{{ $type->code }}"
+                                    @selected(old('default_receipt_operation_code', $setting->default_receipt_operation_code ?? '01') === $type->code)>
+                                    {{ $type->code }} - {{ $type->description }}{{ $type->is_active ? '' : ' (inactivo)' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead>
+                        <tr>
+                            <th style="width: 80px;">Código</th>
+                            <th>Descripción</th>
+                            <th style="width: 110px;">Activo</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach($opTypes as $type)
+                            <tr>
+                                <td>
+                                    {{ $type->code }}
+                                </td>
+                                <td>
+                                    <input type="text"
+                                           class="form-control form-control-sm"
+                                           name="operation_types[{{ $type->code }}][description]"
+                                           value="{{ old("operation_types.{$type->code}.description", $type->description) }}">
+                                </td>
+                                <td>
+                                    <input type="hidden" name="operation_types[{{ $type->code }}][enabled]" value="0">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           name="operation_types[{{ $type->code }}][enabled]"
+                                           value="1"
+                                           @checked(old("operation_types.{$type->code}.enabled", $type->is_active))>
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
                 </div>
 
                 <hr>

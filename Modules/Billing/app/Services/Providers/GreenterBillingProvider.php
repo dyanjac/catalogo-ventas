@@ -4,8 +4,10 @@ namespace Modules\Billing\Services\Providers;
 
 use DateTime;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Models\SunatOperationType;
 use Throwable;
 
 class GreenterBillingProvider extends AbstractBillingProvider
@@ -194,7 +196,6 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $invoice = new \Greenter\Model\Sale\Invoice();
         $invoice
             ->setUblVersion($ublVersion)
-            ->setTipoOperacion('0101')
             ->setTipoDoc($documentType)
             ->setSerie((string) ($payload['series'] ?? 'F001'))
             ->setCorrelativo($this->normalizeCorrelative((string) ($payload['number'] ?? '1')))
@@ -211,6 +212,11 @@ class GreenterBillingProvider extends AbstractBillingProvider
             ->setSubTotal($total)
             ->setMtoImpVenta($total)
             ->setDetails($details);
+
+        $tipoOperacion = $this->resolveTipoOperacion($setting, $payload, $documentType);
+        if ($tipoOperacion !== null) {
+            $invoice->setTipoOperacion($tipoOperacion);
+        }
 
         return $invoice;
     }
@@ -439,14 +445,98 @@ class GreenterBillingProvider extends AbstractBillingProvider
     {
         $raw = (array) ($setting->provider_credentials['greenter'] ?? []);
         $defaultVersion = $setting->environment === 'sandbox' ? '2.0' : '2.1';
-        $value = trim((string) ($raw['ubl_version'] ?? $defaultVersion));
+        $value = trim((string) ($raw['ubl_version'] ?? ''));
+        if ($value === '') {
+            $value = $defaultVersion;
+        }
 
-        // En sandbox SUNAT beta suele validar catálogo de transacción bajo esquema UBL 2.0.
-        if ($setting->environment === 'sandbox' && $value === '2.1') {
-            return '2.0';
+        if ($setting->environment === 'production') {
+            return '2.1';
         }
 
         return in_array($value, ['2.0', '2.1'], true) ? $value : $defaultVersion;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function resolveTipoOperacion(BillingSetting $setting, array $payload, string $documentType): ?string
+    {
+        $value = trim((string) ($payload['transaction_type'] ?? $payload['operation_type'] ?? ''));
+        $value = $this->normalizeOperationTypeToCat51($value);
+        if ($value !== '') {
+            return $this->isActiveOperationType($value) ? $value : null;
+        }
+
+        $defaultCode = $documentType === '01'
+            ? (string) ($setting->default_invoice_operation_code ?? '01')
+            : (string) ($setting->default_receipt_operation_code ?? '01');
+
+        $defaultCode = trim($defaultCode);
+        if ($defaultCode === '') {
+            return null;
+        }
+        $defaultCode = $this->normalizeOperationTypeToCat51($defaultCode);
+
+        return $this->isActiveOperationType($defaultCode) ? $defaultCode : null;
+    }
+
+    private function isActiveOperationType(string $code): bool
+    {
+        if (! Schema::hasTable('billing_sunat_operation_types')) {
+            return $code === '01';
+        }
+
+        $normalized = $this->normalizeOperationTypeToCat51($code);
+        if ($normalized === '') {
+            return false;
+        }
+
+        $activeCodes = SunatOperationType::query()
+            ->where('is_active', true)
+            ->pluck('code')
+            ->all();
+
+        foreach ($activeCodes as $activeCode) {
+            if ($this->normalizeOperationTypeToCat51((string) $activeCode) === $normalized) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeOperationTypeToCat51(string $code): string
+    {
+        $value = trim($code);
+        if ($value === '') {
+            return '';
+        }
+
+        $catalog51Map = [
+            '01' => '0101',
+            '02' => '0102',
+            '03' => '0103',
+            '04' => '0104',
+            '05' => '0105',
+            '06' => '0106',
+            '07' => '0107',
+            '08' => '0108',
+            '10' => '0110',
+            '11' => '0111',
+            '12' => '0112',
+            '13' => '0113',
+        ];
+
+        if (array_key_exists($value, $catalog51Map)) {
+            return $catalog51Map[$value];
+        }
+
+        if (preg_match('/^01\d{2}$/', $value) === 1) {
+            return $value;
+        }
+
+        return '';
     }
 
     private function resolveCertificateForSigning(string $absolutePath, string $password): string
