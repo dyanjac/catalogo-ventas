@@ -36,6 +36,16 @@ body {
     color: var(--admin-active-link-text);
 }
 
+.nav-sidebar .nav-treeview > .nav-item > .nav-link.active {
+    background: var(--admin-active-link-bg) !important;
+    color: var(--admin-active-link-text) !important;
+}
+
+.nav-sidebar .menu-open > .nav-link {
+    background: var(--admin-active-link-bg);
+    color: var(--admin-active-link-text);
+}
+
 .nav-sidebar .nav-link:not(.active):hover {
     background: rgba(255, 255, 255, .08);
 }
