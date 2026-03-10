@@ -1,0 +1,11 @@
+{
+    "name": "Billing",
+    "alias": "billing",
+    "description": "Facturación electrónica Perú con proveedor intercambiable",
+    "keywords": ["billing", "electronic-invoice", "peru", "sunat"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Billing\\Providers\\BillingServiceProvider"
+    ],
+    "files": []
+}

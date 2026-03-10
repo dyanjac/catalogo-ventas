@@ -1,0 +1,160 @@
+@extends('layouts.admin')
+
+@section('title', 'Facturación electrónica')
+
+@php
+    $creds = old('provider_credentials', $setting->provider_credentials ?? []);
+    $greenter = $creds['greenter'] ?? [];
+    $nubefact = $creds['nubefact'] ?? [];
+    $tefacturo = $creds['tefacturo'] ?? [];
+    $efact = $creds['efact'] ?? [];
+@endphp
+
+@section('content')
+<div class="py-2">
+    <div class="container-fluid">
+        <x-admin.page-header title="Facturación electrónica Perú">
+            <x-slot:actions>
+                <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
+            </x-slot:actions>
+        </x-admin.page-header>
+
+        <form method="POST" action="{{ route('admin.billing.settings.update') }}" class="card border border-secondary rounded-3 mb-4">
+            @csrf
+            @method('PUT')
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">País</label>
+                        <input type="text" name="country" class="form-control" value="{{ old('country', $setting->country) }}" readonly>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Proveedor activo</label>
+                        <select name="provider" class="form-select" required>
+                            @foreach($providers as $code => $label)
+                                <option value="{{ $code }}" @selected(old('provider', $setting->provider) === $code)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ambiente</label>
+                        <select name="environment" class="form-select" required>
+                            @foreach($environments as $env)
+                                <option value="{{ $env }}" @selected(old('environment', $setting->environment) === $env)>{{ strtoupper($env) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center">
+                        <div class="form-check mt-4">
+                            <input type="hidden" name="enabled" value="0">
+                            <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="1" @checked(old('enabled', $setting->enabled))>
+                            <label class="form-check-label" for="enabled">Activar módulo</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="mb-3">Series</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Factura</label>
+                        <input type="text" name="invoice_series" class="form-control text-uppercase" maxlength="10" value="{{ old('invoice_series', $setting->invoice_series) }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Boleta</label>
+                        <input type="text" name="receipt_series" class="form-control text-uppercase" maxlength="10" value="{{ old('receipt_series', $setting->receipt_series) }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Nota crédito</label>
+                        <input type="text" name="credit_note_series" class="form-control text-uppercase" maxlength="10" value="{{ old('credit_note_series', $setting->credit_note_series) }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Nota débito</label>
+                        <input type="text" name="debit_note_series" class="form-control text-uppercase" maxlength="10" value="{{ old('debit_note_series', $setting->debit_note_series) }}">
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="mb-3">Credenciales Greenter (SUNAT/OSE)</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-2">
+                        <label class="form-label">RUC</label>
+                        <input type="text" name="provider_credentials[greenter][ruc]" class="form-control" value="{{ $greenter['ruc'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">SOL Usuario</label>
+                        <input type="text" name="provider_credentials[greenter][sol_user]" class="form-control" value="{{ $greenter['sol_user'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">SOL Clave</label>
+                        <input type="password" name="provider_credentials[greenter][sol_password]" class="form-control" value="{{ $greenter['sol_password'] ?? '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Ruta certificado</label>
+                        <input type="text" name="provider_credentials[greenter][certificate_path]" class="form-control" placeholder="storage/app/certificados/empresa.pem" value="{{ $greenter['certificate_path'] ?? '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Clave certificado</label>
+                        <input type="password" name="provider_credentials[greenter][certificate_password]" class="form-control" value="{{ $greenter['certificate_password'] ?? '' }}">
+                    </div>
+                </div>
+
+                <h6 class="mb-3">Credenciales NubeFact</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">API URL</label>
+                        <input type="text" name="provider_credentials[nubefact][api_url]" class="form-control" value="{{ $nubefact['api_url'] ?? '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Token</label>
+                        <input type="password" name="provider_credentials[nubefact][api_token]" class="form-control" value="{{ $nubefact['api_token'] ?? '' }}">
+                    </div>
+                </div>
+
+                <h6 class="mb-3">Credenciales TeFacturo</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">API URL</label>
+                        <input type="text" name="provider_credentials[tefacturo][api_url]" class="form-control" value="{{ $tefacturo['api_url'] ?? '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Usuario</label>
+                        <input type="text" name="provider_credentials[tefacturo][api_user]" class="form-control" value="{{ $tefacturo['api_user'] ?? '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Clave</label>
+                        <input type="password" name="provider_credentials[tefacturo][api_password]" class="form-control" value="{{ $tefacturo['api_password'] ?? '' }}">
+                    </div>
+                </div>
+
+                <h6 class="mb-3">Credenciales eFact</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">API URL</label>
+                        <input type="text" name="provider_credentials[efact][api_url]" class="form-control" value="{{ $efact['api_url'] ?? '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Token</label>
+                        <input type="password" name="provider_credentials[efact][api_token]" class="form-control" value="{{ $efact['api_token'] ?? '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <button class="btn btn-primary rounded-pill px-4">Guardar configuración</button>
+            </div>
+        </form>
+
+        <form method="POST" action="{{ route('admin.billing.settings.test-connection') }}" class="mb-3">
+            @csrf
+            <button class="btn btn-light border rounded-pill px-4">Probar conexión del proveedor activo</button>
+        </form>
+
+        <div class="alert alert-info">
+            <strong>Nota:</strong> para usar Greenter en emisión real, instala la dependencia con <code>composer require greenter/greenter</code>.
+        </div>
+    </div>
+</div>
+@endsection

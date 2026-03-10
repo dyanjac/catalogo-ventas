@@ -4,5 +4,6 @@
     "Orders": true,
     "Core": true,
     "AdminTheme": true,
-    "Accounting": true
+    "Accounting": true,
+    "Billing": true
 }

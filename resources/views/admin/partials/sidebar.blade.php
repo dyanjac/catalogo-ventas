@@ -68,6 +68,30 @@
                         </li>
                     </ul>
                 </li>
+                <li class="nav-header">FACTURACION ELECTRONICA</li>
+                <li class="nav-item {{ request()->routeIs('admin.billing.*') ? 'menu-open' : '' }}">
+                    <a href="#" class="nav-link {{ request()->routeIs('admin.billing.*') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-file-invoice-dollar"></i>
+                        <p>
+                            Facturacion electronica
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="{{ route('admin.billing.documents.index') }}" class="nav-link {{ request()->routeIs('admin.billing.documents.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Docs electronicos</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.billing.settings.edit') }}" class="nav-link {{ request()->routeIs('admin.billing.settings.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Config. facturacion</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="nav-item">
                     <a href="{{ route('admin.customers.index') }}" class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
                         <i class="nav-icon fas fa-users"></i>
