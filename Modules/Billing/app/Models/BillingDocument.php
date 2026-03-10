@@ -55,6 +55,11 @@ class BillingDocument extends Model
         return $this->hasMany(BillingDocumentFile::class, 'billing_document_id');
     }
 
+    public function responseHistories(): HasMany
+    {
+        return $this->hasMany(BillingDocumentResponseHistory::class, 'billing_document_id');
+    }
+
     public function xmlFile(): ?BillingDocumentFile
     {
         return $this->files->firstWhere('file_type', 'xml')

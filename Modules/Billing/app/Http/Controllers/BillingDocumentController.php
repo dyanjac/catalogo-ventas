@@ -5,10 +5,12 @@ namespace Modules\Billing\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\SimplePdfBuilder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Billing\Services\ElectronicBillingService;
 
 class BillingDocumentController extends Controller
 {
@@ -49,6 +51,38 @@ class BillingDocumentController extends Controller
             'providers' => config('billing.providers', []),
             'statuses' => ['draft', 'queued', 'issued', 'accepted', 'rejected', 'voided', 'error'],
         ]);
+    }
+
+    public function show(BillingDocument $document): View
+    {
+        $document->load([
+            'order.items.product',
+            'files',
+            'responseHistories' => fn ($query) => $query->latest('id'),
+        ]);
+
+        return view('billing::documents.show', [
+            'document' => $document,
+        ]);
+    }
+
+    public function redeclare(BillingDocument $document, ElectronicBillingService $electronicBilling): RedirectResponse
+    {
+        $payload = is_array($document->request_payload) ? $document->request_payload : [];
+
+        if ($payload === [] || ! isset($payload['items']) || ! is_array($payload['items'])) {
+            return back()->withErrors([
+                'billing' => 'El comprobante no tiene payload válido para re-declarar al proveedor.',
+            ]);
+        }
+
+        $result = $electronicBilling->issue($document, $payload);
+
+        if (! (bool) ($result['ok'] ?? false)) {
+            return back()->with('warning', 'Re-declaración enviada con error: '.($result['message'] ?? 'Error no especificado.'));
+        }
+
+        return back()->with('success', 'Re-declaración enviada correctamente al proveedor configurado.');
     }
 
     public function downloadXml(BillingDocument $document)

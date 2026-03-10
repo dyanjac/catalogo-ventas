@@ -14,6 +14,8 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
 
     Route::get('admin/accounting/accounts', [AccountingAccountController::class, 'index'])->name('admin.accounting.accounts.index');
     Route::post('admin/accounting/accounts', [AccountingAccountController::class, 'store'])->name('admin.accounting.accounts.store');
+    Route::post('admin/accounting/accounts/setup-default-sales-chart', [AccountingAccountController::class, 'setupDefaultSalesChart'])->name('admin.accounting.accounts.setup-default-sales-chart');
+    Route::delete('admin/accounting/accounts/reset-chart', [AccountingAccountController::class, 'resetChart'])->name('admin.accounting.accounts.reset-chart');
     Route::put('admin/accounting/accounts/{account}', [AccountingAccountController::class, 'update'])->name('admin.accounting.accounts.update');
 
     Route::get('admin/accounting/periods', [AccountingPeriodController::class, 'index'])->name('admin.accounting.periods.index');

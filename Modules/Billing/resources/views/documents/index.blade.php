@@ -90,6 +90,15 @@
                                 <td class="text-end">{{ number_format((float) $document->total, 2) }} {{ $document->currency }}</td>
                                 <td><span class="badge bg-secondary">{{ strtoupper($document->status) }}</span></td>
                                 <td class="text-end">
+                                    <form method="POST" action="{{ route('admin.billing.documents.redeclare', $document) }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-warning border" title="Re-declarar al proveedor" onclick="return confirm('¿Re-declarar este comprobante al proveedor configurado?')">
+                                            <i class="fas fa-rotate-right"></i>
+                                        </button>
+                                    </form>
+                                    <a href="{{ route('admin.billing.documents.show', $document) }}" class="btn btn-sm btn-light border" title="Ver detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
                                     <a href="{{ $hasXml ? route('admin.billing.documents.download.xml', $document) : '#' }}" class="btn btn-sm btn-light border {{ $hasXml ? '' : 'disabled' }}" title="Descargar XML">
                                         <i class="fas fa-file-code"></i>
                                     </a>

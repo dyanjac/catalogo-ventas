@@ -5,7 +5,21 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <x-admin.page-header title="Plan de cuentas" />
+        <x-admin.page-header title="Plan de cuentas">
+            <x-slot:actions>
+                <div class="d-flex gap-2">
+                    <form method="POST" action="{{ route('admin.accounting.accounts.setup-default-sales-chart') }}">
+                        @csrf
+                        <button class="btn btn-light border rounded-pill px-4">Configurar plan mínimo de ventas</button>
+                    </form>
+                    <form method="POST" action="{{ route('admin.accounting.accounts.reset-chart') }}" onsubmit="return confirm('Se eliminarán todas las cuentas contables y su configuración en productos. ¿Deseas continuar?');">
+                        @csrf
+                        @method('DELETE')
+                        <button class="btn btn-danger rounded-pill px-4">Eliminar plan contable</button>
+                    </form>
+                </div>
+            </x-slot:actions>
+        </x-admin.page-header>
 
         <div class="card border border-secondary rounded-3 mb-4">
             <div class="card-body">
@@ -65,6 +79,11 @@
                             <input class="form-check-input" type="checkbox" id="is_default_tax" name="is_default_tax" value="1">
                             <label class="form-check-label" for="is_default_tax">Defecto impuesto</label>
                         </div>
+                        <div class="form-check">
+                            <input type="hidden" name="is_default_receivable" value="0">
+                            <input class="form-check-input" type="checkbox" id="is_default_receivable" name="is_default_receivable" value="1">
+                            <label class="form-check-label" for="is_default_receivable">Defecto cta. cobrar</label>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -118,6 +137,7 @@
                                         <input type="hidden" name="is_default_sales" value="{{ $account->is_default_sales ? 1 : 0 }}">
                                         <input type="hidden" name="is_default_purchase" value="{{ $account->is_default_purchase ? 1 : 0 }}">
                                         <input type="hidden" name="is_default_tax" value="{{ $account->is_default_tax ? 1 : 0 }}">
+                                        <input type="hidden" name="is_default_receivable" value="{{ $account->is_default_receivable ? 1 : 0 }}">
                                         <button class="btn btn-sm btn-primary rounded-pill px-3">Guardar</button>
                                     </td>
                                 </form>

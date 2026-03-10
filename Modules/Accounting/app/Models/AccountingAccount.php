@@ -18,6 +18,7 @@ class AccountingAccount extends Model
         'is_default_sales',
         'is_default_purchase',
         'is_default_tax',
+        'is_default_receivable',
     ];
 
     protected $casts = [
@@ -25,6 +26,7 @@ class AccountingAccount extends Model
         'is_default_sales' => 'boolean',
         'is_default_purchase' => 'boolean',
         'is_default_tax' => 'boolean',
+        'is_default_receivable' => 'boolean',
     ];
 
     public function parent(): BelongsTo

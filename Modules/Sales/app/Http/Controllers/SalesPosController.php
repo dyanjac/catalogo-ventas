@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\ElectronicBillingService;
@@ -32,7 +33,11 @@ class SalesPosController extends Controller
         ]);
     }
 
-    public function store(Request $request, ElectronicBillingService $electronicBilling): RedirectResponse
+    public function store(
+        Request $request,
+        ElectronicBillingService $electronicBilling,
+        SalesAccountingService $salesAccounting
+    ): RedirectResponse
     {
         $data = $request->validate([
             'document_type' => ['required', 'in:order,boleta,factura'],
@@ -216,7 +221,12 @@ class SalesPosController extends Controller
                     return back()->with('warning', 'Venta registrada, pero la emisión electrónica quedó pendiente: '.($billingResult['message'] ?? 'Error no especificado.'));
                 }
 
-                return back()->with('success', 'Venta y comprobante electrónico emitidos correctamente.');
+                $accounting = $salesAccounting->postIssuedSale($createdOrder, $createdBillingDocument);
+                if (! $accounting['created']) {
+                    return back()->with('warning', 'Venta y comprobante emitidos. Asiento contable no generado: ' . $accounting['message']);
+                }
+
+                return back()->with('success', 'Venta, comprobante y asiento contable generados correctamente.');
             } catch (Throwable $e) {
                 report($e);
 

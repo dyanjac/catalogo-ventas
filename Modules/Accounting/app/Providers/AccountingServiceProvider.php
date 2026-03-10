@@ -5,6 +5,7 @@ namespace Modules\Accounting\Providers;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Modules\Accounting\Services\AccountingAuditService;
+use Modules\Accounting\Services\SalesAccountingService;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -36,6 +37,7 @@ class AccountingServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AccountingAuditService::class);
+        $this->app->singleton(SalesAccountingService::class);
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }
