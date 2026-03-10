@@ -74,10 +74,12 @@ class GreenterBillingProvider extends AbstractBillingProvider
             $primaryUblVersion = $this->resolveUblVersion($setting);
             $response = $this->issueWithUblVersion($setting, $payload, $test, $primaryUblVersion);
             $response['ubl_version'] = $primaryUblVersion;
+            $response['ubl_strict_21'] = $this->strictUbl21Enabled();
 
             $statusCode = isset($response['status_code']) ? (int) $response['status_code'] : null;
             $mustFallbackTo20 = $setting->environment === 'sandbox'
                 && $primaryUblVersion === '2.1'
+                && ! $this->strictUbl21Enabled()
                 && ! (bool) ($response['ok'] ?? false)
                 && in_array($statusCode, [3206, 3244], true);
 
@@ -458,6 +460,10 @@ class GreenterBillingProvider extends AbstractBillingProvider
 
     private function resolveUblVersion(BillingSetting $setting): string
     {
+        if ($this->strictUbl21Enabled()) {
+            return '2.1';
+        }
+
         $raw = (array) ($setting->provider_credentials['greenter'] ?? []);
         $defaultVersion = $setting->environment === 'sandbox' ? '2.0' : '2.1';
         $value = trim((string) ($raw['ubl_version'] ?? ''));
@@ -552,6 +558,16 @@ class GreenterBillingProvider extends AbstractBillingProvider
         }
 
         return '';
+    }
+
+    private function strictUbl21Enabled(): bool
+    {
+        $value = env('GREENTER_STRICT_UBL_21', false);
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
 
     private function resolveCertificateForSigning(string $absolutePath, string $password): string
