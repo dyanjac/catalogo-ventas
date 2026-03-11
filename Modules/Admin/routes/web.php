@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\CategoryController as AdminCategoryController;
 use Modules\Admin\Http\Controllers\CustomerController as AdminCustomerController;
@@ -10,6 +9,7 @@ use Modules\Admin\Http\Controllers\ProductController as AdminProductController;
 use Modules\Admin\Http\Controllers\ProductImageController as AdminProductImageController;
 use Modules\Admin\Http\Controllers\UnitMeasureController as AdminUnitMeasureController;
 use Modules\Commerce\Http\Controllers\CommerceSettingController as CommerceSettingAdminController;
+use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::get('admin', AdminDashboardController::class)->name('admin.dashboard');

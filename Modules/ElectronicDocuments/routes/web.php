@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
+use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 use Modules\ElectronicDocuments\Http\Controllers\DocumentTemplateController;
 use Modules\ElectronicDocuments\Http\Controllers\InvoicePdfController;
 
@@ -26,4 +26,3 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::get('admin/electronic-documents/pdf/{serieNumero}', [InvoicePdfController::class, 'generate'])
         ->name('admin.electronic-documents.pdf.generate');
 });
-

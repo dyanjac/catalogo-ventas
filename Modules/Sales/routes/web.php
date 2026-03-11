@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
+use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 use Modules\Sales\Http\Controllers\SalesPosController;
 
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {

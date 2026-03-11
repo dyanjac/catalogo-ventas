@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
 use Modules\Accounting\Http\Controllers\AccountingAccountController;
 use Modules\Accounting\Http\Controllers\AccountingEntryController;
 use Modules\Accounting\Http\Controllers\AccountingPeriodController;
 use Modules\Accounting\Http\Controllers\AccountingSettingsController;
 use Modules\Accounting\Http\Controllers\CostCenterController;
+use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::get('admin/accounting/settings', [AccountingSettingsController::class, 'edit'])->name('admin.accounting.settings.edit');

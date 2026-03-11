@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use App\Services\CommerceSettingsService;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Modules\Commerce\Services\CommerceSettingsService;
 
 class AppServiceProvider extends ServiceProvider
 {

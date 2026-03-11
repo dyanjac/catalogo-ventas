@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Support\Facades\Route;
 use Modules\Billing\Http\Controllers\BillingDocumentController;
 use Modules\Billing\Http\Controllers\BillingSettingsController;
+use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::get('admin/billing/settings', [BillingSettingsController::class, 'edit'])->name('admin.billing.settings.edit');
