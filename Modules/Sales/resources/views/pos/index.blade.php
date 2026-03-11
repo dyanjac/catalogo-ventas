@@ -4,6 +4,16 @@
 
 @php
     $selectedDocumentType = old('document_type', 'order');
+    $productIndex = $products->map(function ($product) {
+        return [
+            'id' => (int) $product->id,
+            'name' => (string) $product->name,
+            'sku' => (string) ($product->sku ?: 'SIN-SKU'),
+            'stock' => (int) $product->stock,
+            'price' => round((float) ($product->sale_price ?? $product->price ?? 0), 2),
+            'label' => (string) ($product->name . ' (' . ($product->sku ?: 'SIN-SKU') . ')'),
+        ];
+    })->values();
 @endphp
 
 @section('content')
@@ -162,6 +172,30 @@
                         </div>
                     </div>
                     <div class="card-body p-3 p-md-4 pt-3">
+                        <div class="sales-product-picker mb-4">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-lg-8">
+                                    <label class="form-label">Buscar producto</label>
+                                    <input type="text"
+                                           id="product-search"
+                                           class="form-control"
+                                           list="sales-product-options"
+                                           placeholder="Escribe nombre o SKU para agregar rápido">
+                                    <datalist id="sales-product-options">
+                                        @foreach($products as $product)
+                                            <option value="{{ $product->name }} ({{ $product->sku ?: 'SIN-SKU' }})" data-product-id="{{ $product->id }}"></option>
+                                        @endforeach
+                                    </datalist>
+                                </div>
+                                <div class="col-lg-4">
+                                    <button type="button" class="btn btn-light border rounded-pill px-4 w-100" id="add-item-by-search">
+                                        <i class="fas fa-magnifying-glass mr-1"></i> Agregar producto buscado
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-2">Tip: busca por nombre o SKU y presiona Enter para agregar el producto al detalle.</small>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table align-middle sales-items-table" id="items-table">
                                 <thead>
@@ -345,6 +379,13 @@
         border-top: 0;
     }
 
+    .sales-product-picker {
+        padding: 1rem;
+        border: 1px solid #e4e9ef;
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
+    }
+
     .sales-pos-summary-card {
         position: sticky;
         top: 1rem;
@@ -432,6 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.querySelector('.sales-pos-form');
     const tableBody = document.querySelector('#items-table tbody');
     const addBtn = document.getElementById('add-item');
+    const addBySearchBtn = document.getElementById('add-item-by-search');
+    const productSearchInput = document.getElementById('product-search');
     const documentTypeInput = document.getElementById('document_type');
     const documentButtons = document.querySelectorAll('[data-doc-type]');
     const paymentMethod = document.getElementById('payment_method');
@@ -443,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customerDocumentType = document.getElementById('customer_document_type');
     const customerDocumentNumber = document.getElementById('customer_document_number');
     let index = 1;
+    const productIndex = @json($productIndex);
 
     const summary = {
         title: document.getElementById('summary-document-title'),
@@ -563,6 +607,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function createFreshRow() {
+        const row = tableBody.querySelector('.item-row').cloneNode(true);
+
+        row.querySelectorAll('select,input').forEach((input) => {
+            input.name = input.name.replace(/\[\d+\]/, '[' + index + ']');
+        });
+
+        row.querySelector('.product-select').value = '';
+        row.querySelector('.qty-input').value = '1';
+        row.querySelector('.price-input').value = '0';
+        row.querySelector('.stock-cell').textContent = '0';
+        row.querySelector('.subtotal-cell').textContent = '0.00';
+
+        tableBody.appendChild(row);
+        bindRow(row);
+        index++;
+
+        return row;
+    }
+
+    function findProductBySearch(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+
+        if (!normalized) {
+            return null;
+        }
+
+        return productIndex.find((product) => {
+            return product.label.toLowerCase() === normalized
+                || product.name.toLowerCase() === normalized
+                || product.sku.toLowerCase() === normalized;
+        }) || null;
+    }
+
+    function addProductFromSearch() {
+        const product = findProductBySearch(productSearchInput.value);
+        if (!product) {
+            productSearchInput.focus();
+            return;
+        }
+
+        const row = createFreshRow();
+        row.querySelector('.product-select').value = String(product.id);
+        row.querySelector('.qty-input').value = '1';
+        row.querySelector('.price-input').value = Number(product.price || 0).toFixed(2);
+        updateRow(row);
+        updateSummary();
+
+        productSearchInput.value = '';
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     documentButtons.forEach((button) => {
         button.addEventListener('click', () => {
             documentTypeInput.value = button.dataset.docType;
@@ -578,22 +674,16 @@ document.addEventListener('DOMContentLoaded', () => {
     bindRow(tableBody.querySelector('.item-row'));
 
     addBtn.addEventListener('click', () => {
-        const row = tableBody.querySelector('.item-row').cloneNode(true);
-
-        row.querySelectorAll('select,input').forEach((input) => {
-            input.name = input.name.replace(/\[\d+\]/, '[' + index + ']');
-        });
-
-        row.querySelector('.product-select').value = '';
-        row.querySelector('.qty-input').value = '1';
-        row.querySelector('.price-input').value = '0';
-        row.querySelector('.stock-cell').textContent = '0';
-        row.querySelector('.subtotal-cell').textContent = '0.00';
-
-        tableBody.appendChild(row);
-        bindRow(row);
+        createFreshRow();
         updateSummary();
-        index++;
+    });
+
+    addBySearchBtn.addEventListener('click', addProductFromSearch);
+    productSearchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addProductFromSearch();
+        }
     });
 
     form.addEventListener('submit', updateSummary);
