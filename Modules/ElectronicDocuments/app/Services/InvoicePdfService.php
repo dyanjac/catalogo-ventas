@@ -9,8 +9,10 @@ use DOMDocument;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Modules\AdminTheme\Services\AdminThemePaletteService;
 use Modules\ElectronicDocuments\Models\DocumentTemplate;
 use RuntimeException;
+use Throwable;
 use XSLTProcessor;
 
 class InvoicePdfService
@@ -211,6 +213,8 @@ class InvoicePdfService
             'company_logo_file_uri' => '',
         ];
 
+        $params = array_merge($params, $this->resolvePaletteParameters());
+
         if (! Schema::hasTable('commerce_settings')) {
             return $params;
         }
@@ -228,6 +232,38 @@ class InvoicePdfService
         $params['company_logo_url'] = asset('storage/'.$logoPath);
         $params['company_logo_data_uri'] = 'data:'.$mimeType.';base64,'.base64_encode($content);
         $params['company_logo_file_uri'] = 'file:///'.str_replace('\\', '/', $absolutePath);
+
+        return $params;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function resolvePaletteParameters(): array
+    {
+        $defaults = (array) config('admintheme.defaults', []);
+        $palette = $defaults;
+
+        if (class_exists(AdminThemePaletteService::class)) {
+            try {
+                $resolved = app(AdminThemePaletteService::class)->getPalette();
+                if (is_array($resolved)) {
+                    $palette = array_merge($defaults, $resolved);
+                }
+            } catch (Throwable) {
+                $palette = $defaults;
+            }
+        }
+
+        $params = [];
+        foreach ($palette as $key => $value) {
+            $params['palette_'.$key] = (string) $value;
+        }
+
+        $params['palette_primary'] = (string) ($palette['primary_button'] ?? '#000000');
+        $params['palette_primary_hover'] = (string) ($palette['primary_button_hover'] ?? $params['palette_primary']);
+        $params['palette_text'] = (string) ($palette['topbar_text'] ?? '#1f2d3d');
+        $params['palette_border'] = (string) ($palette['card_border'] ?? '#dddddd');
 
         return $params;
     }

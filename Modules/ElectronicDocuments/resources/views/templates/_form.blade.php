@@ -35,7 +35,19 @@
             <code>$company_address</code>,
             <code>$company_phone</code>,
             <code>$company_mobile</code>,
-            <code>$company_email</code>.
+            <code>$company_email</code>,
+            <code>$palette_primary</code>,
+            <code>$palette_primary_hover</code>,
+            <code>$palette_text</code>,
+            <code>$palette_border</code>,
+            <code>$palette_sidebar_bg</code>,
+            <code>$palette_sidebar_gradient_to</code>,
+            <code>$palette_sidebar_text</code>,
+            <code>$palette_topbar_bg</code>,
+            <code>$palette_topbar_text</code>,
+            <code>$palette_active_link_bg</code>,
+            <code>$palette_active_link_text</code>,
+            <code>$palette_focus_ring</code>.
         </div>
         <div class="form-text">
             Ejemplo: <code>&lt;xsl:param name="company_logo_data_uri"/&gt;</code> y
