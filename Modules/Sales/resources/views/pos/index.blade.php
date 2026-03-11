@@ -2,159 +2,482 @@
 
 @section('title', 'Punto de venta')
 
+@php
+    $selectedDocumentType = old('document_type', 'order');
+@endphp
+
 @section('content')
-<div class="py-2">
-    <div class="container-fluid">
-        <x-admin.page-header title="Punto de venta (POS)">
-            <x-slot:actions>
-                <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver docs electrónicos</a>
-            </x-slot:actions>
-        </x-admin.page-header>
+<div class="sales-pos-page py-2">
+    <x-admin.page-header title="Punto de venta (POS)">
+        <x-slot:actions>
+            <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver docs electrónicos</a>
+        </x-slot:actions>
+    </x-admin.page-header>
 
-        <form method="POST" action="{{ route('admin.sales.pos.store') }}" class="card border border-secondary rounded-3">
-            @csrf
-            <div class="card-body">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Tipo operación</label>
-                        <select name="document_type" class="form-select" required>
-                            <option value="order" @selected(old('document_type', 'order') === 'order')>Pedido POS</option>
-                            <option value="boleta" @selected(old('document_type') === 'boleta')>Boleta electrónica</option>
-                            <option value="factura" @selected(old('document_type') === 'factura')>Factura electrónica</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Moneda</label>
-                        <select name="currency" class="form-select" required>
-                            <option value="PEN" @selected(old('currency', $defaultCurrency) === 'PEN')>PEN</option>
-                            <option value="USD" @selected(old('currency', $defaultCurrency) === 'USD')>USD</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Método pago</label>
-                        <select name="payment_method" class="form-select" required>
-                            <option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Efectivo</option>
-                            <option value="transfer" @selected(old('payment_method') === 'transfer')>Transferencia</option>
-                            <option value="card" @selected(old('payment_method') === 'card')>Tarjeta</option>
-                            <option value="yape" @selected(old('payment_method') === 'yape')>Yape</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Estado pago</label>
-                        <select name="payment_status" class="form-select" required>
-                            <option value="pending" @selected(old('payment_status', 'pending') === 'pending')>Pendiente</option>
-                            <option value="paid" @selected(old('payment_status') === 'paid')>Pagado</option>
-                            <option value="failed" @selected(old('payment_status') === 'failed')>Fallido</option>
-                            <option value="refunded" @selected(old('payment_status') === 'refunded')>Reembolsado</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">IGV (%)</label>
-                        <input type="number" step="0.0001" min="0" max="1" name="tax_rate" class="form-control" value="{{ old('tax_rate', $defaultTaxRate) }}">
+    <form method="POST" action="{{ route('admin.sales.pos.store') }}" class="sales-pos-form">
+        @csrf
+
+        <div class="row g-4">
+            <div class="col-xl-8">
+                <div class="card border-0 sales-pos-card mb-4">
+                    <div class="card-body p-3 p-md-4">
+                        <div class="sales-pos-hero">
+                            <div>
+                                <div class="sales-pos-eyebrow">Emisión rápida</div>
+                                <h3 class="sales-pos-title mb-1">Crea un pedido, boleta o factura en una sola pantalla</h3>
+                                <p class="text-muted mb-0">Define el tipo de comprobante, agrega cliente e ítems, y valida el total antes de emitir.</p>
+                            </div>
+                            <div class="sales-pos-doc-switch">
+                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'order' ? 'is-active' : '' }}" data-doc-type="order">
+                                    <span class="sales-doc-chip__title">Pedido POS</span>
+                                    <span class="sales-doc-chip__meta">Sin emisión electrónica</span>
+                                </button>
+                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'boleta' ? 'is-active' : '' }}" data-doc-type="boleta">
+                                    <span class="sales-doc-chip__title">Boleta</span>
+                                    <span class="sales-doc-chip__meta">Cliente con documento</span>
+                                </button>
+                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'factura' ? 'is-active' : '' }}" data-doc-type="factura">
+                                    <span class="sales-doc-chip__title">Factura</span>
+                                    <span class="sales-doc-chip__meta">Cliente con RUC</span>
+                                </button>
+                            </div>
+                            <select name="document_type" id="document_type" class="d-none" required>
+                                <option value="order" @selected($selectedDocumentType === 'order')>Pedido POS</option>
+                                <option value="boleta" @selected($selectedDocumentType === 'boleta')>Boleta electrónica</option>
+                                <option value="factura" @selected($selectedDocumentType === 'factura')>Factura electrónica</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <div class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Cliente</label>
-                        <input type="text" name="customer[name]" class="form-control" value="{{ old('customer.name') }}" required>
+                <div class="card border-0 sales-pos-card mb-4">
+                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
+                        <div>
+                            <h4 class="mb-1">Condiciones de venta</h4>
+                            <p class="text-muted mb-0">Configura moneda, pago e impuesto antes de registrar los ítems.</p>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Dirección</label>
-                        <input type="text" name="customer[address]" class="form-control" value="{{ old('customer.address') }}" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Ciudad</label>
-                        <input type="text" name="customer[city]" class="form-control" value="{{ old('customer.city') }}" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Teléfono</label>
-                        <input type="text" name="customer[phone]" class="form-control" value="{{ old('customer.phone') }}" required>
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label">Doc. tipo</label>
-                        <select name="customer[document_type]" class="form-select">
-                            <option value="">-</option>
-                            <option value="DNI" @selected(old('customer.document_type') === 'DNI')>DNI</option>
-                            <option value="RUC" @selected(old('customer.document_type') === 'RUC')>RUC</option>
-                            <option value="CE" @selected(old('customer.document_type') === 'CE')>CE</option>
-                            <option value="PAS" @selected(old('customer.document_type') === 'PAS')>PAS</option>
-                        </select>
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label">Doc. nro</label>
-                        <input type="text" name="customer[document_number]" class="form-control" value="{{ old('customer.document_number') }}">
+                    <div class="card-body p-3 p-md-4 pt-3">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Moneda</label>
+                                <select name="currency" class="form-select" required>
+                                    <option value="PEN" @selected(old('currency', $defaultCurrency) === 'PEN')>PEN</option>
+                                    <option value="USD" @selected(old('currency', $defaultCurrency) === 'USD')>USD</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Método pago</label>
+                                <select name="payment_method" id="payment_method" class="form-select" required>
+                                    <option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Efectivo</option>
+                                    <option value="transfer" @selected(old('payment_method') === 'transfer')>Transferencia</option>
+                                    <option value="card" @selected(old('payment_method') === 'card')>Tarjeta</option>
+                                    <option value="yape" @selected(old('payment_method') === 'yape')>Yape</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Estado pago</label>
+                                <select name="payment_status" id="payment_status" class="form-select" required>
+                                    <option value="pending" @selected(old('payment_status', 'pending') === 'pending')>Pendiente</option>
+                                    <option value="paid" @selected(old('payment_status') === 'paid')>Pagado</option>
+                                    <option value="failed" @selected(old('payment_status') === 'failed')>Fallido</option>
+                                    <option value="refunded" @selected(old('payment_status') === 'refunded')>Reembolsado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">IGV (%)</label>
+                                <input type="number" step="0.0001" min="0" max="1" name="tax_rate" id="tax_rate" class="form-control" value="{{ old('tax_rate', $defaultTaxRate) }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Descuento</label>
+                                <input type="number" step="0.01" min="0" name="discount" id="discount" class="form-control" value="{{ old('discount', 0) }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Envío</label>
+                                <input type="number" step="0.01" min="0" name="shipping" id="shipping" class="form-control" value="{{ old('shipping', 0) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Observaciones</label>
+                                <input type="text" name="observations" class="form-control" value="{{ old('observations') }}" placeholder="Notas rápidas para la venta">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="row g-3 mb-3">
-                    <div class="col-md-2">
-                        <label class="form-label">Descuento</label>
-                        <input type="number" step="0.01" min="0" name="discount" class="form-control" value="{{ old('discount', 0) }}">
+                <div class="card border-0 sales-pos-card mb-4">
+                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
+                        <div>
+                            <h4 class="mb-1">Cliente</h4>
+                            <p class="text-muted mb-0" id="customer-help">
+                                Para pedidos POS solo se requieren datos básicos. Para boleta o factura completa también el documento.
+                            </p>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Envío</label>
-                        <input type="number" step="0.01" min="0" name="shipping" class="form-control" value="{{ old('shipping', 0) }}">
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label">Observaciones</label>
-                        <input type="text" name="observations" class="form-control" value="{{ old('observations') }}">
+                    <div class="card-body p-3 p-md-4 pt-3">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Cliente</label>
+                                <input type="text" name="customer[name]" class="form-control" value="{{ old('customer.name') }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Dirección</label>
+                                <input type="text" name="customer[address]" class="form-control" value="{{ old('customer.address') }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Ciudad</label>
+                                <input type="text" name="customer[city]" class="form-control" value="{{ old('customer.city') }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" name="customer[phone]" class="form-control" value="{{ old('customer.phone') }}" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Doc. tipo</label>
+                                <select name="customer[document_type]" id="customer_document_type" class="form-select">
+                                    <option value="">-</option>
+                                    <option value="DNI" @selected(old('customer.document_type') === 'DNI')>DNI</option>
+                                    <option value="RUC" @selected(old('customer.document_type') === 'RUC')>RUC</option>
+                                    <option value="CE" @selected(old('customer.document_type') === 'CE')>CE</option>
+                                    <option value="PAS" @selected(old('customer.document_type') === 'PAS')>PAS</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Doc. nro</label>
+                                <input type="text" name="customer[document_number]" id="customer_document_number" class="form-control" value="{{ old('customer.document_number') }}">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0">Ítems de venta</h5>
-                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" id="add-item">Agregar ítem</button>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table align-middle" id="items-table">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-end">Stock</th>
-                                <th class="text-end">Cantidad</th>
-                                <th class="text-end">Precio unit.</th>
-                                <th class="text-end">Subtotal</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="item-row">
-                                <td>
-                                    <select name="items[0][product_id]" class="form-select product-select" required>
-                                        <option value="">Seleccionar...</option>
-                                        @foreach($products as $product)
-                                            <option value="{{ $product->id }}" data-price="{{ (float) ($product->sale_price ?? $product->price ?? 0) }}" data-stock="{{ (int) $product->stock }}">
-                                                {{ $product->name }} ({{ $product->sku ?: 'SIN-SKU' }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td class="text-end stock-cell">0</td>
-                                <td><input type="number" min="1" name="items[0][quantity]" class="form-control text-end qty-input" value="1" required></td>
-                                <td><input type="number" min="0" step="0.01" name="items[0][unit_price]" class="form-control text-end price-input" value="0" required></td>
-                                <td class="text-end subtotal-cell">0.00</td>
-                                <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-item">Quitar</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="card border-0 sales-pos-card">
+                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
+                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                            <div>
+                                <h4 class="mb-1">Ítems de venta</h4>
+                                <p class="text-muted mb-0">Agrega productos, valida stock y corrige precio sin salir del POS.</p>
+                            </div>
+                            <button type="button" class="btn btn-primary rounded-pill px-4" id="add-item">
+                                <i class="fas fa-plus mr-1"></i> Agregar ítem
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-3 p-md-4 pt-3">
+                        <div class="table-responsive">
+                            <table class="table align-middle sales-items-table" id="items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-end">Stock</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th class="text-end">Precio unit.</th>
+                                        <th class="text-end">Subtotal</th>
+                                        <th style="width: 90px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="item-row">
+                                        <td>
+                                            <select name="items[0][product_id]" class="form-select product-select" required>
+                                                <option value="">Seleccionar...</option>
+                                                @foreach($products as $product)
+                                                    <option value="{{ $product->id }}" data-price="{{ (float) ($product->sale_price ?? $product->price ?? 0) }}" data-stock="{{ (int) $product->stock }}">
+                                                        {{ $product->name }} ({{ $product->sku ?: 'SIN-SKU' }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td class="text-end stock-cell">0</td>
+                                        <td>
+                                            <input type="number" min="1" name="items[0][quantity]" class="form-control text-end qty-input" value="1" required>
+                                        </td>
+                                        <td>
+                                            <input type="number" min="0" step="0.01" name="items[0][unit_price]" class="form-control text-end price-input" value="0" required>
+                                        </td>
+                                        <td class="text-end subtotal-cell">0.00</td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill remove-item">Quitar</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card-footer d-flex gap-2">
-                <button class="btn btn-primary rounded-pill px-4">Registrar venta</button>
+
+            <div class="col-xl-4">
+                <div class="card border-0 sales-pos-card sales-pos-summary-card">
+                    <div class="card-body p-3 p-md-4">
+                        <div class="sales-pos-summary-head mb-3">
+                            <div class="sales-pos-eyebrow">Resumen de emisión</div>
+                            <h4 class="mb-1" id="summary-document-title">Pedido POS</h4>
+                            <p class="text-muted mb-0" id="summary-document-meta">Venta rápida sin comprobante electrónico.</p>
+                        </div>
+
+                        <div class="sales-summary-metrics mb-3">
+                            <div class="sales-summary-metric">
+                                <span>Ítems</span>
+                                <strong id="summary-items-count">1</strong>
+                            </div>
+                            <div class="sales-summary-metric">
+                                <span>Pago</span>
+                                <strong id="summary-payment-method">Efectivo</strong>
+                            </div>
+                            <div class="sales-summary-metric">
+                                <span>Estado</span>
+                                <strong id="summary-payment-status">Pendiente</strong>
+                            </div>
+                        </div>
+
+                        <div class="sales-summary-totals">
+                            <div class="sales-summary-line">
+                                <span>Subtotal</span>
+                                <strong id="summary-subtotal">0.00</strong>
+                            </div>
+                            <div class="sales-summary-line">
+                                <span>Descuento</span>
+                                <strong id="summary-discount">0.00</strong>
+                            </div>
+                            <div class="sales-summary-line">
+                                <span>Envío</span>
+                                <strong id="summary-shipping">0.00</strong>
+                            </div>
+                            <div class="sales-summary-line">
+                                <span>IGV</span>
+                                <strong id="summary-tax">0.00</strong>
+                            </div>
+                            <div class="sales-summary-total">
+                                <span>Total</span>
+                                <strong id="summary-total">0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="sales-summary-footer mt-4">
+                            <button class="btn btn-primary btn-lg rounded-pill btn-block">Registrar venta</button>
+                            <small class="d-block text-muted mt-2">Antes de emitir factura o boleta, verifica documento del cliente y totales.</small>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
 @endsection
+
+@push('styles')
+<style>
+    .sales-pos-card {
+        border: 1px solid var(--admin-card-border) !important;
+        border-radius: 1rem;
+        box-shadow: 0 12px 24px rgba(31, 45, 61, .05);
+        background: #fff;
+    }
+
+    .sales-pos-hero {
+        display: grid;
+        gap: 1.25rem;
+    }
+
+    .sales-pos-eyebrow {
+        display: inline-block;
+        font-size: .78rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--admin-primary-button);
+    }
+
+    .sales-pos-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #17283a;
+    }
+
+    .sales-pos-doc-switch {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .75rem;
+    }
+
+    .sales-doc-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .2rem;
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #dfe5ec;
+        border-radius: 1rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+        text-align: left;
+        transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+
+    .sales-doc-chip:hover {
+        transform: translateY(-1px);
+        border-color: var(--admin-primary-button);
+    }
+
+    .sales-doc-chip.is-active {
+        border-color: var(--admin-primary-button);
+        box-shadow: inset 0 0 0 1px var(--admin-primary-button), 0 10px 20px rgba(31, 45, 61, .06);
+        background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(247,249,252,1) 60%, color-mix(in srgb, var(--admin-primary-button) 10%, white) 100%);
+    }
+
+    .sales-doc-chip__title {
+        font-weight: 700;
+        color: #17283a;
+    }
+
+    .sales-doc-chip__meta {
+        font-size: .85rem;
+        color: #6c7a89;
+    }
+
+    .sales-pos-section-header h4 {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #17283a;
+    }
+
+    .sales-items-table thead th {
+        background: #f8f9fb;
+        border-top: 0;
+    }
+
+    .sales-pos-summary-card {
+        position: sticky;
+        top: 1rem;
+        overflow: hidden;
+    }
+
+    .sales-pos-summary-card .card-body {
+        background:
+            radial-gradient(circle at top right, color-mix(in srgb, var(--admin-primary-button) 14%, white) 0, transparent 36%),
+            linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    }
+
+    .sales-summary-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .75rem;
+    }
+
+    .sales-summary-metric {
+        padding: .85rem;
+        border-radius: .9rem;
+        background: #f7f9fc;
+        border: 1px solid #e4e9ef;
+    }
+
+    .sales-summary-metric span {
+        display: block;
+        font-size: .8rem;
+        color: #6c7a89;
+    }
+
+    .sales-summary-metric strong {
+        display: block;
+        margin-top: .25rem;
+        font-size: .98rem;
+        color: #17283a;
+    }
+
+    .sales-summary-totals {
+        border: 1px solid #e4e9ef;
+        border-radius: 1rem;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .sales-summary-line,
+    .sales-summary-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: .9rem 1rem;
+    }
+
+    .sales-summary-line + .sales-summary-line,
+    .sales-summary-line + .sales-summary-total {
+        border-top: 1px solid #edf1f5;
+    }
+
+    .sales-summary-total {
+        background: color-mix(in srgb, var(--admin-primary-button) 10%, white);
+        font-size: 1.02rem;
+    }
+
+    .sales-summary-total strong {
+        font-size: 1.3rem;
+        color: #17283a;
+    }
+
+    @media (max-width: 991.98px) {
+        .sales-pos-doc-switch,
+        .sales-summary-metrics {
+            grid-template-columns: 1fr;
+        }
+
+        .sales-pos-summary-card {
+            position: static;
+        }
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('.sales-pos-form');
     const tableBody = document.querySelector('#items-table tbody');
     const addBtn = document.getElementById('add-item');
+    const documentTypeInput = document.getElementById('document_type');
+    const documentButtons = document.querySelectorAll('[data-doc-type]');
+    const paymentMethod = document.getElementById('payment_method');
+    const paymentStatus = document.getElementById('payment_status');
+    const taxRateInput = document.getElementById('tax_rate');
+    const discountInput = document.getElementById('discount');
+    const shippingInput = document.getElementById('shipping');
+    const customerHelp = document.getElementById('customer-help');
+    const customerDocumentType = document.getElementById('customer_document_type');
+    const customerDocumentNumber = document.getElementById('customer_document_number');
     let index = 1;
+
+    const summary = {
+        title: document.getElementById('summary-document-title'),
+        meta: document.getElementById('summary-document-meta'),
+        itemsCount: document.getElementById('summary-items-count'),
+        paymentMethod: document.getElementById('summary-payment-method'),
+        paymentStatus: document.getElementById('summary-payment-status'),
+        subtotal: document.getElementById('summary-subtotal'),
+        discount: document.getElementById('summary-discount'),
+        shipping: document.getElementById('summary-shipping'),
+        tax: document.getElementById('summary-tax'),
+        total: document.getElementById('summary-total'),
+    };
+
+    const documentTypeMeta = {
+        order: {
+            title: 'Pedido POS',
+            meta: 'Venta rápida sin comprobante electrónico.',
+            help: 'Para pedidos POS solo se requieren datos básicos. El documento del cliente es opcional.',
+        },
+        boleta: {
+            title: 'Boleta electrónica',
+            meta: 'Se emitirá comprobante electrónico al finalizar la venta.',
+            help: 'Para boleta completa el documento del cliente y verifica el número antes de emitir.',
+        },
+        factura: {
+            title: 'Factura electrónica',
+            meta: 'Se emitirá factura electrónica con datos tributarios.',
+            help: 'Para factura el cliente debe tener documento tipo RUC y número válido.',
+        },
+    };
+
+    function money(value) {
+        return Number(value || 0).toFixed(2);
+    }
 
     function updateRow(row) {
         const select = row.querySelector('.product-select');
@@ -165,16 +488,58 @@ document.addEventListener('DOMContentLoaded', () => {
         const selected = select.options[select.selectedIndex];
         const stock = Number(selected?.dataset?.stock || 0);
         const defaultPrice = Number(selected?.dataset?.price || 0);
-        const qty = Number(qtyInput.value || 0);
-        const price = Number(priceInput.value || 0);
 
         stockCell.textContent = String(stock);
-        if (!price || price <= 0) {
+
+        if ((!priceInput.value || Number(priceInput.value) <= 0) && defaultPrice > 0) {
             priceInput.value = defaultPrice.toFixed(2);
         }
 
         const subtotal = Number(qtyInput.value || 0) * Number(priceInput.value || 0);
         subtotalCell.textContent = subtotal.toFixed(2);
+        updateSummary();
+    }
+
+    function updateSummary() {
+        const rows = tableBody.querySelectorAll('.item-row');
+        let subtotal = 0;
+
+        rows.forEach((row) => {
+            subtotal += Number(row.querySelector('.qty-input')?.value || 0) * Number(row.querySelector('.price-input')?.value || 0);
+        });
+
+        const discount = Number(discountInput.value || 0);
+        const shipping = Number(shippingInput.value || 0);
+        const taxRate = Number(taxRateInput.value || 0);
+        const taxable = Math.max(0, subtotal - discount);
+        const tax = taxable * taxRate;
+        const total = taxable + tax + shipping;
+
+        summary.itemsCount.textContent = String(rows.length);
+        summary.paymentMethod.textContent = paymentMethod.options[paymentMethod.selectedIndex]?.text || '-';
+        summary.paymentStatus.textContent = paymentStatus.options[paymentStatus.selectedIndex]?.text || '-';
+        summary.subtotal.textContent = money(subtotal);
+        summary.discount.textContent = money(discount);
+        summary.shipping.textContent = money(shipping);
+        summary.tax.textContent = money(tax);
+        summary.total.textContent = money(total);
+    }
+
+    function updateDocumentTypeState() {
+        const current = documentTypeInput.value;
+        const meta = documentTypeMeta[current] || documentTypeMeta.order;
+
+        documentButtons.forEach((button) => {
+            button.classList.toggle('is-active', button.dataset.docType === current);
+        });
+
+        summary.title.textContent = meta.title;
+        summary.meta.textContent = meta.meta;
+        customerHelp.textContent = meta.help;
+
+        if (current === 'factura' && !customerDocumentType.value) {
+            customerDocumentType.value = 'RUC';
+        }
     }
 
     function bindRow(row) {
@@ -182,28 +547,60 @@ document.addEventListener('DOMContentLoaded', () => {
         row.querySelector('.qty-input').addEventListener('input', () => updateRow(row));
         row.querySelector('.price-input').addEventListener('input', () => updateRow(row));
         row.querySelector('.remove-item').addEventListener('click', () => {
-            if (tableBody.querySelectorAll('.item-row').length > 1) {
+            const rows = tableBody.querySelectorAll('.item-row');
+            if (rows.length > 1) {
                 row.remove();
+                updateSummary();
+                return;
             }
+
+            row.querySelector('.product-select').value = '';
+            row.querySelector('.qty-input').value = '1';
+            row.querySelector('.price-input').value = '0';
+            row.querySelector('.stock-cell').textContent = '0';
+            row.querySelector('.subtotal-cell').textContent = '0.00';
+            updateSummary();
         });
     }
+
+    documentButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            documentTypeInput.value = button.dataset.docType;
+            updateDocumentTypeState();
+        });
+    });
+
+    [paymentMethod, paymentStatus, taxRateInput, discountInput, shippingInput].forEach((element) => {
+        element.addEventListener('input', updateSummary);
+        element.addEventListener('change', updateSummary);
+    });
 
     bindRow(tableBody.querySelector('.item-row'));
 
     addBtn.addEventListener('click', () => {
         const row = tableBody.querySelector('.item-row').cloneNode(true);
+
         row.querySelectorAll('select,input').forEach((input) => {
             input.name = input.name.replace(/\[\d+\]/, '[' + index + ']');
         });
+
         row.querySelector('.product-select').value = '';
         row.querySelector('.qty-input').value = '1';
         row.querySelector('.price-input').value = '0';
         row.querySelector('.stock-cell').textContent = '0';
         row.querySelector('.subtotal-cell').textContent = '0.00';
+
         tableBody.appendChild(row);
         bindRow(row);
+        updateSummary();
         index++;
     });
+
+    form.addEventListener('submit', updateSummary);
+
+    updateDocumentTypeState();
+    updateRow(tableBody.querySelector('.item-row'));
+    updateSummary();
 });
 </script>
 @endpush
