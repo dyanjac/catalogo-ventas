@@ -2,9 +2,12 @@
 
 namespace Modules\ElectronicDocuments\Services;
 
+use App\Models\CommerceSetting;
+use App\Services\CommerceSettingsService;
 use Barryvdh\Snappy\Facades\SnappyPdf;
 use DOMDocument;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Modules\ElectronicDocuments\Models\DocumentTemplate;
 use RuntimeException;
@@ -33,7 +36,11 @@ class InvoicePdfService
             throw new RuntimeException('No existe plantilla activa para tipo de documento: '.$documentType);
         }
 
-        $html = $this->transformXmlWithXslt($xmlDom, (string) $template->xslt_content);
+        $html = $this->transformXmlWithXslt(
+            $xmlDom,
+            (string) $template->xslt_content,
+            $this->resolveTemplateParameters()
+        );
         $pdf = SnappyPdf::loadHTML($html);
         $pdf->setTimeout(300);
 
@@ -65,7 +72,7 @@ class InvoicePdfService
             throw new RuntimeException('El XML de previsualización no es válido.');
         }
 
-        return $this->transformXmlWithXslt($xmlDom, $xsltContent);
+        return $this->transformXmlWithXslt($xmlDom, $xsltContent, $this->resolveTemplateParameters());
     }
 
     public function detectDocumentType(DOMDocument $xmlDom): string
@@ -101,7 +108,10 @@ class InvoicePdfService
         return 'factura';
     }
 
-    private function transformXmlWithXslt(DOMDocument $xmlDom, string $xsltContent): string
+    /**
+     * @param array<string,string> $parameters
+     */
+    private function transformXmlWithXslt(DOMDocument $xmlDom, string $xsltContent, array $parameters = []): string
     {
         $xslDom = new DOMDocument();
         if (! @$xslDom->loadXML($xsltContent)) {
@@ -110,6 +120,11 @@ class InvoicePdfService
 
         $processor = new XSLTProcessor();
         $processor->importStyleSheet($xslDom);
+
+        foreach ($parameters as $key => $value) {
+            $processor->setParameter('', $key, $value);
+        }
+
         $html = $processor->transformToXML($xmlDom);
 
         if (! is_string($html) || trim($html) === '') {
@@ -175,5 +190,45 @@ class InvoicePdfService
         if (! class_exists(\Knp\Snappy\Pdf::class)) {
             throw new RuntimeException('Snappy no está disponible. Instala barryvdh/laravel-snappy.');
         }
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function resolveTemplateParameters(): array
+    {
+        $commerce = app(CommerceSettingsService::class)->getForView();
+
+        $params = [
+            'company_name' => (string) ($commerce['name'] ?? ''),
+            'company_tax_id' => (string) ($commerce['tax_id'] ?? ''),
+            'company_address' => (string) ($commerce['address'] ?? ''),
+            'company_phone' => (string) ($commerce['phone'] ?? ''),
+            'company_mobile' => (string) ($commerce['mobile'] ?? ''),
+            'company_email' => (string) ($commerce['email'] ?? ''),
+            'company_logo_url' => (string) ($commerce['logo_url'] ?? ''),
+            'company_logo_data_uri' => '',
+            'company_logo_file_uri' => '',
+        ];
+
+        if (! Schema::hasTable('commerce_settings')) {
+            return $params;
+        }
+
+        $setting = CommerceSetting::query()->first();
+        $logoPath = trim((string) ($setting?->logo_path ?? ''));
+        if ($logoPath === '' || ! Storage::disk('public')->exists($logoPath)) {
+            return $params;
+        }
+
+        $absolutePath = Storage::disk('public')->path($logoPath);
+        $mimeType = File::mimeType($absolutePath) ?: 'image/png';
+        $content = File::get($absolutePath);
+
+        $params['company_logo_url'] = asset('storage/'.$logoPath);
+        $params['company_logo_data_uri'] = 'data:'.$mimeType.';base64,'.base64_encode($content);
+        $params['company_logo_file_uri'] = 'file:///'.str_replace('\\', '/', $absolutePath);
+
+        return $params;
     }
 }
