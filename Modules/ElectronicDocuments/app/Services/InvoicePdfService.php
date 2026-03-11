@@ -2,14 +2,14 @@
 
 namespace Modules\ElectronicDocuments\Services;
 
-use App\Models\CommerceSetting;
-use App\Services\CommerceSettingsService;
 use Barryvdh\Snappy\Facades\SnappyPdf;
 use DOMDocument;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Modules\AdminTheme\Services\AdminThemePaletteService;
+use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Commerce\Services\CommerceSettingsService;
 use Modules\ElectronicDocuments\Models\DocumentTemplate;
 use RuntimeException;
 use Throwable;

@@ -1,0 +1,12 @@
+{
+    "name": "Commerce",
+    "alias": "commerce",
+    "description": "Dominio de configuración comercial",
+    "keywords": ["commerce", "settings"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Commerce\\Providers\\CommerceServiceProvider"
+    ],
+    "files": []
+}
+

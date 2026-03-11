@@ -2,22 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Modules\Commerce\Entities\CommerceSetting as ModuleCommerceSetting;
 
-class CommerceSetting extends Model
+class CommerceSetting extends ModuleCommerceSetting
 {
-    protected $fillable = [
-        'company_name',
-        'tax_id',
-        'address',
-        'phone',
-        'mobile',
-        'logo_path',
-        'email',
-    ];
-
-    public function getLogoUrlAttribute(): ?string
-    {
-        return $this->logo_path ? asset('storage/' . $this->logo_path) : null;
-    }
 }
