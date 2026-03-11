@@ -56,13 +56,18 @@ class BillingDocumentController extends Controller
 
     public function show(BillingDocument $document): View
     {
-        $document->load([
-            'order.items.product',
-            'files',
-            'responseHistories' => fn ($query) => $query->latest('id'),
-        ]);
+        $document = $this->loadDocumentContext($document);
 
         return view('billing::documents.show', [
+            'document' => $document,
+        ]);
+    }
+
+    public function history(BillingDocument $document): View
+    {
+        $document = $this->loadDocumentContext($document);
+
+        return view('billing::documents.history', [
             'document' => $document,
         ]);
     }
@@ -188,5 +193,16 @@ class BillingDocumentController extends Controller
         }
 
         return null;
+    }
+
+    private function loadDocumentContext(BillingDocument $document): BillingDocument
+    {
+        $document->load([
+            'order.items.product',
+            'files',
+            'responseHistories' => fn ($query) => $query->latest('id'),
+        ]);
+
+        return $document;
     }
 }

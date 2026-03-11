@@ -71,6 +71,9 @@
                     <a href="#" id="selected-detail-link" class="btn btn-light border rounded-pill px-3 disabled" aria-disabled="true">
                         <i class="fas fa-eye mr-1"></i> Detalle
                     </a>
+                    <a href="#" id="selected-history-link" class="btn btn-light border rounded-pill px-3 disabled" aria-disabled="true">
+                        <i class="fas fa-clock-rotate-left mr-1"></i> Historial
+                    </a>
                     <a href="#" id="selected-xml-link" class="btn btn-light border rounded-pill px-3 disabled" aria-disabled="true">
                         <i class="fas fa-file-code mr-1"></i> XML
                     </a>
@@ -129,6 +132,7 @@
                             data-total="{{ $totalLabel }}"
                             data-redeclare-url="{{ route('admin.billing.documents.redeclare', $document) }}"
                             data-detail-url="{{ route('admin.billing.documents.show', $document) }}"
+                            data-history-url="{{ route('admin.billing.documents.history', $document) }}"
                             data-xml-url="{{ $hasXml ? route('admin.billing.documents.download.xml', $document) : '' }}"
                             data-cdr-url="{{ $hasCdr ? route('admin.billing.documents.download.cdr', $document) : '' }}"
                             data-pdf-url="{{ route('admin.billing.documents.download.pdf', $document) }}">
@@ -234,6 +238,7 @@
         var redeclareForm = document.getElementById('selected-redeclare-form');
         var redeclareButton = document.getElementById('selected-redeclare-btn');
         var detailLink = document.getElementById('selected-detail-link');
+        var historyLink = document.getElementById('selected-history-link');
         var xmlLink = document.getElementById('selected-xml-link');
         var cdrLink = document.getElementById('selected-cdr-link');
         var pdfLink = document.getElementById('selected-pdf-link');
@@ -269,6 +274,7 @@
             redeclareButton.disabled = false;
 
             setLinkState(detailLink, row.getAttribute('data-detail-url'));
+            setLinkState(historyLink, row.getAttribute('data-history-url'));
             setLinkState(xmlLink, row.getAttribute('data-xml-url'));
             setLinkState(cdrLink, row.getAttribute('data-cdr-url'));
             setLinkState(pdfLink, row.getAttribute('data-pdf-url'));
