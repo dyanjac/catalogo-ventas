@@ -2,7 +2,6 @@
 
 namespace Modules\Accounting\Services;
 
-use App\Models\Order;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Modules\Accounting\Models\AccountingAccount;
@@ -10,6 +9,7 @@ use Modules\Accounting\Models\AccountingEntry;
 use Modules\Accounting\Models\AccountingPeriod;
 use Modules\Accounting\Models\AccountingSetting;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Orders\Entities\Order;
 
 class SalesAccountingService
 {

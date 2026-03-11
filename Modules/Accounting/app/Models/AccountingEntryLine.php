@@ -2,10 +2,10 @@
 
 namespace Modules\Accounting\Models;
 
-use App\Models\Order;
-use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Catalog\Entities\Product;
+use Modules\Orders\Entities\Order;
 
 class AccountingEntryLine extends Model
 {

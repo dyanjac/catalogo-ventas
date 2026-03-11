@@ -3,9 +3,6 @@
 namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,6 +13,9 @@ use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\ElectronicBillingService;
+use Modules\Catalog\Entities\Product;
+use Modules\Orders\Entities\Order;
+use Modules\Orders\Entities\OrderItem;
 use Throwable;
 
 class SalesPosController extends Controller
