@@ -2,18 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Catalog\Entities\UnitMeasure as CatalogUnitMeasure;
 
-class UnitMeasure extends Model
+class UnitMeasure extends CatalogUnitMeasure
 {
-    use HasFactory;
-
-    protected $fillable = ['name'];
-
-    public function products(): HasMany
-    {
-        return $this->hasMany(Product::class);
-    }
 }

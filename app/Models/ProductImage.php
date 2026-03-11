@@ -2,23 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Catalog\Entities\ProductImage as CatalogProductImage;
 
-class ProductImage extends Model
+class ProductImage extends CatalogProductImage
 {
-    use HasFactory;
-
-    protected $fillable = ['product_id', 'product_sku', 'path', 'is_main', 'sort'];
-
-    protected $casts = [
-        'is_main' => 'boolean',
-        'sort' => 'integer',
-    ];
-
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
 }

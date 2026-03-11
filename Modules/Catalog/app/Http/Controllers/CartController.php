@@ -3,8 +3,8 @@
 namespace Modules\Catalog\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
 use Illuminate\Http\Request;
+use Modules\Catalog\Entities\Product;
 
 class CartController extends Controller
 {
