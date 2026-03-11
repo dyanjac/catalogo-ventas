@@ -96,6 +96,12 @@
                                 <p>Config. facturacion</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.billing.operation-types.edit') }}" class="nav-link {{ request()->routeIs('admin.billing.operation-types.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Catálogo SUNAT 51</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li class="nav-item">

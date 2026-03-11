@@ -8,7 +8,6 @@
     $nubefact = $creds['nubefact'] ?? [];
     $tefacturo = $creds['tefacturo'] ?? [];
     $efact = $creds['efact'] ?? [];
-    $opTypes = $operationTypes ?? collect();
 @endphp
 
 @section('content')
@@ -37,7 +36,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Proveedor activo</label>
-                        <select name="provider" class="form-select" required>
+                        <select name="provider" id="provider" class="form-select" required>
                             @foreach($providers as $code => $label)
                                 <option value="{{ $code }}" @selected(old('provider', $setting->provider) === $code)>{{ $label }}</option>
                             @endforeach
@@ -78,71 +77,6 @@
 
             <div class="billing-block mb-4">
                 <div class="billing-block__header">
-                    <h5 class="mb-1">Catálogo SUNAT 51 - Tipo de operación</h5>
-                    <p class="text-muted mb-0">Configura los tipos de operación habilitados y los valores por defecto.</p>
-                </div>
-
-                <div class="row g-3 mb-3 mt-1">
-                    <div class="col-md-4">
-                        <label class="form-label">Default Factura</label>
-                        <select name="default_invoice_operation_code" class="form-select">
-                            @foreach($opTypes as $type)
-                                <option value="{{ $type->code }}"
-                                    @selected(old('default_invoice_operation_code', $setting->default_invoice_operation_code ?? '01') === $type->code)>
-                                    {{ $type->code }} - {{ $type->description }}{{ $type->is_active ? '' : ' (inactivo)' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Default Boleta</label>
-                        <select name="default_receipt_operation_code" class="form-select">
-                            @foreach($opTypes as $type)
-                                <option value="{{ $type->code }}"
-                                    @selected(old('default_receipt_operation_code', $setting->default_receipt_operation_code ?? '01') === $type->code)>
-                                    {{ $type->code }} - {{ $type->description }}{{ $type->is_active ? '' : ' (inactivo)' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="table-responsive billing-op-table">
-                    <table class="table table-sm table-bordered align-middle mb-0">
-                        <thead>
-                        <tr>
-                            <th style="width: 90px;">Código</th>
-                            <th>Descripción</th>
-                            <th class="text-center" style="width: 100px;">Activo</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @foreach($opTypes as $type)
-                            <tr>
-                                <td class="font-weight-bold">{{ $type->code }}</td>
-                                <td>
-                                    <input type="text"
-                                           class="form-control form-control-sm"
-                                           name="operation_types[{{ $type->code }}][description]"
-                                           value="{{ old("operation_types.{$type->code}.description", $type->description) }}">
-                                </td>
-                                <td class="text-center">
-                                    <input type="hidden" name="operation_types[{{ $type->code }}][enabled]" value="0">
-                                    <input type="checkbox"
-                                           class="form-check-input"
-                                           name="operation_types[{{ $type->code }}][enabled]"
-                                           value="1"
-                                           @checked(old("operation_types.{$type->code}.enabled", $type->is_active))>
-                                </td>
-                            </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="billing-block mb-4">
-                <div class="billing-block__header">
                     <h5 class="mb-1">Series de comprobantes</h5>
                     <p class="text-muted mb-0">Series por tipo de documento para emisión electrónica.</p>
                 </div>
@@ -172,7 +106,7 @@
                     <p class="text-muted mb-0">Completa los datos del proveedor activo y deja preconfigurados los alternos.</p>
                 </div>
 
-                <div class="provider-card mt-3">
+                <div class="provider-card provider-panel mt-3" data-provider-panel="greenter">
                     <h6 class="provider-title">Greenter (SUNAT/OSE)</h6>
                     <div class="row g-3">
                         <div class="col-md-2">
@@ -245,7 +179,7 @@
                     </div>
                 </div>
 
-                <div class="provider-card mt-3">
+                <div class="provider-card provider-panel mt-3" data-provider-panel="nubefact">
                     <h6 class="provider-title">NubeFact</h6>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -259,7 +193,7 @@
                     </div>
                 </div>
 
-                <div class="provider-card mt-3">
+                <div class="provider-card provider-panel mt-3" data-provider-panel="tefacturo">
                     <h6 class="provider-title">TeFacturo</h6>
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -277,7 +211,7 @@
                     </div>
                 </div>
 
-                <div class="provider-card mt-3">
+                <div class="provider-card provider-panel mt-3" data-provider-panel="efact">
                     <h6 class="provider-title">eFact</h6>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -347,6 +281,28 @@
         background: #fcfcfd;
     }
 
+    .billing-settings-page .provider-panel {
+        display: none;
+    }
+
+    .billing-settings-page .provider-panel.is-active {
+        display: block;
+        animation: billingProviderFade .18s ease-out;
+    }
+
+    .billing-settings-page .provider-panel.is-active .provider-title::after {
+        content: "Activo";
+        display: inline-flex;
+        align-items: center;
+        margin-left: .65rem;
+        padding: .18rem .5rem;
+        border-radius: 999px;
+        font-size: .75rem;
+        font-weight: 700;
+        color: var(--admin-primary-button);
+        background: color-mix(in srgb, var(--admin-primary-button) 14%, white);
+    }
+
     .billing-settings-page .provider-title {
         font-weight: 700;
         margin-bottom: .8rem;
@@ -381,18 +337,41 @@
             padding-bottom: calc(.75rem + env(safe-area-inset-bottom));
         }
     }
+
+    @keyframes billingProviderFade {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script>
     (function () {
+        var providerSelect = document.getElementById('provider');
         var modeSelect = document.getElementById('dispatch_mode');
-        if (!modeSelect) {
+        var providerPanels = document.querySelectorAll('[data-provider-panel]');
+
+        if (!modeSelect || !providerSelect) {
             return;
         }
 
         var queueFields = document.querySelectorAll('.queue-field input');
+
+        function applyProviderState() {
+            var selectedProvider = providerSelect.value;
+
+            providerPanels.forEach(function (panel) {
+                panel.classList.toggle('is-active', panel.getAttribute('data-provider-panel') === selectedProvider);
+            });
+        }
 
         function applyQueueState() {
             var isQueue = modeSelect.value === 'queue';
@@ -402,7 +381,9 @@
             });
         }
 
+        providerSelect.addEventListener('change', applyProviderState);
         modeSelect.addEventListener('change', applyQueueState);
+        applyProviderState();
         applyQueueState();
     })();
 </script>
