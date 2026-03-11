@@ -3,6 +3,7 @@
 namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,6 +17,7 @@ use Modules\Billing\Services\ElectronicBillingService;
 use Modules\Catalog\Entities\Product;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
+use Modules\Sales\Services\CustomerDocumentLookupService;
 use Throwable;
 
 class SalesPosController extends Controller
@@ -33,6 +35,22 @@ class SalesPosController extends Controller
         ]);
     }
 
+    public function lookupCustomerDocument(Request $request, CustomerDocumentLookupService $lookupService): JsonResponse
+    {
+        $data = $request->validate([
+            'document_type' => ['required', 'in:DNI,RUC'],
+            'document_number' => ['required', 'string', 'max:20'],
+        ]);
+
+        $result = $lookupService->lookup($data['document_type'], $data['document_number']);
+
+        if (! $result['ok']) {
+            return response()->json($result, 422);
+        }
+
+        return response()->json($result);
+    }
+
     public function store(
         Request $request,
         ElectronicBillingService $electronicBilling,
@@ -48,9 +66,9 @@ class SalesPosController extends Controller
             'discount' => ['nullable', 'numeric', 'min:0'],
             'shipping' => ['nullable', 'numeric', 'min:0'],
             'customer.name' => ['required', 'string', 'max:120'],
-            'customer.address' => ['required', 'string', 'max:200'],
-            'customer.city' => ['required', 'string', 'max:100'],
-            'customer.phone' => ['required', 'string', 'max:30'],
+            'customer.address' => ['nullable', 'string', 'max:200'],
+            'customer.city' => ['nullable', 'string', 'max:100'],
+            'customer.phone' => ['nullable', 'string', 'max:30'],
             'customer.document_type' => ['nullable', 'in:DNI,RUC,CE,PAS'],
             'customer.document_number' => ['nullable', 'string', 'max:20'],
             'items' => ['required', 'array', 'min:1'],
@@ -116,9 +134,9 @@ class SalesPosController extends Controller
                 'total' => $total,
                 'shipping_address' => [
                     'name' => $data['customer']['name'],
-                    'address' => $data['customer']['address'],
-                    'city' => $data['customer']['city'],
-                    'phone' => $data['customer']['phone'],
+                    'address' => $data['customer']['address'] ?? null,
+                    'city' => $data['customer']['city'] ?? null,
+                    'phone' => $data['customer']['phone'] ?? null,
                     'document_type' => $data['customer']['document_type'] ?? null,
                     'document_number' => $data['customer']['document_number'] ?? null,
                 ],
@@ -186,9 +204,9 @@ class SalesPosController extends Controller
                     'currency' => $data['currency'],
                     'customer' => [
                         'name' => $data['customer']['name'],
-                        'address' => $data['customer']['address'],
-                        'city' => $data['customer']['city'],
-                        'phone' => $data['customer']['phone'],
+                        'address' => $data['customer']['address'] ?? null,
+                        'city' => $data['customer']['city'] ?? null,
+                        'phone' => $data['customer']['phone'] ?? null,
                         'document_type' => $data['customer']['document_type'] ?? null,
                         'document_number' => $data['customer']['document_number'] ?? null,
                     ],

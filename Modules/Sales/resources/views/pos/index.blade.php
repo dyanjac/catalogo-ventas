@@ -130,16 +130,16 @@
                                 <input type="text" name="customer[name]" class="form-control" value="{{ old('customer.name') }}" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Dirección</label>
-                                <input type="text" name="customer[address]" class="form-control" value="{{ old('customer.address') }}" required>
+                                <label class="form-label">Dirección <span class="text-muted">(opcional)</span></label>
+                                <input type="text" name="customer[address]" id="customer_address" class="form-control" value="{{ old('customer.address') }}">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Ciudad</label>
-                                <input type="text" name="customer[city]" class="form-control" value="{{ old('customer.city') }}" required>
+                                <label class="form-label">Ciudad <span class="text-muted">(opcional)</span></label>
+                                <input type="text" name="customer[city]" id="customer_city" class="form-control" value="{{ old('customer.city') }}">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" name="customer[phone]" class="form-control" value="{{ old('customer.phone') }}" required>
+                                <label class="form-label">Teléfono <span class="text-muted">(opcional)</span></label>
+                                <input type="text" name="customer[phone]" id="customer_phone" class="form-control" value="{{ old('customer.phone') }}">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Doc. tipo</label>
@@ -153,7 +153,11 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Doc. nro</label>
-                                <input type="text" name="customer[document_number]" id="customer_document_number" class="form-control" value="{{ old('customer.document_number') }}">
+                                <div class="input-group">
+                                    <input type="text" name="customer[document_number]" id="customer_document_number" class="form-control" value="{{ old('customer.document_number') }}">
+                                    <button type="button" class="btn btn-light border" id="lookup-document-btn">Consultar</button>
+                                </div>
+                                <small class="text-muted d-block mt-1" id="lookup-document-feedback">Completa DNI o RUC para consultar el nombre del cliente.</small>
                             </div>
                         </div>
                     </div>
@@ -485,8 +489,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const customerHelp = document.getElementById('customer-help');
     const customerDocumentType = document.getElementById('customer_document_type');
     const customerDocumentNumber = document.getElementById('customer_document_number');
+    const customerNameInput = document.querySelector('input[name="customer[name]"]');
+    const customerAddressInput = document.getElementById('customer_address');
+    const customerCityInput = document.getElementById('customer_city');
+    const customerPhoneInput = document.getElementById('customer_phone');
+    const lookupButton = document.getElementById('lookup-document-btn');
+    const lookupFeedback = document.getElementById('lookup-document-feedback');
     let index = 1;
     const productIndex = @json($productIndex);
+    const lookupEndpoint = @json(route('admin.sales.pos.customer-lookup'));
 
     const summary = {
         title: document.getElementById('summary-document-title'),
@@ -586,6 +597,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateLookupHelp(message, isError = false) {
+        lookupFeedback.textContent = message;
+        lookupFeedback.classList.toggle('text-danger', isError);
+        lookupFeedback.classList.toggle('text-muted', !isError);
+    }
+
     function bindRow(row) {
         row.querySelector('.product-select').addEventListener('change', () => updateRow(row));
         row.querySelector('.qty-input').addEventListener('input', () => updateRow(row));
@@ -683,6 +700,66 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Enter') {
             event.preventDefault();
             addProductFromSearch();
+        }
+    });
+
+    lookupButton.addEventListener('click', async () => {
+        const documentType = customerDocumentType.value;
+        const documentNumber = customerDocumentNumber.value.trim();
+
+        if (!['DNI', 'RUC'].includes(documentType) || documentNumber === '') {
+            updateLookupHelp('Selecciona DNI o RUC y completa el número del documento.', true);
+            customerDocumentNumber.focus();
+            return;
+        }
+
+        lookupButton.disabled = true;
+        updateLookupHelp('Consultando documento...');
+
+        try {
+            const response = await fetch(lookupEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    document_type: documentType,
+                    document_number: documentNumber,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.ok) {
+                updateLookupHelp(result.message || 'No se pudo consultar el documento.', true);
+                return;
+            }
+
+            if (result.name && !customerNameInput.value.trim()) {
+                customerNameInput.value = result.name;
+            } else if (result.name) {
+                customerNameInput.value = result.name;
+            }
+
+            if (result.address && !customerAddressInput.value.trim()) {
+                customerAddressInput.value = result.address;
+            }
+
+            if (result.city && !customerCityInput.value.trim()) {
+                customerCityInput.value = result.city;
+            }
+
+            if (result.phone && !customerPhoneInput.value.trim()) {
+                customerPhoneInput.value = result.phone;
+            }
+
+            updateLookupHelp('Documento consultado correctamente.');
+        } catch (error) {
+            updateLookupHelp('Error de conexión al consultar el documento.', true);
+        } finally {
+            lookupButton.disabled = false;
         }
     });
 
