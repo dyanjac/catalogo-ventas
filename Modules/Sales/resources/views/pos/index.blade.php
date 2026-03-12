@@ -846,11 +846,24 @@
                     }
 
                     const customer = payload.customer || {};
-                    customerName.value = customer.name || customerName.value;
-                    customerAddress.value = customer.address || customerAddress.value;
-                    customerCity.value = customer.city || customerCity.value;
-                    customerPhone.value = customer.phone || customerPhone.value;
-                    lookupFeedback.textContent = 'Documento consultado correctamente.';
+                    const rawContent = payload.raw?.Contenido || {};
+                    const resolvedName = customer.name
+                        || payload.name
+                        || rawContent.nombrecompleto
+                        || [
+                            rawContent.prenombres,
+                            rawContent.apPrimer,
+                            rawContent.apSegundo,
+                        ].filter(Boolean).join(' ').trim();
+                    const resolvedAddress = customer.address || payload.address || rawContent.direccion;
+                    const resolvedCity = customer.city || payload.city || rawContent.ubigeo;
+                    const resolvedPhone = customer.phone || payload.phone || rawContent.telefono || rawContent.celular;
+
+                    customerName.value = resolvedName || customerName.value;
+                    customerAddress.value = resolvedAddress || customerAddress.value;
+                    customerCity.value = resolvedCity || customerCity.value;
+                    customerPhone.value = resolvedPhone || customerPhone.value;
+                    lookupFeedback.textContent = payload.message || 'Documento consultado correctamente.';
                     lookupFeedback.className = 'form-text text-success';
                     updateSummary();
                 } catch (error) {
