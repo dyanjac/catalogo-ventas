@@ -1,773 +1,988 @@
 @extends('layouts.admin')
 
 @section('title', 'Punto de venta')
+@section('page_title', 'Punto de venta')
 
 @php
-    $selectedDocumentType = old('document_type', 'order');
-    $productIndex = $products->map(function ($product) {
+    $defaultDocumentType = old('document_type', 'order');
+    $defaultCurrency = old('currency', $defaultCurrency ?? config('sales.default_currency', 'PEN'));
+    $defaultTaxRate = old('tax_rate', $defaultTaxRate ?? config('sales.default_tax_rate', 0.18));
+    $oldItems = old('items', [
+        ['product_id' => '', 'quantity' => 1, 'unit_price' => 0],
+    ]);
+
+    $productIndex = collect($products ?? [])->map(function ($product) {
+        $price = (float) ($product->sale_price ?? $product->price ?? 0);
+
         return [
             'id' => (int) $product->id,
             'name' => (string) $product->name,
             'sku' => (string) ($product->sku ?: 'SIN-SKU'),
-            'stock' => (int) $product->stock,
-            'price' => round((float) ($product->sale_price ?? $product->price ?? 0), 2),
-            'label' => (string) ($product->name . ' (' . ($product->sku ?: 'SIN-SKU') . ')'),
+            'stock' => (int) ($product->stock ?? 0),
+            'price' => round($price, 2),
+            'label' => (string) ($product->name.' ('.($product->sku ?: 'SIN-SKU').')'),
         ];
-    })->values();
+    })->values()->all();
 @endphp
 
 @section('content')
-<div class="sales-pos-page py-2">
-    <x-admin.page-header title="Punto de venta (POS)">
-        <x-slot:actions>
-            <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver docs electrónicos</a>
-        </x-slot:actions>
-    </x-admin.page-header>
+    <div class="py-2">
+        <x-admin.page-header title="Punto de venta">
+            <x-slot:actions>
+                <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">
+                    Ver docs electronicos
+                </a>
+            </x-slot:actions>
+        </x-admin.page-header>
 
-    <form method="POST" action="{{ route('admin.sales.pos.store') }}" class="sales-pos-form">
+        <p class="text-muted mb-4">Registra pedido POS, boleta o factura con un flujo guiado.</p>
+
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>No se pudo registrar la venta.</strong>
+            <ul class="mb-0 mt-2 pl-3">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('admin.sales.pos.store') }}" method="POST" id="pos-form" novalidate>
         @csrf
+        <input type="hidden" name="document_type" id="document_type" value="{{ $defaultDocumentType }}">
 
-        <div class="row g-4">
-            <div class="col-xl-8">
-                <div class="card border-0 sales-pos-card mb-4">
-                    <div class="card-body p-3 p-md-4">
-                        <div class="sales-pos-hero">
-                            <div>
-                                <div class="sales-pos-eyebrow">Emisión rápida</div>
-                                <h3 class="sales-pos-title mb-1">Crea un pedido, boleta o factura en una sola pantalla</h3>
-                                <p class="text-muted mb-0">Define el tipo de comprobante, agrega cliente e ítems, y valida el total antes de emitir.</p>
-                            </div>
-                            <div class="sales-pos-doc-switch">
-                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'order' ? 'is-active' : '' }}" data-doc-type="order">
-                                    <span class="sales-doc-chip__title">Pedido POS</span>
-                                    <span class="sales-doc-chip__meta">Sin emisión electrónica</span>
-                                </button>
-                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'boleta' ? 'is-active' : '' }}" data-doc-type="boleta">
-                                    <span class="sales-doc-chip__title">Boleta</span>
-                                    <span class="sales-doc-chip__meta">Cliente con documento</span>
-                                </button>
-                                <button type="button" class="sales-doc-chip {{ $selectedDocumentType === 'factura' ? 'is-active' : '' }}" data-doc-type="factura">
-                                    <span class="sales-doc-chip__title">Factura</span>
-                                    <span class="sales-doc-chip__meta">Cliente con RUC</span>
-                                </button>
-                            </div>
-                            <select name="document_type" id="document_type" class="d-none" required>
-                                <option value="order" @selected($selectedDocumentType === 'order')>Pedido POS</option>
-                                <option value="boleta" @selected($selectedDocumentType === 'boleta')>Boleta electrónica</option>
-                                <option value="factura" @selected($selectedDocumentType === 'factura')>Factura electrónica</option>
-                            </select>
-                        </div>
+        <div class="card card-outline card-primary pos-shell">
+            <div class="card-body">
+                <div class="pos-hero">
+                    <div>
+                        <p class="pos-kicker mb-2">Emision</p>
+                        <h2 class="pos-title mb-1" id="summary-document-title">Pedido POS</h2>
+                        <p class="text-muted mb-0" id="summary-document-meta">Flujo rapido para registrar y confirmar la venta.</p>
+                    </div>
+                    <div class="document-switcher" role="tablist" aria-label="Tipo de comprobante">
+                        <button type="button" class="document-chip" data-document-type="order">Pedido POS</button>
+                        <button type="button" class="document-chip" data-document-type="boleta">Boleta</button>
+                        <button type="button" class="document-chip" data-document-type="factura">Factura</button>
                     </div>
                 </div>
 
-                <div class="card border-0 sales-pos-card mb-4">
-                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
-                        <div>
-                            <h4 class="mb-1">Condiciones de venta</h4>
-                            <p class="text-muted mb-0">Configura moneda, pago e impuesto antes de registrar los ítems.</p>
-                        </div>
-                    </div>
-                    <div class="card-body p-3 p-md-4 pt-3">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Moneda</label>
-                                <select name="currency" class="form-select" required>
-                                    <option value="PEN" @selected(old('currency', $defaultCurrency) === 'PEN')>PEN</option>
-                                    <option value="USD" @selected(old('currency', $defaultCurrency) === 'USD')>USD</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Método pago</label>
-                                <select name="payment_method" id="payment_method" class="form-select" required>
-                                    <option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Efectivo</option>
-                                    <option value="transfer" @selected(old('payment_method') === 'transfer')>Transferencia</option>
-                                    <option value="card" @selected(old('payment_method') === 'card')>Tarjeta</option>
-                                    <option value="yape" @selected(old('payment_method') === 'yape')>Yape</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Estado pago</label>
-                                <select name="payment_status" id="payment_status" class="form-select" required>
-                                    <option value="pending" @selected(old('payment_status', 'pending') === 'pending')>Pendiente</option>
-                                    <option value="paid" @selected(old('payment_status') === 'paid')>Pagado</option>
-                                    <option value="failed" @selected(old('payment_status') === 'failed')>Fallido</option>
-                                    <option value="refunded" @selected(old('payment_status') === 'refunded')>Reembolsado</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">IGV (%)</label>
-                                <input type="number" step="0.0001" min="0" max="1" name="tax_rate" id="tax_rate" class="form-control" value="{{ old('tax_rate', $defaultTaxRate) }}">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Descuento</label>
-                                <input type="number" step="0.01" min="0" name="discount" id="discount" class="form-control" value="{{ old('discount', 0) }}">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Envío</label>
-                                <input type="number" step="0.01" min="0" name="shipping" id="shipping" class="form-control" value="{{ old('shipping', 0) }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Observaciones</label>
-                                <input type="text" name="observations" class="form-control" value="{{ old('observations') }}" placeholder="Notas rápidas para la venta">
-                            </div>
-                        </div>
-                    </div>
+                <div class="wizard-steps" id="wizard-steps">
+                    <button type="button" class="wizard-step" data-step="0">
+                        <span class="wizard-step-index">1</span>
+                        <span>Productos</span>
+                    </button>
+                    <button type="button" class="wizard-step" data-step="1">
+                        <span class="wizard-step-index">2</span>
+                        <span>Cliente</span>
+                    </button>
+                    <button type="button" class="wizard-step" data-step="2">
+                        <span class="wizard-step-index">3</span>
+                        <span>Pago y resumen</span>
+                    </button>
                 </div>
 
-                <div class="card border-0 sales-pos-card mb-4">
-                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
-                        <div>
-                            <h4 class="mb-1">Cliente</h4>
-                            <p class="text-muted mb-0" id="customer-help">
-                                Para pedidos POS solo se requieren datos básicos. Para boleta o factura completa también el documento.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="card-body p-3 p-md-4 pt-3">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Cliente</label>
-                                <input type="text" name="customer[name]" class="form-control" value="{{ old('customer.name') }}" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Dirección <span class="text-muted">(opcional)</span></label>
-                                <input type="text" name="customer[address]" id="customer_address" class="form-control" value="{{ old('customer.address') }}">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Ciudad <span class="text-muted">(opcional)</span></label>
-                                <input type="text" name="customer[city]" id="customer_city" class="form-control" value="{{ old('customer.city') }}">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Teléfono <span class="text-muted">(opcional)</span></label>
-                                <input type="text" name="customer[phone]" id="customer_phone" class="form-control" value="{{ old('customer.phone') }}">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Doc. tipo</label>
-                                <select name="customer[document_type]" id="customer_document_type" class="form-select">
-                                    <option value="">-</option>
-                                    <option value="DNI" @selected(old('customer.document_type') === 'DNI')>DNI</option>
-                                    <option value="RUC" @selected(old('customer.document_type') === 'RUC')>RUC</option>
-                                    <option value="CE" @selected(old('customer.document_type') === 'CE')>CE</option>
-                                    <option value="PAS" @selected(old('customer.document_type') === 'PAS')>PAS</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Doc. nro</label>
-                                <div class="input-group">
-                                    <input type="text" name="customer[document_number]" id="customer_document_number" class="form-control" value="{{ old('customer.document_number') }}">
-                                    <button type="button" class="btn btn-light border" id="lookup-document-btn">Consultar</button>
-                                </div>
-                                <small class="text-muted d-block mt-1" id="lookup-document-feedback">Completa DNI o RUC para consultar el nombre del cliente.</small>
-                            </div>
-                        </div>
-                    </div>
+                <div class="wizard-help alert alert-light border mb-4" id="wizard-help">
+                    Selecciona los productos primero. Luego completa al cliente y al final confirma el pago.
                 </div>
 
-                <div class="card border-0 sales-pos-card">
-                    <div class="card-header sales-pos-section-header bg-transparent border-0 pb-0">
-                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-                            <div>
-                                <h4 class="mb-1">Ítems de venta</h4>
-                                <p class="text-muted mb-0">Agrega productos, valida stock y corrige precio sin salir del POS.</p>
-                            </div>
-                            <button type="button" class="btn btn-primary rounded-pill px-4" id="add-item">
-                                <i class="fas fa-plus mr-1"></i> Agregar ítem
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body p-3 p-md-4 pt-3">
-                        <div class="sales-product-picker mb-4">
-                            <div class="row g-3 align-items-end">
+                <div class="sales-wizard-viewport">
+                    <div class="sales-wizard-track" id="sales-wizard-track">
+                        <section class="wizard-panel">
+                            <div class="row">
                                 <div class="col-lg-8">
-                                    <label class="form-label">Buscar producto</label>
-                                    <input type="text"
-                                           id="product-search"
-                                           class="form-control"
-                                           list="sales-product-options"
-                                           placeholder="Escribe nombre o SKU para agregar rápido">
-                                    <datalist id="sales-product-options">
-                                        @foreach($products as $product)
-                                            <option value="{{ $product->name }} ({{ $product->sku ?: 'SIN-SKU' }})" data-product-id="{{ $product->id }}"></option>
-                                        @endforeach
-                                    </datalist>
+                                    <div class="wizard-card">
+                                        <div class="wizard-card-header">
+                                            <div>
+                                                <h3>1. Seleccion de productos</h3>
+                                                <p>Busca por nombre o SKU y arma la venta antes de completar datos adicionales.</p>
+                                            </div>
+                                            <button type="button" class="btn btn-primary" id="add-item-row">Agregar item</button>
+                                        </div>
+
+                                        <div class="product-search-box">
+                                            <label for="product-search" class="font-weight-semibold">Busqueda rapida</label>
+                                            <div class="input-group">
+                                                <input type="text" id="product-search" class="form-control" list="product-search-list" placeholder="Buscar producto por nombre o SKU">
+                                                <div class="input-group-append">
+                                                    <button type="button" class="btn btn-outline-primary" id="add-item-by-search">Agregar producto buscado</button>
+                                                </div>
+                                            </div>
+                                            <datalist id="product-search-list">
+                                                @foreach ($productIndex as $product)
+                                                    <option value="{{ $product['label'] }}"></option>
+                                                @endforeach
+                                            </datalist>
+                                        </div>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle" id="items-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="min-width: 320px;">Producto</th>
+                                                        <th style="width: 90px;">Stock</th>
+                                                        <th style="width: 120px;">Cantidad</th>
+                                                        <th style="width: 140px;">Precio unit.</th>
+                                                        <th style="width: 130px;">Subtotal</th>
+                                                        <th style="width: 80px;"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="items-tbody">
+                                                    @foreach ($oldItems as $index => $item)
+                                                        <tr class="item-row">
+                                                            <td>
+                                                                <select name="items[{{ $index }}][product_id]" class="form-control product-select">
+                                                                    <option value="">Seleccionar...</option>
+                                                                    @foreach ($productIndex as $product)
+                                                                        <option
+                                                                            value="{{ $product['id'] }}"
+                                                                            data-stock="{{ $product['stock'] }}"
+                                                                            data-price="{{ $product['price'] }}"
+                                                                            @selected((string) ($item['product_id'] ?? '') === (string) $product['id'])
+                                                                        >
+                                                                            {{ $product['label'] }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td class="stock-cell">0</td>
+                                                            <td>
+                                                                <input type="number" min="0.01" step="0.01" name="items[{{ $index }}][quantity]" class="form-control qty-input" value="{{ $item['quantity'] ?? 1 }}">
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" min="0" step="0.01" name="items[{{ $index }}][unit_price]" class="form-control price-input" value="{{ $item['unit_price'] ?? 0 }}">
+                                                            </td>
+                                                            <td class="subtotal-cell">0.00</td>
+                                                            <td class="text-right">
+                                                                <button type="button" class="btn btn-outline-danger btn-sm remove-item">Quitar</button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <div class="col-lg-4">
-                                    <button type="button" class="btn btn-light border rounded-pill px-4 w-100" id="add-item-by-search">
-                                        <i class="fas fa-magnifying-glass mr-1"></i> Agregar producto buscado
-                                    </button>
+                                    <div class="summary-card">
+                                        <p class="summary-kicker">Resumen parcial</p>
+                                        <div class="summary-line">
+                                            <span>Items</span>
+                                            <strong id="summary-items-count">0</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Subtotal</span>
+                                            <strong id="summary-subtotal">0.00</strong>
+                                        </div>
+                                        <div class="summary-line total">
+                                            <span>Total estimado</span>
+                                            <strong id="summary-total">0.00</strong>
+                                        </div>
+                                        <hr>
+                                        <p class="summary-caption mb-0">Continua cuando la lista de productos este completa.</p>
+                                    </div>
                                 </div>
                             </div>
-                            <small class="text-muted d-block mt-2">Tip: busca por nombre o SKU y presiona Enter para agregar el producto al detalle.</small>
-                        </div>
+                        </section>
 
-                        <div class="table-responsive">
-                            <table class="table align-middle sales-items-table" id="items-table">
-                                <thead>
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th class="text-end">Stock</th>
-                                        <th class="text-end">Cantidad</th>
-                                        <th class="text-end">Precio unit.</th>
-                                        <th class="text-end">Subtotal</th>
-                                        <th style="width: 90px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="item-row">
-                                        <td>
-                                            <select name="items[0][product_id]" class="form-select product-select" required>
-                                                <option value="">Seleccionar...</option>
-                                                @foreach($products as $product)
-                                                    <option value="{{ $product->id }}" data-price="{{ (float) ($product->sale_price ?? $product->price ?? 0) }}" data-stock="{{ (int) $product->stock }}">
-                                                        {{ $product->name }} ({{ $product->sku ?: 'SIN-SKU' }})
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td class="text-end stock-cell">0</td>
-                                        <td>
-                                            <input type="number" min="1" name="items[0][quantity]" class="form-control text-end qty-input" value="1" required>
-                                        </td>
-                                        <td>
-                                            <input type="number" min="0" step="0.01" name="items[0][unit_price]" class="form-control text-end price-input" value="0" required>
-                                        </td>
-                                        <td class="text-end subtotal-cell">0.00</td>
-                                        <td class="text-end">
-                                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill remove-item">Quitar</button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                        <section class="wizard-panel">
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <div class="wizard-card">
+                                        <div class="wizard-card-header">
+                                            <div>
+                                                <h3>2. Informacion del cliente</h3>
+                                                <p>Completa solo lo necesario para el tipo de comprobante seleccionado.</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group col-md-6">
+                                                <label for="customer_name">Cliente</label>
+                                                <input type="text" class="form-control" id="customer_name" name="customer[name]" value="{{ old('customer.name') }}" placeholder="Nombre o razon social">
+                                            </div>
+                                            <div class="form-group col-md-3">
+                                                <label for="customer_document_type">Doc. tipo</label>
+                                                <select class="form-control" id="customer_document_type" name="customer[document_type]">
+                                                    <option value="">-</option>
+                                                    <option value="DNI" @selected(old('customer.document_type') === 'DNI')>DNI</option>
+                                                    <option value="RUC" @selected(old('customer.document_type') === 'RUC')>RUC</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group col-md-3">
+                                                <label for="customer_document_number">Doc. nro</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="customer_document_number" name="customer[document_number]" value="{{ old('customer.document_number') }}">
+                                                    <div class="input-group-append">
+                                                        <button type="button" class="btn btn-outline-primary" id="lookup-document-btn">Consultar</button>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-muted" id="lookup-document-feedback"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group col-md-5">
+                                                <label for="customer_address">Direccion <span class="text-muted">(opcional)</span></label>
+                                                <input type="text" class="form-control" id="customer_address" name="customer[address]" value="{{ old('customer.address') }}">
+                                            </div>
+                                            <div class="form-group col-md-3">
+                                                <label for="customer_city">Ciudad <span class="text-muted">(opcional)</span></label>
+                                                <input type="text" class="form-control" id="customer_city" name="customer[city]" value="{{ old('customer.city') }}">
+                                            </div>
+                                            <div class="form-group col-md-4">
+                                                <label for="customer_phone">Telefono <span class="text-muted">(opcional)</span></label>
+                                                <input type="text" class="form-control" id="customer_phone" name="customer[phone]" value="{{ old('customer.phone') }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-4">
+                                    <div class="summary-card">
+                                        <p class="summary-kicker">Cliente</p>
+                                        <div class="summary-block">
+                                            <span class="summary-label">Nombre</span>
+                                            <strong id="summary-customer-name">Sin definir</strong>
+                                        </div>
+                                        <div class="summary-block">
+                                            <span class="summary-label">Documento</span>
+                                            <strong>
+                                                <span id="summary-customer-doc-type">-</span>
+                                                <span id="summary-customer-doc-number"></span>
+                                            </strong>
+                                        </div>
+                                        <hr>
+                                        <p class="summary-caption mb-0" id="customer-step-note">
+                                            Para factura el cliente debe tener documento tipo RUC valido.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="wizard-panel">
+                            <div class="row">
+                                <div class="col-lg-7">
+                                    <div class="wizard-card">
+                                        <div class="wizard-card-header">
+                                            <div>
+                                                <h3>3. Pago y cierre</h3>
+                                                <p>Ajusta condiciones finales y confirma el registro.</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group col-md-4">
+                                                <label for="currency">Moneda</label>
+                                                <select class="form-control" id="currency" name="currency">
+                                                    <option value="PEN" @selected($defaultCurrency === 'PEN')>PEN</option>
+                                                    <option value="USD" @selected($defaultCurrency === 'USD')>USD</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group col-md-4">
+                                                <label for="payment_method">Metodo pago</label>
+                                                <select class="form-control" id="payment_method" name="payment_method">
+                                                    <option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Efectivo</option>
+                                                    <option value="card" @selected(old('payment_method') === 'card')>Tarjeta</option>
+                                                    <option value="transfer" @selected(old('payment_method') === 'transfer')>Transferencia</option>
+                                                    <option value="credit" @selected(old('payment_method') === 'credit')>Credito</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group col-md-4">
+                                                <label for="payment_status">Estado pago</label>
+                                                <select class="form-control" id="payment_status" name="payment_status">
+                                                    <option value="pending" @selected(old('payment_status', 'pending') === 'pending')>Pendiente</option>
+                                                    <option value="paid" @selected(old('payment_status') === 'paid')>Pagado</option>
+                                                    <option value="partial" @selected(old('payment_status') === 'partial')>Parcial</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group col-md-4">
+                                                <label for="tax_rate">IGV (%)</label>
+                                                <input type="number" min="0" step="0.01" class="form-control" id="tax_rate" name="tax_rate" value="{{ $defaultTaxRate }}">
+                                            </div>
+                                            <div class="form-group col-md-4">
+                                                <label for="discount">Descuento</label>
+                                                <input type="number" min="0" step="0.01" class="form-control" id="discount" name="discount" value="{{ old('discount', 0) }}">
+                                            </div>
+                                            <div class="form-group col-md-4">
+                                                <label for="shipping">Envio</label>
+                                                <input type="number" min="0" step="0.01" class="form-control" id="shipping" name="shipping" value="{{ old('shipping', 0) }}">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="observations">Observaciones</label>
+                                            <textarea class="form-control" id="observations" name="observations" rows="3" placeholder="Notas rapidas para la venta">{{ old('observations') }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-5">
+                                    <div class="summary-card summary-card-strong">
+                                        <p class="summary-kicker">Cierre de venta</p>
+                                        <div class="summary-line">
+                                            <span>Documento</span>
+                                            <strong id="summary-document-title-final">Pedido POS</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Cliente</span>
+                                            <strong id="summary-customer-name-final">Sin definir</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Items</span>
+                                            <strong id="summary-items-count-final">0</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Metodo pago</span>
+                                            <strong id="summary-payment-method">Efectivo</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Estado pago</span>
+                                            <strong id="summary-payment-status">Pendiente</strong>
+                                        </div>
+                                        <hr>
+                                        <div class="summary-line">
+                                            <span>Subtotal</span>
+                                            <strong id="summary-subtotal-final">0.00</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Descuento</span>
+                                            <strong id="summary-discount">0.00</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>Envio</span>
+                                            <strong id="summary-shipping">0.00</strong>
+                                        </div>
+                                        <div class="summary-line">
+                                            <span>IGV</span>
+                                            <strong id="summary-tax">0.00</strong>
+                                        </div>
+                                        <div class="summary-line total">
+                                            <span>Total</span>
+                                            <strong id="summary-total-final">0.00</strong>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">Registrar venta</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 </div>
-            </div>
 
-            <div class="col-xl-4">
-                <div class="card border-0 sales-pos-card sales-pos-summary-card">
-                    <div class="card-body p-3 p-md-4">
-                        <div class="sales-pos-summary-head mb-3">
-                            <div class="sales-pos-eyebrow">Resumen de emisión</div>
-                            <h4 class="mb-1" id="summary-document-title">Pedido POS</h4>
-                            <p class="text-muted mb-0" id="summary-document-meta">Venta rápida sin comprobante electrónico.</p>
-                        </div>
-
-                        <div class="sales-summary-metrics mb-3">
-                            <div class="sales-summary-metric">
-                                <span>Ítems</span>
-                                <strong id="summary-items-count">1</strong>
-                            </div>
-                            <div class="sales-summary-metric">
-                                <span>Pago</span>
-                                <strong id="summary-payment-method">Efectivo</strong>
-                            </div>
-                            <div class="sales-summary-metric">
-                                <span>Estado</span>
-                                <strong id="summary-payment-status">Pendiente</strong>
-                            </div>
-                        </div>
-
-                        <div class="sales-summary-totals">
-                            <div class="sales-summary-line">
-                                <span>Subtotal</span>
-                                <strong id="summary-subtotal">0.00</strong>
-                            </div>
-                            <div class="sales-summary-line">
-                                <span>Descuento</span>
-                                <strong id="summary-discount">0.00</strong>
-                            </div>
-                            <div class="sales-summary-line">
-                                <span>Envío</span>
-                                <strong id="summary-shipping">0.00</strong>
-                            </div>
-                            <div class="sales-summary-line">
-                                <span>IGV</span>
-                                <strong id="summary-tax">0.00</strong>
-                            </div>
-                            <div class="sales-summary-total">
-                                <span>Total</span>
-                                <strong id="summary-total">0.00</strong>
-                            </div>
-                        </div>
-
-                        <div class="sales-summary-footer mt-4">
-                            <button class="btn btn-primary btn-lg rounded-pill btn-block">Registrar venta</button>
-                            <small class="d-block text-muted mt-2">Antes de emitir factura o boleta, verifica documento del cliente y totales.</small>
-                        </div>
-                    </div>
+                <div class="wizard-nav mt-4">
+                    <button type="button" class="btn btn-outline-secondary" id="wizard-prev">Anterior</button>
+                    <button type="button" class="btn btn-primary" id="wizard-next">Continuar</button>
                 </div>
             </div>
         </div>
     </form>
-</div>
-@endsection
+    </div>
+@stop
 
 @push('styles')
-<style>
-    .sales-pos-card {
-        border: 1px solid var(--admin-card-border) !important;
-        border-radius: 1rem;
-        box-shadow: 0 12px 24px rgba(31, 45, 61, .05);
-        background: #fff;
-    }
-
-    .sales-pos-hero {
-        display: grid;
-        gap: 1.25rem;
-    }
-
-    .sales-pos-eyebrow {
-        display: inline-block;
-        font-size: .78rem;
-        font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-        color: var(--admin-primary-button);
-    }
-
-    .sales-pos-title {
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: #17283a;
-    }
-
-    .sales-pos-doc-switch {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: .75rem;
-    }
-
-    .sales-doc-chip {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: .2rem;
-        width: 100%;
-        padding: 1rem;
-        border: 1px solid #dfe5ec;
-        border-radius: 1rem;
-        background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
-        text-align: left;
-        transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
-    }
-
-    .sales-doc-chip:hover {
-        transform: translateY(-1px);
-        border-color: var(--admin-primary-button);
-    }
-
-    .sales-doc-chip.is-active {
-        border-color: var(--admin-primary-button);
-        box-shadow: inset 0 0 0 1px var(--admin-primary-button), 0 10px 20px rgba(31, 45, 61, .06);
-        background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(247,249,252,1) 60%, color-mix(in srgb, var(--admin-primary-button) 10%, white) 100%);
-    }
-
-    .sales-doc-chip__title {
-        font-weight: 700;
-        color: #17283a;
-    }
-
-    .sales-doc-chip__meta {
-        font-size: .85rem;
-        color: #6c7a89;
-    }
-
-    .sales-pos-section-header h4 {
-        font-size: 1.08rem;
-        font-weight: 700;
-        color: #17283a;
-    }
-
-    .sales-items-table thead th {
-        background: #f8f9fb;
-        border-top: 0;
-    }
-
-    .sales-product-picker {
-        padding: 1rem;
-        border: 1px solid #e4e9ef;
-        border-radius: 1rem;
-        background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
-    }
-
-    .sales-pos-summary-card {
-        position: sticky;
-        top: 1rem;
-        overflow: hidden;
-    }
-
-    .sales-pos-summary-card .card-body {
-        background:
-            radial-gradient(circle at top right, color-mix(in srgb, var(--admin-primary-button) 14%, white) 0, transparent 36%),
-            linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
-    }
-
-    .sales-summary-metrics {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: .75rem;
-    }
-
-    .sales-summary-metric {
-        padding: .85rem;
-        border-radius: .9rem;
-        background: #f7f9fc;
-        border: 1px solid #e4e9ef;
-    }
-
-    .sales-summary-metric span {
-        display: block;
-        font-size: .8rem;
-        color: #6c7a89;
-    }
-
-    .sales-summary-metric strong {
-        display: block;
-        margin-top: .25rem;
-        font-size: .98rem;
-        color: #17283a;
-    }
-
-    .sales-summary-totals {
-        border: 1px solid #e4e9ef;
-        border-radius: 1rem;
-        background: #fff;
-        overflow: hidden;
-    }
-
-    .sales-summary-line,
-    .sales-summary-total {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: .9rem 1rem;
-    }
-
-    .sales-summary-line + .sales-summary-line,
-    .sales-summary-line + .sales-summary-total {
-        border-top: 1px solid #edf1f5;
-    }
-
-    .sales-summary-total {
-        background: color-mix(in srgb, var(--admin-primary-button) 10%, white);
-        font-size: 1.02rem;
-    }
-
-    .sales-summary-total strong {
-        font-size: 1.3rem;
-        color: #17283a;
-    }
-
-    @media (max-width: 991.98px) {
-        .sales-pos-doc-switch,
-        .sales-summary-metrics {
-            grid-template-columns: 1fr;
+    <style>
+        .pos-shell { border-radius: 20px; }
+        .pos-hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5rem;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
         }
-
-        .sales-pos-summary-card {
-            position: static;
+        .pos-kicker,
+        .summary-kicker {
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-size: .75rem;
+            font-weight: 700;
+            color: #6c7a89;
         }
-    }
-</style>
+        .pos-title {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .document-switcher {
+            display: flex;
+            gap: .75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .document-chip {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: .7rem 1rem;
+            font-weight: 600;
+            min-width: 132px;
+        }
+        .document-chip.is-active {
+            background: linear-gradient(135deg, #0d6efd, #3f8cff);
+            border-color: #0d6efd;
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(13, 110, 253, .18);
+        }
+        .wizard-steps {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .75rem;
+            margin-bottom: 1rem;
+        }
+        .wizard-step {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            border-radius: 16px;
+            padding: .9rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            font-weight: 600;
+            color: #334155;
+            justify-content: flex-start;
+        }
+        .wizard-step.is-active,
+        .wizard-step.is-complete {
+            border-color: #0d6efd;
+            background: rgba(13, 110, 253, .08);
+        }
+        .wizard-step-index {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #eef2f7;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+        .wizard-step.is-active .wizard-step-index,
+        .wizard-step.is-complete .wizard-step-index {
+            background: #0d6efd;
+            color: #fff;
+        }
+        .sales-wizard-viewport { overflow: hidden; }
+        .sales-wizard-track {
+            display: flex;
+            width: 300%;
+            transition: transform .35s ease;
+        }
+        .wizard-panel {
+            width: 33.333333%;
+            flex: 0 0 33.333333%;
+            padding-right: .75rem;
+        }
+        .wizard-card,
+        .summary-card {
+            border: 1px solid #e4e8ef;
+            border-radius: 18px;
+            background: #fff;
+            padding: 1.25rem;
+            height: 100%;
+        }
+        .wizard-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .wizard-card-header h3 {
+            margin: 0 0 .25rem 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+        .wizard-card-header p,
+        .summary-caption { color: #6c7a89; }
+        .product-search-box {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e8edf3;
+        }
+        .summary-card {
+            position: sticky;
+            top: 1rem;
+        }
+        .summary-card-strong { background: linear-gradient(180deg, #ffffff, #f8fbff); }
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: .85rem;
+        }
+        .summary-line.total {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        .summary-block { margin-bottom: 1rem; }
+        .summary-label {
+            display: block;
+            color: #6c7a89;
+            font-size: .85rem;
+            margin-bottom: .2rem;
+        }
+        .wizard-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        @media (max-width: 991.98px) {
+            .pos-hero,
+            .wizard-card-header { flex-direction: column; }
+            .document-switcher {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .wizard-steps { grid-template-columns: 1fr; }
+            .wizard-panel { padding-right: 0; }
+        }
+    </style>
 @endpush
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('.sales-pos-form');
-    const tableBody = document.querySelector('#items-table tbody');
-    const addBtn = document.getElementById('add-item');
-    const addBySearchBtn = document.getElementById('add-item-by-search');
-    const productSearchInput = document.getElementById('product-search');
-    const documentTypeInput = document.getElementById('document_type');
-    const documentButtons = document.querySelectorAll('[data-doc-type]');
-    const paymentMethod = document.getElementById('payment_method');
-    const paymentStatus = document.getElementById('payment_status');
-    const taxRateInput = document.getElementById('tax_rate');
-    const discountInput = document.getElementById('discount');
-    const shippingInput = document.getElementById('shipping');
-    const customerHelp = document.getElementById('customer-help');
-    const customerDocumentType = document.getElementById('customer_document_type');
-    const customerDocumentNumber = document.getElementById('customer_document_number');
-    const customerNameInput = document.querySelector('input[name="customer[name]"]');
-    const customerAddressInput = document.getElementById('customer_address');
-    const customerCityInput = document.getElementById('customer_city');
-    const customerPhoneInput = document.getElementById('customer_phone');
-    const lookupButton = document.getElementById('lookup-document-btn');
-    const lookupFeedback = document.getElementById('lookup-document-feedback');
-    let index = 1;
-    const productIndex = @json($productIndex);
-    const lookupEndpoint = @json(route('admin.sales.pos.customer-lookup'));
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const productIndex = @json($productIndex);
+            const documentInput = document.getElementById('document_type');
+            const documentButtons = Array.from(document.querySelectorAll('.document-chip'));
+            const wizardTrack = document.getElementById('sales-wizard-track');
+            const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
+            const wizardHelp = document.getElementById('wizard-help');
+            const prevButton = document.getElementById('wizard-prev');
+            const nextButton = document.getElementById('wizard-next');
+            const itemsTbody = document.getElementById('items-tbody');
+            const addItemRowButton = document.getElementById('add-item-row');
+            const addItemBySearchButton = document.getElementById('add-item-by-search');
+            const productSearch = document.getElementById('product-search');
+            const lookupButton = document.getElementById('lookup-document-btn');
+            const lookupFeedback = document.getElementById('lookup-document-feedback');
+            const customerName = document.getElementById('customer_name');
+            const customerDocumentType = document.getElementById('customer_document_type');
+            const customerDocumentNumber = document.getElementById('customer_document_number');
+            const customerAddress = document.getElementById('customer_address');
+            const customerCity = document.getElementById('customer_city');
+            const customerPhone = document.getElementById('customer_phone');
+            const paymentMethodInput = document.getElementById('payment_method');
+            const paymentStatusInput = document.getElementById('payment_status');
+            const taxRateInput = document.getElementById('tax_rate');
+            const discountInput = document.getElementById('discount');
+            const shippingInput = document.getElementById('shipping');
 
-    const summary = {
-        title: document.getElementById('summary-document-title'),
-        meta: document.getElementById('summary-document-meta'),
-        itemsCount: document.getElementById('summary-items-count'),
-        paymentMethod: document.getElementById('summary-payment-method'),
-        paymentStatus: document.getElementById('summary-payment-status'),
-        subtotal: document.getElementById('summary-subtotal'),
-        discount: document.getElementById('summary-discount'),
-        shipping: document.getElementById('summary-shipping'),
-        tax: document.getElementById('summary-tax'),
-        total: document.getElementById('summary-total'),
-    };
+            let currentStep = 0;
+            let rowIndex = {{ count($oldItems) }};
 
-    const documentTypeMeta = {
-        order: {
-            title: 'Pedido POS',
-            meta: 'Venta rápida sin comprobante electrónico.',
-            help: 'Para pedidos POS solo se requieren datos básicos. El documento del cliente es opcional.',
-        },
-        boleta: {
-            title: 'Boleta electrónica',
-            meta: 'Se emitirá comprobante electrónico al finalizar la venta.',
-            help: 'Para boleta completa el documento del cliente y verifica el número antes de emitir.',
-        },
-        factura: {
-            title: 'Factura electrónica',
-            meta: 'Se emitirá factura electrónica con datos tributarios.',
-            help: 'Para factura el cliente debe tener documento tipo RUC y número válido.',
-        },
-    };
+            const documentTypeMeta = {
+                order: {
+                    title: 'Pedido POS',
+                    help: 'Registro interno rapido. Puedes completar cliente y pago despues de seleccionar productos.',
+                    customer: 'Para pedido POS basta con un nombre de cliente.',
+                },
+                boleta: {
+                    title: 'Boleta electronica',
+                    help: 'La boleta necesita cliente y documento valido antes de registrarse.',
+                    customer: 'Para boleta registra tipo y numero de documento del cliente.',
+                },
+                factura: {
+                    title: 'Factura electronica',
+                    help: 'La factura exige RUC y datos validos del cliente para emitir el comprobante.',
+                    customer: 'Para factura el cliente debe tener documento tipo RUC y numero valido.',
+                }
+            };
 
-    function money(value) {
-        return Number(value || 0).toFixed(2);
-    }
-
-    function updateRow(row) {
-        const select = row.querySelector('.product-select');
-        const stockCell = row.querySelector('.stock-cell');
-        const qtyInput = row.querySelector('.qty-input');
-        const priceInput = row.querySelector('.price-input');
-        const subtotalCell = row.querySelector('.subtotal-cell');
-        const selected = select.options[select.selectedIndex];
-        const stock = Number(selected?.dataset?.stock || 0);
-        const defaultPrice = Number(selected?.dataset?.price || 0);
-
-        stockCell.textContent = String(stock);
-
-        if ((!priceInput.value || Number(priceInput.value) <= 0) && defaultPrice > 0) {
-            priceInput.value = defaultPrice.toFixed(2);
-        }
-
-        const subtotal = Number(qtyInput.value || 0) * Number(priceInput.value || 0);
-        subtotalCell.textContent = subtotal.toFixed(2);
-        updateSummary();
-    }
-
-    function updateSummary() {
-        const rows = tableBody.querySelectorAll('.item-row');
-        let subtotal = 0;
-
-        rows.forEach((row) => {
-            subtotal += Number(row.querySelector('.qty-input')?.value || 0) * Number(row.querySelector('.price-input')?.value || 0);
-        });
-
-        const discount = Number(discountInput.value || 0);
-        const shipping = Number(shippingInput.value || 0);
-        const taxRate = Number(taxRateInput.value || 0);
-        const taxable = Math.max(0, subtotal - discount);
-        const tax = taxable * taxRate;
-        const total = taxable + tax + shipping;
-
-        summary.itemsCount.textContent = String(rows.length);
-        summary.paymentMethod.textContent = paymentMethod.options[paymentMethod.selectedIndex]?.text || '-';
-        summary.paymentStatus.textContent = paymentStatus.options[paymentStatus.selectedIndex]?.text || '-';
-        summary.subtotal.textContent = money(subtotal);
-        summary.discount.textContent = money(discount);
-        summary.shipping.textContent = money(shipping);
-        summary.tax.textContent = money(tax);
-        summary.total.textContent = money(total);
-    }
-
-    function updateDocumentTypeState() {
-        const current = documentTypeInput.value;
-        const meta = documentTypeMeta[current] || documentTypeMeta.order;
-
-        documentButtons.forEach((button) => {
-            button.classList.toggle('is-active', button.dataset.docType === current);
-        });
-
-        summary.title.textContent = meta.title;
-        summary.meta.textContent = meta.meta;
-        customerHelp.textContent = meta.help;
-
-        if (current === 'factura' && !customerDocumentType.value) {
-            customerDocumentType.value = 'RUC';
-        }
-    }
-
-    function updateLookupHelp(message, isError = false) {
-        lookupFeedback.textContent = message;
-        lookupFeedback.classList.toggle('text-danger', isError);
-        lookupFeedback.classList.toggle('text-muted', !isError);
-    }
-
-    function bindRow(row) {
-        row.querySelector('.product-select').addEventListener('change', () => updateRow(row));
-        row.querySelector('.qty-input').addEventListener('input', () => updateRow(row));
-        row.querySelector('.price-input').addEventListener('input', () => updateRow(row));
-        row.querySelector('.remove-item').addEventListener('click', () => {
-            const rows = tableBody.querySelectorAll('.item-row');
-            if (rows.length > 1) {
-                row.remove();
-                updateSummary();
-                return;
+            function formatMoney(value) {
+                const amount = Number(value || 0);
+                return amount.toFixed(2);
             }
 
-            row.querySelector('.product-select').value = '';
-            row.querySelector('.qty-input').value = '1';
-            row.querySelector('.price-input').value = '0';
-            row.querySelector('.stock-cell').textContent = '0';
-            row.querySelector('.subtotal-cell').textContent = '0.00';
-            updateSummary();
-        });
-    }
+            function getProductById(id) {
+                return productIndex.find(product => String(product.id) === String(id));
+            }
 
-    function createFreshRow() {
-        const row = tableBody.querySelector('.item-row').cloneNode(true);
+            function getProductBySearchTerm(term) {
+                const normalized = String(term || '').trim().toLowerCase();
+                if (!normalized) {
+                    return null;
+                }
 
-        row.querySelectorAll('select,input').forEach((input) => {
-            input.name = input.name.replace(/\[\d+\]/, '[' + index + ']');
-        });
+                return productIndex.find(product =>
+                    product.label.toLowerCase() === normalized ||
+                    product.name.toLowerCase().includes(normalized) ||
+                    product.sku.toLowerCase().includes(normalized)
+                ) || null;
+            }
 
-        row.querySelector('.product-select').value = '';
-        row.querySelector('.qty-input').value = '1';
-        row.querySelector('.price-input').value = '0';
-        row.querySelector('.stock-cell').textContent = '0';
-        row.querySelector('.subtotal-cell').textContent = '0.00';
+            function buildProductOptions(selectedId) {
+                const options = ['<option value="">Seleccionar...</option>'];
 
-        tableBody.appendChild(row);
-        bindRow(row);
-        index++;
+                productIndex.forEach(function (product) {
+                    const selected = String(selectedId || '') === String(product.id) ? ' selected' : '';
+                    options.push(
+                        '<option value="' + product.id + '" data-stock="' + product.stock + '" data-price="' + product.price + '"' + selected + '>' +
+                        product.label +
+                        '</option>'
+                    );
+                });
 
-        return row;
-    }
+                return options.join('');
+            }
 
-    function findProductBySearch(value) {
-        const normalized = String(value || '').trim().toLowerCase();
+            function createItemRow(selectedProductId, quantity, unitPrice) {
+                const row = document.createElement('tr');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <td>
+                        <select name="items[${rowIndex}][product_id]" class="form-control product-select">
+                            ${buildProductOptions(selectedProductId)}
+                        </select>
+                    </td>
+                    <td class="stock-cell">0</td>
+                    <td>
+                        <input type="number" min="0.01" step="0.01" name="items[${rowIndex}][quantity]" class="form-control qty-input" value="${quantity}">
+                    </td>
+                    <td>
+                        <input type="number" min="0" step="0.01" name="items[${rowIndex}][unit_price]" class="form-control price-input" value="${unitPrice}">
+                    </td>
+                    <td class="subtotal-cell">0.00</td>
+                    <td class="text-right">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-item">Quitar</button>
+                    </td>
+                `;
 
-        if (!normalized) {
-            return null;
-        }
+                itemsTbody.appendChild(row);
+                rowIndex += 1;
+                updateRow(row);
+                updateSummary();
+                return row;
+            }
 
-        return productIndex.find((product) => {
-            return product.label.toLowerCase() === normalized
-                || product.name.toLowerCase() === normalized
-                || product.sku.toLowerCase() === normalized;
-        }) || null;
-    }
+            function ensureAtLeastOneRow() {
+                if (!itemsTbody.querySelector('.item-row')) {
+                    createItemRow('', 1, 0);
+                }
+            }
 
-    function addProductFromSearch() {
-        const product = findProductBySearch(productSearchInput.value);
-        if (!product) {
-            productSearchInput.focus();
-            return;
-        }
+            function updateRow(row) {
+                const select = row.querySelector('.product-select');
+                const qtyInput = row.querySelector('.qty-input');
+                const priceInput = row.querySelector('.price-input');
+                const stockCell = row.querySelector('.stock-cell');
+                const subtotalCell = row.querySelector('.subtotal-cell');
+                const product = getProductById(select.value);
+                const qty = Number(qtyInput.value || 0);
 
-        const row = createFreshRow();
-        row.querySelector('.product-select').value = String(product.id);
-        row.querySelector('.qty-input').value = '1';
-        row.querySelector('.price-input').value = Number(product.price || 0).toFixed(2);
-        updateRow(row);
-        updateSummary();
+                if (product) {
+                    stockCell.textContent = product.stock;
+                    if (!Number(priceInput.value)) {
+                        priceInput.value = product.price;
+                    }
+                } else {
+                    stockCell.textContent = '0';
+                }
 
-        productSearchInput.value = '';
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+                subtotalCell.textContent = formatMoney(qty * Number(priceInput.value || 0));
+            }
 
-    documentButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            documentTypeInput.value = button.dataset.docType;
-            updateDocumentTypeState();
-        });
-    });
+            function updateSummary() {
+                let itemCount = 0;
+                let subtotal = 0;
 
-    [paymentMethod, paymentStatus, taxRateInput, discountInput, shippingInput].forEach((element) => {
-        element.addEventListener('input', updateSummary);
-        element.addEventListener('change', updateSummary);
-    });
+                itemsTbody.querySelectorAll('.item-row').forEach(function (row) {
+                    updateRow(row);
+                    const productId = row.querySelector('.product-select').value;
+                    const qty = Number(row.querySelector('.qty-input').value || 0);
+                    const price = Number(row.querySelector('.price-input').value || 0);
 
-    bindRow(tableBody.querySelector('.item-row'));
+                    if (productId) {
+                        itemCount += qty;
+                        subtotal += qty * price;
+                    }
+                });
 
-    addBtn.addEventListener('click', () => {
-        createFreshRow();
-        updateSummary();
-    });
+                const discount = Number(discountInput.value || 0);
+                const shipping = Number(shippingInput.value || 0);
+                const rate = Number(taxRateInput.value || 0);
+                const base = Math.max(subtotal - discount, 0);
+                const tax = base * rate;
+                const total = base + tax + shipping;
+                const customerNameValue = customerName.value.trim() || 'Sin definir';
 
-    addBySearchBtn.addEventListener('click', addProductFromSearch);
-    productSearchInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            addProductFromSearch();
-        }
-    });
+                document.getElementById('summary-items-count').textContent = formatMoney(itemCount);
+                document.getElementById('summary-items-count-final').textContent = formatMoney(itemCount);
+                document.getElementById('summary-subtotal').textContent = formatMoney(subtotal);
+                document.getElementById('summary-subtotal-final').textContent = formatMoney(subtotal);
+                document.getElementById('summary-discount').textContent = formatMoney(discount);
+                document.getElementById('summary-shipping').textContent = formatMoney(shipping);
+                document.getElementById('summary-tax').textContent = formatMoney(tax);
+                document.getElementById('summary-total').textContent = formatMoney(total);
+                document.getElementById('summary-total-final').textContent = formatMoney(total);
+                document.getElementById('summary-customer-name').textContent = customerNameValue;
+                document.getElementById('summary-customer-name-final').textContent = customerNameValue;
+                document.getElementById('summary-customer-doc-type').textContent = customerDocumentType.value || '-';
+                document.getElementById('summary-customer-doc-number').textContent = customerDocumentNumber.value ? ' ' + customerDocumentNumber.value : '';
+                document.getElementById('summary-payment-method').textContent = paymentMethodInput.options[paymentMethodInput.selectedIndex].text;
+                document.getElementById('summary-payment-status').textContent = paymentStatusInput.options[paymentStatusInput.selectedIndex].text;
+            }
 
-    lookupButton.addEventListener('click', async () => {
-        const documentType = customerDocumentType.value;
-        const documentNumber = customerDocumentNumber.value.trim();
+            function updateDocumentTypeState() {
+                const type = documentInput.value;
+                const meta = documentTypeMeta[type] || documentTypeMeta.order;
 
-        if (!['DNI', 'RUC'].includes(documentType) || documentNumber === '') {
-            updateLookupHelp('Selecciona DNI o RUC y completa el número del documento.', true);
-            customerDocumentNumber.focus();
-            return;
-        }
+                documentButtons.forEach(function (button) {
+                    button.classList.toggle('is-active', button.dataset.documentType === type);
+                });
 
-        lookupButton.disabled = true;
-        updateLookupHelp('Consultando documento...');
+                document.getElementById('summary-document-title').textContent = meta.title;
+                document.getElementById('summary-document-title-final').textContent = meta.title;
+                document.getElementById('summary-document-meta').textContent = meta.help;
+                wizardHelp.textContent = meta.help;
+                document.getElementById('customer-step-note').textContent = meta.customer;
 
-        try {
-            const response = await fetch(lookupEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    document_type: documentType,
-                    document_number: documentNumber,
-                }),
+                if (type === 'factura') {
+                    customerDocumentType.value = 'RUC';
+                }
+
+                updateSummary();
+            }
+
+            function hasSelectedProducts() {
+                return Array.from(itemsTbody.querySelectorAll('.product-select')).some(select => select.value);
+            }
+
+            function validateCurrentStep() {
+                if (currentStep === 0 && !hasSelectedProducts()) {
+                    alert('Debes seleccionar al menos un producto antes de continuar.');
+                    return false;
+                }
+
+                if (currentStep === 1) {
+                    const customerNameValue = customerName.value.trim();
+                    const type = documentInput.value;
+                    const documentType = customerDocumentType.value;
+                    const documentNumber = customerDocumentNumber.value.trim();
+
+                    if (!customerNameValue) {
+                        alert('Ingresa el nombre del cliente para continuar.');
+                        return false;
+                    }
+
+                    if (type === 'factura' && (documentType !== 'RUC' || documentNumber.length !== 11)) {
+                        alert('Para factura debes registrar un RUC valido de 11 digitos.');
+                        return false;
+                    }
+
+                    if (type === 'boleta' && (!documentType || !documentNumber)) {
+                        alert('Para boleta registra tipo y numero de documento del cliente.');
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            function updateWizardUi() {
+                wizardTrack.style.transform = 'translateX(-' + (currentStep * 33.333333) + '%)';
+
+                wizardSteps.forEach(function (stepButton, stepIndex) {
+                    stepButton.classList.toggle('is-active', stepIndex === currentStep);
+                    stepButton.classList.toggle('is-complete', stepIndex < currentStep);
+                });
+
+                prevButton.disabled = currentStep === 0;
+                nextButton.textContent = currentStep === 2 ? 'Listo para registrar' : 'Continuar';
+            }
+
+            function goToStep(targetStep) {
+                if (targetStep > currentStep && !validateCurrentStep()) {
+                    return;
+                }
+
+                currentStep = Math.max(0, Math.min(2, targetStep));
+                updateWizardUi();
+            }
+
+            async function lookupDocument() {
+                const type = customerDocumentType.value;
+                const number = customerDocumentNumber.value.trim();
+
+                if (!type || !number) {
+                    lookupFeedback.textContent = 'Selecciona tipo y numero de documento antes de consultar.';
+                    lookupFeedback.className = 'form-text text-danger';
+                    return;
+                }
+
+                lookupButton.disabled = true;
+                lookupFeedback.textContent = 'Consultando...';
+                lookupFeedback.className = 'form-text text-muted';
+
+                try {
+                    const response = await fetch(@json(route('admin.sales.pos.customer-lookup')), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': @json(csrf_token()),
+                        },
+                        body: JSON.stringify({
+                            document_type: type,
+                            document_number: number,
+                        }),
+                    });
+
+                    const payload = await response.json();
+
+                    if (!response.ok || !payload.ok) {
+                        throw new Error(payload.message || 'No se pudo consultar el documento.');
+                    }
+
+                    const customer = payload.customer || {};
+                    customerName.value = customer.name || customerName.value;
+                    customerAddress.value = customer.address || customerAddress.value;
+                    customerCity.value = customer.city || customerCity.value;
+                    customerPhone.value = customer.phone || customerPhone.value;
+                    lookupFeedback.textContent = 'Documento consultado correctamente.';
+                    lookupFeedback.className = 'form-text text-success';
+                    updateSummary();
+                } catch (error) {
+                    lookupFeedback.textContent = error.message;
+                    lookupFeedback.className = 'form-text text-danger';
+                } finally {
+                    lookupButton.disabled = false;
+                }
+            }
+
+            itemsTbody.addEventListener('change', function (event) {
+                const row = event.target.closest('.item-row');
+                if (!row) {
+                    return;
+                }
+
+                if (event.target.classList.contains('product-select')) {
+                    const product = getProductById(event.target.value);
+                    if (product) {
+                        row.querySelector('.price-input').value = product.price;
+                    }
+                }
+
+                updateRow(row);
+                updateSummary();
             });
 
-            const result = await response.json();
+            itemsTbody.addEventListener('input', function (event) {
+                const row = event.target.closest('.item-row');
+                if (!row) {
+                    return;
+                }
 
-            if (!response.ok || !result.ok) {
-                updateLookupHelp(result.message || 'No se pudo consultar el documento.', true);
-                return;
-            }
+                updateRow(row);
+                updateSummary();
+            });
 
-            if (result.name && !customerNameInput.value.trim()) {
-                customerNameInput.value = result.name;
-            } else if (result.name) {
-                customerNameInput.value = result.name;
-            }
+            itemsTbody.addEventListener('click', function (event) {
+                if (!event.target.classList.contains('remove-item')) {
+                    return;
+                }
 
-            if (result.address && !customerAddressInput.value.trim()) {
-                customerAddressInput.value = result.address;
-            }
+                const rows = itemsTbody.querySelectorAll('.item-row');
+                if (rows.length === 1) {
+                    rows[0].querySelector('.product-select').value = '';
+                    rows[0].querySelector('.qty-input').value = 1;
+                    rows[0].querySelector('.price-input').value = 0;
+                    updateRow(rows[0]);
+                } else {
+                    event.target.closest('.item-row').remove();
+                }
 
-            if (result.city && !customerCityInput.value.trim()) {
-                customerCityInput.value = result.city;
-            }
+                ensureAtLeastOneRow();
+                updateSummary();
+            });
 
-            if (result.phone && !customerPhoneInput.value.trim()) {
-                customerPhoneInput.value = result.phone;
-            }
+            addItemRowButton.addEventListener('click', function () {
+                createItemRow('', 1, 0);
+            });
 
-            updateLookupHelp('Documento consultado correctamente.');
-        } catch (error) {
-            updateLookupHelp('Error de conexión al consultar el documento.', true);
-        } finally {
-            lookupButton.disabled = false;
-        }
-    });
+            addItemBySearchButton.addEventListener('click', function () {
+                const product = getProductBySearchTerm(productSearch.value);
+                if (!product) {
+                    alert('No se encontro un producto con ese criterio.');
+                    return;
+                }
 
-    form.addEventListener('submit', updateSummary);
+                createItemRow(product.id, 1, product.price);
+                productSearch.value = '';
+            });
 
-    updateDocumentTypeState();
-    updateRow(tableBody.querySelector('.item-row'));
-    updateSummary();
-});
-</script>
+            productSearch.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addItemBySearchButton.click();
+                }
+            });
+
+            documentButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    documentInput.value = button.dataset.documentType;
+                    updateDocumentTypeState();
+                });
+            });
+
+            wizardSteps.forEach(function (stepButton) {
+                stepButton.addEventListener('click', function () {
+                    const targetStep = Number(stepButton.dataset.step);
+                    if (targetStep <= currentStep || validateCurrentStep()) {
+                        goToStep(targetStep);
+                    }
+                });
+            });
+
+            prevButton.addEventListener('click', function () {
+                goToStep(currentStep - 1);
+            });
+
+            nextButton.addEventListener('click', function () {
+                if (currentStep === 2) {
+                    if (validateCurrentStep()) {
+                        document.getElementById('pos-form').requestSubmit();
+                    }
+                    return;
+                }
+
+                goToStep(currentStep + 1);
+            });
+
+            lookupButton.addEventListener('click', lookupDocument);
+
+            [
+                customerName,
+                customerDocumentType,
+                customerDocumentNumber,
+                paymentMethodInput,
+                paymentStatusInput,
+                taxRateInput,
+                discountInput,
+                shippingInput
+            ].forEach(function (element) {
+                element.addEventListener('input', updateSummary);
+                element.addEventListener('change', updateSummary);
+            });
+
+            itemsTbody.querySelectorAll('.item-row').forEach(function (row) {
+                updateRow(row);
+            });
+
+            updateDocumentTypeState();
+            updateSummary();
+            updateWizardUi();
+        });
+    </script>
 @endpush
