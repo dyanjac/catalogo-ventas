@@ -37,21 +37,6 @@
 
         <p class="text-muted mb-4">Registra pedido POS, boleta o factura con un flujo guiado.</p>
 
-    @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            <strong>No se pudo registrar la venta.</strong>
-            <ul class="mb-0 mt-2 pl-3">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form action="{{ route('admin.sales.pos.store') }}" method="POST" id="pos-form" novalidate>
         @csrf
         <input type="hidden" name="document_type" id="document_type" value="{{ $defaultDocumentType }}">
