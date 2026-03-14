@@ -96,10 +96,10 @@
                         <flux:button href="{{ route('admin.billing.documents.history', $selectedDocument) }}" variant="outline" icon="clock">
                             Historial
                         </flux:button>
-                        <flux:button href="{{ $selectedHasXml ? route('admin.billing.documents.download.xml', $selectedDocument) : '#' }}" variant="outline" icon="code-bracket-square" @disabled(! $selectedHasXml)>
+                        <flux:button href="{{ $selectedHasXml ? route('admin.billing.documents.download.xml', $selectedDocument) : '#' }}" variant="outline" icon="code-bracket-square" :disabled="! $selectedHasXml">
                             XML
                         </flux:button>
-                        <flux:button href="{{ $selectedHasCdr ? route('admin.billing.documents.download.cdr', $selectedDocument) : '#' }}" variant="outline" icon="shield-check" @disabled(! $selectedHasCdr)>
+                        <flux:button href="{{ $selectedHasCdr ? route('admin.billing.documents.download.cdr', $selectedDocument) : '#' }}" variant="outline" icon="shield-check" :disabled="! $selectedHasCdr">
                             CDR
                         </flux:button>
                         <flux:button href="{{ route('admin.billing.documents.download.pdf', $selectedDocument) }}" variant="primary" icon="document-arrow-down">
