@@ -6,35 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Support\SimplePdfBuilder;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): View
+    public function index(): View
     {
-        $search = trim((string) $request->input('search', ''));
-        $status = (string) $request->input('status', '');
-        $paymentStatus = (string) $request->input('payment_status', '');
-
-        $orders = Order::query()
-            ->with(['user'])
-            ->when($search !== '', function ($query) use ($search) {
-                $normalized = strtoupper(str_replace(' ', '', $search));
-
-                $query->where(function ($sub) use ($search, $normalized) {
-                    $sub->whereRaw("CONCAT(series, '-', LPAD(order_number, 8, '0')) LIKE ?", ['%' . $normalized . '%'])
-                        ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
-                        ->orWhere('transaction_id', 'like', "%{$search}%");
-                });
-            })
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->when($paymentStatus !== '', fn ($query) => $query->where('payment_status', $paymentStatus))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        return view('admin.orders.index', compact('orders', 'search', 'status', 'paymentStatus'));
+        return view('admin.orders.index');
     }
 
     public function show(Order $order): View

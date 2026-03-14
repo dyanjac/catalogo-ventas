@@ -7,9 +7,10 @@
 
 <div {{ $attributes->merge(['class' => 'd-flex justify-content-between align-items-center mb-4']) }}>
     <div>
-        <h1 class="text-primary mb-0">{{ $title }}</h1>
+        <div class="admin-page-header__eyebrow">Vista operativa</div>
+        <h1 class="admin-page-header__title mb-0">{{ $title }}</h1>
         @if($description)
-            <p class="text-muted mb-0">{{ $description }}</p>
+            <p class="admin-page-header__description mb-0">{{ $description }}</p>
         @endif
     </div>
 
@@ -20,7 +21,7 @@
             @endisset
 
             @if($actionLabel && $actionHref)
-                <a href="{{ $actionHref }}" class="btn btn-primary rounded-pill px-4">{{ $actionLabel }}</a>
+                <flux:button href="{{ $actionHref }}" variant="primary">{{ $actionLabel }}</flux:button>
             @endif
         </div>
     @endif

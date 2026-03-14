@@ -18,32 +18,7 @@ class ProductController extends Controller
 {
     public function index(): View
     {
-        $query = Product::query()->with(['category', 'unitMeasure', 'mainImage'])->latest('id');
-
-        if ($search = trim((string) request('q'))) {
-            $query->where(function ($sub) use ($search) {
-                $sub->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
-
-        if ($categoryId = request('category_id')) {
-            $query->where('category_id', $categoryId);
-        }
-
-        if ($unitMeasureId = request('unit_measure_id')) {
-            $query->where('unit_measure_id', $unitMeasureId);
-        }
-
-        if (request()->filled('is_active')) {
-            $query->where('is_active', (bool) request('is_active'));
-        }
-
-        return view('admin.products.index', [
-            'products' => $query->paginate(12)->withQueryString(),
-            'categories' => Category::orderBy('name')->get(),
-            'unitMeasures' => UnitMeasure::orderBy('name')->get(),
-        ]);
+        return view('admin.products.index');
     }
 
     public function create(): View

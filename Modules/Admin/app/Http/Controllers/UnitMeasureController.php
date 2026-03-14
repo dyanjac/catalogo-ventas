@@ -12,9 +12,7 @@ class UnitMeasureController extends Controller
 {
     public function index(): View
     {
-        $unitMeasures = UnitMeasure::withCount('products')->orderBy('name')->paginate(15);
-
-        return view('admin.unit-measures.index', compact('unitMeasures'));
+        return view('admin.unit-measures.index');
     }
 
     public function create(): View

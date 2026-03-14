@@ -5,31 +5,13 @@ namespace Modules\Admin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
-    public function index(Request $request): View
+    public function index(): View
     {
-        $search = trim((string) $request->input('search', ''));
-        $role = (string) $request->input('role', '');
-
-        $customers = User::query()
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('document_number', 'like', "%{$search}%");
-                });
-            })
-            ->when($role !== '', fn ($query) => $query->where('role', $role))
-            ->latest('id')
-            ->paginate(12)
-            ->withQueryString();
-
-        return view('admin.customers.index', compact('customers', 'search', 'role'));
+        return view('admin.customers.index');
     }
 
     public function show(User $customer): View

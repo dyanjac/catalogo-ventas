@@ -14,7 +14,6 @@ use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\ElectronicBillingService;
-use Modules\Catalog\Entities\Product;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
 use Modules\Sales\Services\CustomerDocumentLookupService;
@@ -24,15 +23,7 @@ class SalesPosController extends Controller
 {
     public function index(): View
     {
-        return view('sales::pos.index', [
-            'products' => Product::query()
-                ->where('is_active', true)
-                ->where('stock', '>', 0)
-                ->orderBy('name')
-                ->get(['id', 'name', 'sku', 'sale_price', 'price', 'stock']),
-            'defaultTaxRate' => (float) config('sales.default_tax_rate', 0.18),
-            'defaultCurrency' => config('sales.default_currency', 'PEN'),
-        ]);
+        return view('sales::pos.index');
     }
 
     public function lookupCustomerDocument(Request $request, CustomerDocumentLookupService $lookupService): JsonResponse

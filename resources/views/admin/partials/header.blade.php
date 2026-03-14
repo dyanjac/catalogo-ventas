@@ -1,52 +1,94 @@
-<nav class="main-header navbar navbar-expand navbar-white navbar-light">
-    <ul class="navbar-nav">
-        <li class="nav-item">
-            <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
-        </li>
-        <li class="nav-item d-none d-md-flex align-items-center">
-            <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}" style="height: 34px; width: 34px; object-fit: contain;" class="mr-2">
-            <div class="small">
-                <div class="font-weight-bold text-dark">{{ $commerce['name'] }}</div>
-                <div class="text-muted">{{ $commerce['email'] ?: 'Correo no configurado' }}</div>
-            </div>
-        </li>
-    </ul>
+@php
+    $pageTitle = View::yieldContent('page_title', View::yieldContent('title', 'Panel CMS'));
+    $user = auth()->user();
+    $initials = collect(explode(' ', (string) $user?->name))
+        ->filter()
+        ->take(2)
+        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+        ->implode('');
+@endphp
 
-    <ul class="navbar-nav ml-auto align-items-center">
-        <li class="nav-item d-none d-lg-inline-block mr-3">
+<header class="admin-topbar">
+    <div class="admin-topbar__surface">
+        <div class="admin-topbar__group">
+            <flux:sidebar.toggle class="lg:hidden" icon="bars-3" />
+
+            <div class="admin-topbar__brand">
+                <div class="admin-topbar__brand-mark">
+                    <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}">
+                </div>
+                <div class="admin-topbar__title">
+                    <div class="admin-topbar__eyebrow">
+                        <span class="admin-topbar__eyebrow-badge">Monolito modular</span>
+                        <span class="d-none d-md-inline">{{ now()->format('d/m/Y H:i') }}</span>
+                    </div>
+                    <div>
+                        <h1 class="admin-topbar__heading">{{ $pageTitle }}</h1>
+                        <p class="admin-topbar__subtitle">
+                            {{ $commerce['name'] }} · Panel administrativo centralizado con módulos desacoplados.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-topbar__actions">
             @if($commerce['mobile_digits'])
-                <a href="{{ $commerce['whatsapp_url'] }}?text=Hola%2C%20necesito%20apoyo%20comercial." target="_blank" class="btn btn-success btn-sm">
-                    <i class="fab fa-whatsapp mr-1"></i>{{ $commerce['mobile'] }}
-                </a>
+                <flux:button
+                    href="{{ $commerce['whatsapp_url'] }}?text=Hola%2C%20necesito%20apoyo%20comercial."
+                    target="_blank"
+                    variant="outline"
+                    icon="phone"
+                    size="sm"
+                    class="d-none d-xl-inline-flex"
+                >
+                    {{ $commerce['mobile'] }}
+                </flux:button>
             @elseif($commerce['phone_digits'])
-                <a href="tel:{{ $commerce['phone_digits'] }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-phone-alt mr-1"></i>{{ $commerce['phone'] }}
-                </a>
+                <flux:button
+                    href="tel:{{ $commerce['phone_digits'] }}"
+                    variant="outline"
+                    icon="phone"
+                    size="sm"
+                    class="d-none d-xl-inline-flex"
+                >
+                    {{ $commerce['phone'] }}
+                </flux:button>
             @endif
-        </li>
-        <li class="nav-item d-none d-sm-inline-block mr-3 text-muted small">
-            {{ now()->format('d/m/Y H:i') }}
-        </li>
-        <li class="nav-item dropdown user-menu">
-            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-                <span class="d-none d-md-inline">{{ auth()->user()->name }}</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                <li class="user-header bg-primary">
-                    <p>
-                        {{ auth()->user()->name }}
-                        <small>{{ auth()->user()->email }}</small>
-                    </p>
-                </li>
-                <li class="user-footer d-flex justify-content-between px-3 py-2">
-                    <a href="{{ route('home') }}" class="btn btn-default btn-flat">Ver tienda</a>
+
+            <flux:button href="{{ route('home') }}" variant="primary" icon="shopping-bag" size="sm">
+                Ver tienda
+            </flux:button>
+
+            <flux:dropdown position="bottom" align="end">
+                <flux:profile
+                    :name="$user?->name"
+                    :initials="$initials !== '' ? $initials : 'AD'"
+                    circle
+                />
+
+                <flux:menu>
+                    <flux:menu.item icon="user-circle">
+                        {{ $user?->email }}
+                    </flux:menu.item>
+
+                    <flux:menu.item href="{{ route('admin.dashboard') }}" icon="home">
+                        Dashboard
+                    </flux:menu.item>
+
+                    <flux:menu.item href="{{ route('home') }}" icon="shopping-bag">
+                        Ver tienda
+                    </flux:menu.item>
+
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="btn btn-default btn-flat">Cerrar sesión</button>
+                        <flux:menu.item type="submit" icon="arrow-left-start-on-rectangle" variant="danger">
+                            Cerrar sesion
+                        </flux:menu.item>
                     </form>
-                </li>
-            </ul>
-        </li>
-    </ul>
-</nav>
+                </flux:menu>
+            </flux:dropdown>
+        </div>
+    </div>
+</header>
 
