@@ -21,6 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PREFIX
                 | Request::HEADER_X_FORWARDED_AWS_ELB
         );
+
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            return $request->is('admin') || $request->is('admin/*')
+                ? route('admin.login')
+                : route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

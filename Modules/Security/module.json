@@ -1,0 +1,11 @@
+{
+    "name": "Security",
+    "alias": "security",
+    "description": "Autenticacion administrativa, roles, permisos e integraciones externas",
+    "keywords": ["security", "auth", "ldap", "oauth", "roles", "permissions"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Security\\Providers\\SecurityServiceProvider"
+    ],
+    "files": []
+}

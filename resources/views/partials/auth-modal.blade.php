@@ -17,7 +17,7 @@
 
         <div class="tab-content">
           <div class="tab-pane fade show active" id="login-pane" role="tabpanel" aria-labelledby="login-tab">
-            <form method="POST" action="{{ route('login') }}" class="row g-3">
+            <form method="POST" action="{{ route('login.attempt') }}" class="row g-3">
               @csrf
               <div class="col-12">
                 <label class="form-label">Correo</label>

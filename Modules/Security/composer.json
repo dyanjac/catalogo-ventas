@@ -1,0 +1,27 @@
+{
+    "name": "nwidart/security",
+    "description": "Modulo de seguridad y autenticacion administrativa",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Security\\": "app/",
+            "Modules\\Security\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Security\\Tests\\": "tests/"
+        }
+    }
+}

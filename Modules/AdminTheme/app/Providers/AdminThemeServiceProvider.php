@@ -30,7 +30,7 @@ class AdminThemeServiceProvider extends ServiceProvider
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
 
-        View::composer('layouts.admin', function ($view): void {
+        View::composer(['layouts.admin', 'layouts.auth'], function ($view): void {
             $view->with('adminPalette', $this->app->make(AdminThemePaletteService::class)->getPalette());
         });
     }

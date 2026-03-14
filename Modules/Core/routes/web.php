@@ -10,7 +10,8 @@ Route::view('/nosotros', 'nosotros.index')->name('nosotros.index');
 Route::get('/contacto', [ContactoController::class, 'index'])->name('contacto.index');
 
 Route::middleware('guest')->group(function () {
-    Route::post('/login', [AuthController::class, 'login'])->name('login');
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
     Route::post('/register', [AuthController::class, 'register'])->name('register');
 });
 

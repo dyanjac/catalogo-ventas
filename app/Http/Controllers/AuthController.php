@@ -9,6 +9,17 @@ use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    public function showLogin()
+    {
+        if (Auth::check()) {
+            $target = Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home');
+
+            return redirect()->intended($target);
+        }
+
+        return view('auth.login');
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validateWithBag('login', [

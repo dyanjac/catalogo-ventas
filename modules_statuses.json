@@ -8,5 +8,6 @@
     "Billing": true,
     "Sales": true,
     "ElectronicDocuments": true,
-    "Commerce": true
+    "Commerce": true,
+    "Security": true
 }
