@@ -17,6 +17,18 @@
     <form action="{{ route('admin.sales.pos.store') }}" method="POST" novalidate>
         @csrf
         <input type="hidden" name="document_type" value="{{ $documentType }}">
+        <input type="hidden" name="customer[name]" value="{{ $customer['name'] }}">
+        <input type="hidden" name="customer[address]" value="{{ $customer['address'] }}">
+        <input type="hidden" name="customer[city]" value="{{ $customer['city'] }}">
+        <input type="hidden" name="customer[phone]" value="{{ $customer['phone'] }}">
+        <input type="hidden" name="customer[document_type]" value="{{ $customer['document_type'] }}">
+        <input type="hidden" name="customer[document_number]" value="{{ $customer['document_number'] }}">
+
+        @foreach ($items as $index => $item)
+            <input type="hidden" name="items[{{ $index }}][product_id]" value="{{ $item['product_id'] }}">
+            <input type="hidden" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] }}">
+            <input type="hidden" name="items[{{ $index }}][unit_price]" value="{{ $item['unit_price'] }}">
+        @endforeach
 
         <div class="card border-0 pos-shell">
             <div class="card-body space-y-5">

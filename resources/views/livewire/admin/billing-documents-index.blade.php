@@ -1,6 +1,15 @@
 @php
     $selectedHasXml = $selectedDocument && (bool) ($selectedDocument->xmlFile() || $selectedDocument->xml_path || data_get($selectedDocument->request_payload, 'xml_path'));
     $selectedHasCdr = $selectedDocument && (bool) ($selectedDocument->cdrFile() || data_get($selectedDocument->response_payload, 'cdr_path') || data_get($selectedDocument->response_payload, 'cdr_base64') || data_get($selectedDocument->response_payload, 'body.cdr_base64') || data_get($selectedDocument->response_payload, 'body.cdrZipBase64'));
+    $selectedCanRedeclare = $selectedDocument && is_array($selectedDocument->request_payload) && isset($selectedDocument->request_payload['items']) && is_array($selectedDocument->request_payload['items']);
+    $selectedStatusValue = strtolower((string) ($selectedDocument?->status ?? ''));
+    $selectedStatusBadge = match ($selectedStatusValue) {
+        'issued', 'accepted' => 'badge badge-success',
+        'error', 'rejected', 'accepted_with_observation', 'accepted-observation', 'accepted_observation' => 'badge badge-danger',
+        'queued' => 'badge badge-warning',
+        default => 'badge badge-secondary',
+    };
+    $selectedStatusLabel = strtoupper(str_replace('_', ' ', (string) ($selectedDocument?->status ?? 'SIN ESTADO')));
 @endphp
 
 <div class="space-y-6">
@@ -66,48 +75,124 @@
 
     <div class="card border-0">
         <div class="card-body">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
+            @if($feedbackMessage !== '')
+                <div class="alert alert-{{ $feedbackType }} mb-4">
+                    {{ $feedbackMessage }}
+                </div>
+            @endif
+
+            <div class="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
+                <div class="rounded-4 border border-slate-200 bg-slate-50/70 p-4">
                     <div class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Documento seleccionado</div>
-                    <div class="mt-1 text-sm text-slate-500">
-                        @if($selectedDocument)
-                            {{ $selectedDocument->series }}-{{ $selectedDocument->number }}
-                            | {{ strtoupper((string) $selectedDocument->provider) }}
-                            | {{ strtoupper(str_replace('_', ' ', (string) $selectedDocument->status)) }}
-                            | {{ $selectedDocument->issue_date?->format('d/m/Y') ?? '-' }}
-                            | {{ number_format((float) $selectedDocument->total, 2) }} {{ $selectedDocument->currency }}
-                        @else
-                            Selecciona un comprobante para habilitar acciones.
-                        @endif
-                    </div>
+
+                    @if($selectedDocument)
+                        <div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                                <div class="text-2xl font-semibold text-slate-900">
+                                    {{ $selectedDocument->series }}-{{ $selectedDocument->number }}
+                                </div>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <span class="{{ $selectedStatusBadge }}">{{ $selectedStatusLabel }}</span>
+                                    <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm text-slate-600">
+                                        {{ strtoupper((string) $selectedDocument->provider) }}
+                                    </span>
+                                    <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm text-slate-600">
+                                        {{ $selectedDocument->issue_date?->format('d/m/Y') ?? '-' }}
+                                    </span>
+                                    <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-slate-700">
+                                        {{ number_format((float) $selectedDocument->total, 2) }} {{ $selectedDocument->currency }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3 sm:grid-cols-3">
+                                <div class="rounded-3 bg-white px-4 py-3">
+                                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Pedido</div>
+                                    <div class="mt-1 text-sm font-medium text-slate-700">{{ $selectedDocument->order_id ? '#'.$selectedDocument->order_id : '-' }}</div>
+                                </div>
+                                <div class="rounded-3 bg-white px-4 py-3">
+                                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Cliente Doc.</div>
+                                    <div class="mt-1 text-sm font-medium text-slate-700">{{ $selectedDocument->customer_document_number ?? '-' }}</div>
+                                </div>
+                                <div class="rounded-3 bg-white px-4 py-3">
+                                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Archivos</div>
+                                    <div class="mt-1 text-sm font-medium text-slate-700">
+                                        XML {{ $selectedHasXml ? 'disponible' : 'pendiente' }} / CDR {{ $selectedHasCdr ? 'disponible' : 'pendiente' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="mt-2 text-sm text-slate-500">
+                            Selecciona un comprobante para habilitar acciones y revisar su contexto operativo.
+                        </div>
+                    @endif
                 </div>
 
-                <div class="flex flex-wrap gap-2">
-                    @if($selectedDocument)
-                        <form method="POST" action="{{ route('admin.billing.documents.redeclare', $selectedDocument) }}" class="m-0">
-                            @csrf
-                            <flux:button type="submit" variant="filled" color="amber" icon="arrow-path" onclick="return confirm('¿Re-declarar este comprobante al proveedor configurado?')">
-                                Re-declarar
+                <div class="rounded-4 border border-slate-200 bg-white p-4">
+                    <div class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Acciones operativas</div>
+                    <div class="mt-3 text-sm text-slate-500">
+                        @if($selectedDocument)
+                            Ejecuta acciones sobre el comprobante activo y descarga los artefactos generados por la emision.
+                        @else
+                            No hay un comprobante seleccionado todavia.
+                        @endif
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        @if($selectedDocument)
+                            <flux:button
+                                type="button"
+                                wire:click="redeclareSelected"
+                                wire:loading.attr="disabled"
+                                wire:target="redeclareSelected"
+                                variant="filled"
+                                color="amber"
+                                icon="arrow-path"
+                                :disabled="! $selectedCanRedeclare"
+                                onclick="return confirm('¿Re-declarar este comprobante al proveedor configurado?')"
+                            >
+                                <span wire:loading.remove wire:target="redeclareSelected">Re-declarar</span>
+                                <span wire:loading wire:target="redeclareSelected">Procesando...</span>
                             </flux:button>
-                        </form>
-                        <flux:button href="{{ route('admin.billing.documents.show', $selectedDocument) }}" variant="outline" icon="eye">
-                            Detalle
-                        </flux:button>
-                        <flux:button href="{{ route('admin.billing.documents.history', $selectedDocument) }}" variant="outline" icon="clock">
-                            Historial
-                        </flux:button>
-                        <flux:button href="{{ $selectedHasXml ? route('admin.billing.documents.download.xml', $selectedDocument) : '#' }}" variant="outline" icon="code-bracket-square" :disabled="! $selectedHasXml">
-                            XML
-                        </flux:button>
-                        <flux:button href="{{ $selectedHasCdr ? route('admin.billing.documents.download.cdr', $selectedDocument) : '#' }}" variant="outline" icon="shield-check" :disabled="! $selectedHasCdr">
-                            CDR
-                        </flux:button>
-                        <flux:button href="{{ route('admin.billing.documents.download.pdf', $selectedDocument) }}" variant="primary" icon="document-arrow-down">
-                            PDF
-                        </flux:button>
-                    @else
-                        <flux:button variant="outline" disabled icon="eye">Detalle</flux:button>
-                        <flux:button variant="outline" disabled icon="clock">Historial</flux:button>
+                            <flux:button href="{{ route('admin.billing.documents.show', $selectedDocument) }}" variant="outline" icon="eye">
+                                Detalle
+                            </flux:button>
+                            <flux:button href="{{ route('admin.billing.documents.history', $selectedDocument) }}" variant="outline" icon="clock">
+                                Historial
+                            </flux:button>
+                            <flux:button href="{{ $selectedHasXml ? route('admin.billing.documents.download.xml', $selectedDocument) : '#' }}" variant="outline" icon="code-bracket-square" :disabled="! $selectedHasXml">
+                                XML
+                            </flux:button>
+                            <flux:button href="{{ $selectedHasCdr ? route('admin.billing.documents.download.cdr', $selectedDocument) : '#' }}" variant="outline" icon="shield-check" :disabled="! $selectedHasCdr">
+                                CDR
+                            </flux:button>
+                            <flux:button href="{{ route('admin.billing.documents.download.pdf', $selectedDocument) }}" variant="primary" icon="document-arrow-down">
+                                PDF
+                            </flux:button>
+                        @else
+                            <flux:button variant="outline" disabled icon="eye">Detalle</flux:button>
+                            <flux:button variant="outline" disabled icon="clock">Historial</flux:button>
+                            <flux:button variant="outline" disabled icon="code-bracket-square">XML</flux:button>
+                            <flux:button variant="outline" disabled icon="shield-check">CDR</flux:button>
+                        @endif
+                    </div>
+
+                    @if($selectedDocument)
+                        <div class="mt-4 grid gap-2">
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Disponibilidad</div>
+                            <div class="flex flex-wrap gap-2 text-sm">
+                                <span class="inline-flex items-center rounded-full px-3 py-1 {{ $selectedCanRedeclare ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
+                                    {{ $selectedCanRedeclare ? 'Payload listo para re-declaracion' : 'Sin payload util para re-declarar' }}
+                                </span>
+                                <span class="inline-flex items-center rounded-full px-3 py-1 {{ $selectedHasXml ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+                                    XML {{ $selectedHasXml ? 'listo' : 'no disponible' }}
+                                </span>
+                                <span class="inline-flex items-center rounded-full px-3 py-1 {{ $selectedHasCdr ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+                                    CDR {{ $selectedHasCdr ? 'listo' : 'no disponible' }}
+                                </span>
+                            </div>
+                        </div>
                     @endif
                 </div>
             </div>

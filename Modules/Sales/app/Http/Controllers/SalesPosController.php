@@ -14,6 +14,7 @@ use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\ElectronicBillingService;
+use Modules\Catalog\Entities\Product;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
 use Modules\Sales\Services\CustomerDocumentLookupService;

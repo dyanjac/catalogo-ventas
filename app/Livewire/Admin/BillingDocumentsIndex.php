@@ -7,6 +7,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Billing\Services\ElectronicBillingService;
 
 class BillingDocumentsIndex extends Component
 {
@@ -28,6 +29,10 @@ class BillingDocumentsIndex extends Component
     public string $search = '';
 
     public ?int $selectedDocumentId = null;
+
+    public string $feedbackMessage = '';
+
+    public string $feedbackType = 'success';
 
     public array $statuses = ['draft', 'queued', 'issued', 'accepted', 'rejected', 'voided', 'error'];
 
@@ -60,12 +65,44 @@ class BillingDocumentsIndex extends Component
     {
         $this->reset(['status', 'provider', 'dateFrom', 'dateTo', 'search']);
         $this->selectedDocumentId = null;
+        $this->clearFeedback();
         $this->resetPage();
     }
 
     public function selectDocument(int $documentId): void
     {
         $this->selectedDocumentId = $documentId;
+        $this->clearFeedback();
+    }
+
+    public function redeclareSelected(ElectronicBillingService $electronicBilling): void
+    {
+        $document = $this->selectedDocument();
+
+        if (! $document) {
+            $this->setFeedback('warning', 'Selecciona un comprobante antes de ejecutar la re-declaracion.');
+            return;
+        }
+
+        $payload = is_array($document->request_payload) ? $document->request_payload : [];
+
+        if ($payload === [] || ! isset($payload['items']) || ! is_array($payload['items'])) {
+            $this->setFeedback('danger', 'El comprobante no tiene payload valido para re-declarar al proveedor.');
+            return;
+        }
+
+        $result = $electronicBilling->issueOrQueue($document, $payload);
+
+        if ((bool) ($result['queued'] ?? false)) {
+            $this->setFeedback('warning', 'Re-declaracion encolada ('.$result['connection'].'/'.$result['queue'].').');
+        } elseif (! (bool) ($result['ok'] ?? false)) {
+            $this->setFeedback('warning', 'Re-declaracion enviada con error: '.($result['message'] ?? 'Error no especificado.'));
+        } else {
+            $this->setFeedback('success', 'Re-declaracion enviada correctamente al proveedor configurado.');
+        }
+
+        $this->selectedDocumentId = $document->id;
+        $this->resetPage();
     }
 
     public function render()
@@ -106,6 +143,30 @@ class BillingDocumentsIndex extends Component
     private function handleFilterMutation(): void
     {
         $this->selectedDocumentId = null;
+        $this->clearFeedback();
         $this->resetPage();
+    }
+
+    private function selectedDocument(): ?BillingDocument
+    {
+        if (! $this->selectedDocumentId) {
+            return null;
+        }
+
+        return BillingDocument::query()
+            ->with(['order', 'files'])
+            ->find($this->selectedDocumentId);
+    }
+
+    private function setFeedback(string $type, string $message): void
+    {
+        $this->feedbackType = $type;
+        $this->feedbackMessage = $message;
+    }
+
+    private function clearFeedback(): void
+    {
+        $this->feedbackType = 'success';
+        $this->feedbackMessage = '';
     }
 }
