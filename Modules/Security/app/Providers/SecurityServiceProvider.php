@@ -4,6 +4,8 @@ namespace Modules\Security\Providers;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use LdapRecord\Models\OpenLDAP\User as LdapOpenLdapUser;
+use Modules\Security\Services\SecurityAuthSettingsService;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -22,12 +24,14 @@ class SecurityServiceProvider extends ServiceProvider
         $this->registerCommandSchedules();
         $this->registerTranslations();
         $this->registerConfig();
+        $this->configureLdapRuntime();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
     }
 
     public function register(): void
     {
+        $this->app->singleton(SecurityAuthSettingsService::class);
         $this->app->register(RouteServiceProvider::class);
     }
 
@@ -109,6 +113,43 @@ class SecurityServiceProvider extends ServiceProvider
         return [];
     }
 
+    private function configureLdapRuntime(): void
+    {
+        $settings = $this->app->make(SecurityAuthSettingsService::class)->getForView();
+        [$host, $portFromHost] = $this->parseLdapHost((string) ($settings['ldap_host'] ?? ''));
+        $connectionName = config('ldap.default', 'default');
+        $ldapOptions = [];
+        $emailAttribute = trim((string) ($settings['ldap_email_attribute'] ?? 'mail')) ?: 'mail';
+
+        if (defined('LDAP_OPT_PROTOCOL_VERSION')) {
+            $ldapOptions[LDAP_OPT_PROTOCOL_VERSION] = 3;
+        }
+
+        if (defined('LDAP_OPT_REFERRALS')) {
+            $ldapOptions[LDAP_OPT_REFERRALS] = 0;
+        }
+
+        config([
+            "ldap.connections.$connectionName.hosts" => $host !== '' ? [$host] : [env('LDAP_HOST', '127.0.0.1')],
+            "ldap.connections.$connectionName.username" => $settings['ldap_anonymous'] ? null : ($settings['ldap_bind_dn'] ?: env('LDAP_USERNAME')),
+            "ldap.connections.$connectionName.password" => $settings['ldap_anonymous'] ? null : ($settings['ldap_bind_password'] ?: env('LDAP_PASSWORD')),
+            "ldap.connections.$connectionName.port" => $portFromHost ?: (int) ($settings['ldap_port'] ?? env('LDAP_PORT', 389)),
+            "ldap.connections.$connectionName.base_dn" => $settings['ldap_base_dn'] ?: env('LDAP_BASE_DN'),
+            "ldap.connections.$connectionName.timeout" => (int) env('LDAP_TIMEOUT', 5),
+            "ldap.connections.$connectionName.use_ssl" => (bool) ($settings['ldap_use_tls'] ?? env('LDAP_SSL', false)),
+            "ldap.connections.$connectionName.use_tls" => (bool) ($settings['ldap_use_starttls'] ?? env('LDAP_TLS', false)),
+            "ldap.connections.$connectionName.options" => $ldapOptions,
+            'auth.providers.ldap-admin.model' => LdapOpenLdapUser::class,
+            'auth.providers.ldap-admin.database.model' => \App\Models\User::class,
+            'auth.providers.ldap-admin.database.sync_passwords' => false,
+            'auth.providers.ldap-admin.database.sync_attributes' => [
+                'name' => 'cn',
+                'email' => $emailAttribute,
+                'phone' => 'telephonenumber',
+            ],
+        ]);
+    }
+
     private function getPublishableViewPaths(): array
     {
         $paths = [];
@@ -120,5 +161,28 @@ class SecurityServiceProvider extends ServiceProvider
         }
 
         return $paths;
+    }
+
+    /**
+     * @return array{0:string,1:int|null}
+     */
+    protected function parseLdapHost(string $value): array
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return ['', null];
+        }
+
+        if (! str_contains($value, ':')) {
+            return [$value, null];
+        }
+
+        [$host, $port] = array_pad(explode(':', $value, 2), 2, null);
+
+        return [
+            trim((string) $host),
+            is_numeric($port) ? (int) $port : null,
+        ];
     }
 }

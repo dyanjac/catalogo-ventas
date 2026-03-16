@@ -23,25 +23,25 @@
                 </div>
             </div>
 
-            <h1 class="auth-screen__title">Ingreso seguro para operacion interna</h1>
+            <h1 class="auth-screen__title">{{ $authSettings['login_headline'] ?? 'Ingreso seguro para operacion interna' }}</h1>
             <p class="auth-screen__copy">
-                Este acceso toma la identidad visual configurada en el panel y permanece separado del login del ecommerce.
-                Sera la base del modulo Security para autenticacion administrativa, control de roles, LDAP configurable
-                y proveedores OAuth externos.
+                {{ $authSettings['login_slogan'] ?? 'Este acceso toma la identidad visual configurada en el panel y permanece separado del login del ecommerce.' }}
             </p>
 
             <div class="auth-screen__card-grid">
                 <div class="auth-screen__mini-card">
                     <div class="auth-screen__mini-label">Canal</div>
-                    <div class="auth-screen__mini-value">Panel admin</div>
+                    <div class="auth-screen__mini-value">{{ strtoupper($authSettings['auth_method'] ?? 'internal') }}</div>
                 </div>
                 <div class="auth-screen__mini-card">
                     <div class="auth-screen__mini-label">Federacion</div>
-                    <div class="auth-screen__mini-value">Google y GitHub</div>
+                    <div class="auth-screen__mini-value">
+                        {{ !empty($authSettings['oauth_google_enabled']) || !empty($authSettings['oauth_github_enabled']) || !empty($authSettings['oauth_custom_enabled']) ? 'Proveedores preparados' : 'Pendiente' }}
+                    </div>
                 </div>
                 <div class="auth-screen__mini-card">
                     <div class="auth-screen__mini-label">Directorio</div>
-                    <div class="auth-screen__mini-value">LDAP configurable</div>
+                    <div class="auth-screen__mini-value">{{ !empty($authSettings['ldap_enabled']) ? 'LDAP activo' : 'LDAP configurable' }}</div>
                 </div>
             </div>
 
@@ -66,12 +66,22 @@
             </div>
 
             <form wire:submit="login" class="auth-form">
+                @error('identifier')
+                    <div class="auth-form__alert" role="alert">{{ $message }}</div>
+                @enderror
+
                 <div class="auth-form__field">
-                    <label class="form-label" for="admin-login-email">Correo</label>
-                    <flux:input wire:model.live="email" id="admin-login-email" type="email" placeholder="admin@empresa.com" autofocus />
-                    @error('email')
-                        <div class="auth-form__error">{{ $message }}</div>
-                    @enderror
+                    @php
+                        $ldapEnabled = !empty($authSettings['ldap_enabled']);
+                    @endphp
+                    <label class="form-label" for="admin-login-identifier">{{ $ldapEnabled ? 'Correo o usuario' : 'Correo' }}</label>
+                    <flux:input
+                        wire:model.live="identifier"
+                        id="admin-login-identifier"
+                        type="{{ $ldapEnabled ? 'text' : 'email' }}"
+                        placeholder="{{ $ldapEnabled ? 'admin@empresa.com o usuario' : 'admin@empresa.com' }}"
+                        autofocus
+                    />
                 </div>
 
                 <div class="auth-form__field">
@@ -87,7 +97,7 @@
                     <span>Recordarme en este dispositivo</span>
                 </label>
 
-                <flux:button type="submit" variant="primary" class="w-full justify-center" wire:loading.attr="disabled">
+                <flux:button type="submit" variant="primary" class="w-full justify-center auth-form__submit" wire:loading.attr="disabled">
                     <span wire:loading.remove wire:target="login">Ingresar al panel</span>
                     <span wire:loading wire:target="login">Validando acceso...</span>
                 </flux:button>
@@ -98,14 +108,14 @@
             </div>
 
             <div class="auth-provider-list">
-                <flux:button variant="outline" class="w-full justify-start" disabled icon="globe-alt">
-                    Google Workspace
+                <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['oauth_google_enabled'])" icon="globe-alt">
+                    Google Workspace {{ !empty($authSettings['oauth_google_enabled']) ? '(configurado)' : '(pendiente)' }}
                 </flux:button>
-                <flux:button variant="outline" class="w-full justify-start" disabled icon="code-bracket">
-                    GitHub Enterprise
+                <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['oauth_github_enabled'])" icon="code-bracket">
+                    GitHub Enterprise {{ !empty($authSettings['oauth_github_enabled']) ? '(configurado)' : '(pendiente)' }}
                 </flux:button>
-                <flux:button variant="outline" class="w-full justify-start" disabled icon="building-office-2">
-                    LDAP / Active Directory
+                <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['ldap_enabled'])" icon="building-office-2">
+                    LDAP / Active Directory {{ !empty($authSettings['ldap_enabled']) ? '(configurado)' : '(pendiente)' }}
                 </flux:button>
             </div>
 

@@ -174,6 +174,13 @@
             >
                 Paleta admin
             </flux:sidebar.item>
+            <flux:sidebar.item
+                href="{{ route('admin.security.authentication.edit') }}"
+                icon="shield-check"
+                :data-current="request()->routeIs('admin.security.authentication.*') ? 'true' : null"
+            >
+                Seguridad
+            </flux:sidebar.item>
             <flux:sidebar.item href="{{ route('orders.mine') }}" icon="shopping-bag">
                 Mis pedidos
             </flux:sidebar.item>

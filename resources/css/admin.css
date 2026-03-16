@@ -237,6 +237,28 @@ body.auth-shell {
     color: #475569;
 }
 
+.auth-form__alert {
+    padding: 0.9rem 1rem;
+    border-radius: 0.95rem;
+    border: 1px solid color-mix(in srgb, #dc2626 22%, transparent);
+    background: color-mix(in srgb, #dc2626 10%, white);
+    color: #991b1b;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.auth-form__submit {
+    background: linear-gradient(135deg, var(--admin-primary-button) 0%, color-mix(in srgb, var(--admin-active-link-bg) 36%, var(--admin-primary-button)) 100%);
+    color: var(--admin-active-link-text, #fff);
+    border-color: transparent;
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--admin-primary-button) 28%, transparent);
+}
+
+.auth-form__submit:hover,
+.auth-form__submit:focus-visible {
+    background: linear-gradient(135deg, var(--admin-primary-button-hover) 0%, color-mix(in srgb, var(--admin-active-link-bg) 42%, var(--admin-primary-button-hover)) 100%);
+}
+
 .auth-divider {
     position: relative;
     margin: 1.5rem 0;
@@ -273,6 +295,197 @@ body.auth-shell {
     margin-top: 1rem;
     font-size: 0.92rem;
     color: #64748b;
+}
+
+.security-settings-page {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.security-settings-alert {
+    padding: 1rem 1.2rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--admin-primary-button) 22%, white);
+    background: color-mix(in srgb, var(--admin-primary-button) 10%, white);
+    color: var(--admin-topbar-text);
+    font-weight: 700;
+}
+
+.security-settings-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 1.5rem;
+}
+
+.security-card {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.4rem;
+    border-radius: 1.4rem;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 72%, white);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
+.security-card--hero {
+    background:
+        linear-gradient(145deg, color-mix(in srgb, var(--admin-primary-button) 12%, white) 0%, rgba(255, 255, 255, 0.92) 55%),
+        rgba(255, 255, 255, 0.92);
+}
+
+.security-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.security-card__eyebrow {
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--admin-primary-button) 72%, #475569);
+}
+
+.security-card__title {
+    margin: 0.35rem 0 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--admin-topbar-text);
+}
+
+.security-form-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.security-form-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.security-field {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.security-field__label {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.security-switch-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.security-switch-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.security-switch {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.05rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 70%, white);
+    background: color-mix(in srgb, var(--admin-topbar-bg) 86%, white);
+}
+
+.security-switch strong,
+.security-stat strong {
+    display: block;
+    color: var(--admin-topbar-text);
+}
+
+.security-switch small {
+    display: block;
+    margin-top: 0.2rem;
+    color: #64748b;
+}
+
+.security-switch--inline {
+    margin-top: 1rem;
+}
+
+.security-option-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.security-option-grid--providers {
+    margin-bottom: 1rem;
+}
+
+.security-option-card {
+    display: grid;
+    gap: 0.7rem;
+    position: relative;
+    text-align: left;
+    padding: 1.15rem;
+    border-radius: 1.2rem;
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 76%, white);
+    background: rgba(255, 255, 255, 0.82);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.security-option-card[data-active="true"] {
+    border-color: color-mix(in srgb, var(--admin-primary-button) 74%, white);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-focus-ring) 72%, transparent);
+    transform: translateY(-1px);
+}
+
+.security-option-card__icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--admin-primary-button) 14%, white);
+    color: var(--admin-primary-button);
+}
+
+.security-option-card__title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--admin-topbar-text);
+}
+
+.security-option-card__copy {
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.security-option-card__toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+
+.security-stat-list {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.security-stat {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.95rem 1rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--admin-topbar-bg) 90%, white);
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 66%, white);
+    color: #64748b;
+}
+
+.security-settings-footer {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .admin-layout {
@@ -963,6 +1176,13 @@ body.auth-shell {
     }
 
     .auth-screen__card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .security-settings-grid,
+    .security-form-grid--2,
+    .security-option-grid,
+    .security-switch-grid--4 {
         grid-template-columns: 1fr;
     }
 

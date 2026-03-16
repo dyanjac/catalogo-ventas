@@ -40,6 +40,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'admin-ldap' => [
+            'driver' => 'session',
+            'provider' => 'ldap-admin',
+        ],
     ],
 
     /*
@@ -63,6 +67,19 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+        ],
+        'ldap-admin' => [
+            'driver' => 'ldap',
+            'model' => env('LDAP_USER_MODEL', LdapRecord\Models\OpenLDAP\User::class),
+            'database' => [
+                'model' => App\Models\User::class,
+                'sync_passwords' => false,
+                'sync_attributes' => [
+                    'name' => 'cn',
+                    'email' => 'mail',
+                    'phone' => 'telephonenumber',
+                ],
+            ],
         ],
 
         // 'users' => [
