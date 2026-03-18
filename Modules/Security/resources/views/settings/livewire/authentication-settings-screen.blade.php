@@ -4,9 +4,14 @@
         title="Authentication settings"
         description="Centraliza la configuracion del acceso administrativo, sesiones, LDAP y proveedores OAuth del panel."
     >
-        <flux:button href="{{ route('admin.login') }}" variant="outline" icon="arrow-right-end-on-rectangle">
-            Ver login admin
-        </flux:button>
+        <div class="flex gap-2">
+            <flux:button href="{{ route('admin.security.audit.index') }}" variant="outline" icon="document-text">
+                Ver auditoria
+            </flux:button>
+            <flux:button href="{{ route('admin.login') }}" variant="outline" icon="arrow-right-end-on-rectangle">
+                Ver login admin
+            </flux:button>
+        </div>
     </x-admin.page-header>
 
     @if($statusMessage)
@@ -186,7 +191,7 @@
         <div class="security-card__header">
             <div>
                 <div class="security-card__eyebrow">LDAP configuration</div>
-                <h3 class="security-card__title">Directorio y busqueda de grupos</h3>
+                <h3 class="security-card__title">Directorio, grupos y mapeo a roles internos</h3>
             </div>
         </div>
 
@@ -220,13 +225,17 @@
             <label class="security-field"><span class="security-field__label">Fallback email domain</span><flux:input wire:model.live="form.ldap_fallback_email_domain" placeholder="ldap.local" /></label>
         </div>
 
+        <label class="security-field">
+            <span class="security-field__label">LDAP group -> role map</span>
+            <flux:textarea rows="5" wire:model.live="form.ldap_group_role_map" placeholder="sales-cashiers=sales_cashier&#10;billing-team=billing_manager&#10;catalog-team=catalog_manager" />
+        </label>
+
         <div class="security-settings-alert" data-tone="info">
-            Usa <code>%s</code> dentro del filtro para insertar el identificador del login. Ejemplo recomendado:
-            <code>(&amp;(objectClass=inetOrgPerson)(uid=%s))</code>
+            Usa <code>%s</code> dentro del filtro para insertar el identificador del login. Para mapear grupos LDAP a roles internos, usa una linea por grupo con formato <code>grupo=rol_1,rol_2</code>.
         </div>
 
         <label class="security-switch security-switch--inline">
-            <span><strong>Assign admin by group</strong><small>Prepara el mapeo de grupos LDAP hacia privilegios administrativos internos.</small></span>
+            <span><strong>Assign admin by group</strong><small>Activa una validacion rapida de grupos administrativos ademas del mapeo detallado de roles.</small></span>
             <flux:switch wire:model.live="form.ldap_assign_admin_by_group" />
         </label>
 

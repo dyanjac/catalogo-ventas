@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Modules\Security\Services\SecurityScopeService;
 
 class CustomerController extends Controller
 {
@@ -15,15 +16,22 @@ class CustomerController extends Controller
         return view('admin.customers.index');
     }
 
-    public function show(User $customer): View
+    public function show(User $customer, SecurityScopeService $scopeService): View
     {
-        $customer->load(['orders' => fn ($query) => $query->latest()->take(10)]);
+        abort_unless($scopeService->canAccessUser(request()->user(), $customer, 'customers'), 403);
+
+        $customer->load([
+            'orders' => fn ($query) => $query->latest()->take(10),
+            'roles' => fn ($query) => $query->wherePivot('is_active', true)->orderBy('name'),
+        ]);
 
         return view('admin.customers.show', compact('customer'));
     }
 
-    public function update(Request $request, User $customer): RedirectResponse
+    public function update(Request $request, User $customer, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless($scopeService->canAccessUser($request->user(), $customer, 'customers'), 403);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $customer->id],
@@ -32,7 +40,6 @@ class CustomerController extends Controller
             'document_number' => ['nullable', 'string', 'max:30'],
             'city' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:200'],
-            'role' => ['required', 'in:customer,super_admin'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -42,6 +49,6 @@ class CustomerController extends Controller
 
         return redirect()
             ->route('admin.customers.show', $customer)
-            ->with('success', 'Cliente actualizado correctamente.');
+            ->with('success', 'Cliente actualizado correctamente. Los roles se administran desde Seguridad > Accesos de usuarios.');
     }
 }

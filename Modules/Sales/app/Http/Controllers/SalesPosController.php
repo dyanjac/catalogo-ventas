@@ -15,13 +15,21 @@ use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\ElectronicBillingService;
 use Modules\Catalog\Entities\Product;
+use Modules\Catalog\Services\ProductInventoryService;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
 use Modules\Sales\Services\CustomerDocumentLookupService;
+use Modules\Security\Services\SecurityBranchContextService;
 use Throwable;
 
 class SalesPosController extends Controller
 {
+    public function __construct(
+        private readonly ProductInventoryService $inventory,
+        private readonly SecurityBranchContextService $branchContext,
+    ) {
+    }
+
     public function index(): View
     {
         return view('sales::pos.index');
@@ -89,20 +97,22 @@ class SalesPosController extends Controller
         $taxRate = (float) ($data['tax_rate'] ?? config('sales.default_tax_rate', 0.18));
         $discount = round((float) ($data['discount'] ?? 0), 2);
         $shipping = round((float) ($data['shipping'] ?? 0), 2);
+        $branchId = (int) ($this->branchContext->currentBranchId($request->user()) ?: 0);
 
         $createdOrder = null;
         $createdBillingDocument = null;
         $payload = [];
 
-        DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, $data, $taxRate, $discount, $shipping): void {
+        DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, $data, $taxRate, $discount, $shipping, $branchId): void {
             $items = collect($data['items']);
             $products = Product::query()
+                ->with(['branchStocks' => fn ($query) => $query->where('branch_id', $branchId)])
                 ->whereIn('id', $items->pluck('product_id')->all())
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
-            $normalizedItems = $this->normalizeItems($items, $products);
+            $normalizedItems = $this->normalizeItems($items, $products, $branchId);
             $subtotal = round((float) $normalizedItems->sum(fn (array $line) => $line['line_subtotal']), 2);
             $discountAmount = min($discount, $subtotal);
             $taxableBase = max(0, $subtotal - $discountAmount);
@@ -115,6 +125,7 @@ class SalesPosController extends Controller
 
             $createdOrder = Order::query()->create([
                 'user_id' => (int) auth()->id(),
+                'branch_id' => $branchId ?: null,
                 'series' => $series,
                 'order_number' => $nextOrderNumber,
                 'status' => 'confirmed',
@@ -158,7 +169,7 @@ class SalesPosController extends Controller
                     'line_total' => $lineTotal,
                 ]);
 
-                $line['product']->decrement('stock', $line['quantity']);
+                $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity']);
             }
 
             if ($data['document_type'] !== 'order') {
@@ -173,6 +184,7 @@ class SalesPosController extends Controller
 
                 $createdBillingDocument = BillingDocument::query()->create([
                     'order_id' => $createdOrder->id,
+                    'branch_id' => $branchId ?: null,
                     'provider' => $billingSetting->provider,
                     'document_type' => $data['document_type'],
                     'series' => $billingSeries,
@@ -256,9 +268,9 @@ class SalesPosController extends Controller
      * @param Collection<int,Product> $products
      * @return Collection<int,array{product:Product,quantity:int,unit_price:float,line_subtotal:float}>
      */
-    private function normalizeItems(Collection $items, Collection $products): Collection
+    private function normalizeItems(Collection $items, Collection $products, int $branchId): Collection
     {
-        return $items->map(function (array $item) use ($products): array {
+        return $items->map(function (array $item) use ($products, $branchId): array {
             $product = $products->get((int) $item['product_id']);
             $quantity = (int) $item['quantity'];
 
@@ -268,9 +280,11 @@ class SalesPosController extends Controller
                 ]);
             }
 
-            if ($product->stock < $quantity) {
+            $available = $this->inventory->availableStock($product, $branchId);
+
+            if ($available < $quantity) {
                 throw ValidationException::withMessages([
-                    'items' => ["Stock insuficiente para {$product->name}. Disponible: {$product->stock}."],
+                    'items' => ["Stock insuficiente para {$product->name} en la sucursal. Disponible: {$available}."],
                 ]);
             }
 

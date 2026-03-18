@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Orders\Entities\Order;
+use Modules\Security\Models\SecurityBranch;
 
 class BillingDocument extends Model
 {
     protected $fillable = [
         'order_id',
+        'branch_id',
         'provider',
         'document_type',
         'series',
@@ -48,6 +50,11 @@ class BillingDocument extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(SecurityBranch::class, 'branch_id');
     }
 
     public function files(): HasMany

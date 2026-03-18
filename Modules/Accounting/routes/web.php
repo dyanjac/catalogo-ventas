@@ -6,11 +6,13 @@ use Modules\Accounting\Http\Controllers\AccountingEntryController;
 use Modules\Accounting\Http\Controllers\AccountingPeriodController;
 use Modules\Accounting\Http\Controllers\AccountingSettingsController;
 use Modules\Accounting\Http\Controllers\CostCenterController;
-use Modules\Core\Http\Middleware\EnsureSuperAdmin;
 
-Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
-    Route::get('admin/accounting/settings', [AccountingSettingsController::class, 'edit'])->name('admin.accounting.settings.edit');
-    Route::put('admin/accounting/settings', [AccountingSettingsController::class, 'update'])->name('admin.accounting.settings.update');
+Route::middleware(['auth', 'security.module:accounting'])->group(function () {
+    Route::get('admin/accounting/settings', [AccountingSettingsController::class, 'edit'])
+        ->name('admin.accounting.settings.edit');
+    Route::put('admin/accounting/settings', [AccountingSettingsController::class, 'update'])
+        ->middleware('security.permission:accounting.settings.configure')
+        ->name('admin.accounting.settings.update');
 
     Route::get('admin/accounting/accounts', [AccountingAccountController::class, 'index'])->name('admin.accounting.accounts.index');
     Route::post('admin/accounting/accounts', [AccountingAccountController::class, 'store'])->name('admin.accounting.accounts.store');
@@ -26,8 +28,16 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::post('admin/accounting/cost-centers', [CostCenterController::class, 'store'])->name('admin.accounting.cost-centers.store');
     Route::put('admin/accounting/cost-centers/{costCenter}', [CostCenterController::class, 'update'])->name('admin.accounting.cost-centers.update');
 
-    Route::get('admin/accounting/entries', [AccountingEntryController::class, 'index'])->name('admin.accounting.entries.index');
-    Route::get('admin/accounting/entries/{entry}/edit', [AccountingEntryController::class, 'edit'])->name('admin.accounting.entries.edit');
-    Route::put('admin/accounting/entries/{entry}', [AccountingEntryController::class, 'update'])->name('admin.accounting.entries.update');
-    Route::delete('admin/accounting/entries/{entry}/attachments/{attachment}', [AccountingEntryController::class, 'destroyAttachment'])->name('admin.accounting.entries.attachments.destroy');
+    Route::get('admin/accounting/entries', [AccountingEntryController::class, 'index'])
+        ->middleware('security.permission:accounting.entries.view')
+        ->name('admin.accounting.entries.index');
+    Route::get('admin/accounting/entries/{entry}/edit', [AccountingEntryController::class, 'edit'])
+        ->middleware('security.permission:accounting.entries.view')
+        ->name('admin.accounting.entries.edit');
+    Route::put('admin/accounting/entries/{entry}', [AccountingEntryController::class, 'update'])
+        ->middleware('security.permission:accounting.entries.update')
+        ->name('admin.accounting.entries.update');
+    Route::delete('admin/accounting/entries/{entry}/attachments/{attachment}', [AccountingEntryController::class, 'destroyAttachment'])
+        ->middleware('security.permission:accounting.entries.update')
+        ->name('admin.accounting.entries.attachments.destroy');
 });

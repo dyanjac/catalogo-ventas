@@ -48,6 +48,7 @@ class SecurityAuthSetting extends Model
         'ldap_group_membership_attribute',
         'ldap_assign_admin_by_group',
         'ldap_admin_group_names',
+        'ldap_group_role_map',
         'ldap_fallback_email_domain',
         'login_headline',
         'login_slogan',

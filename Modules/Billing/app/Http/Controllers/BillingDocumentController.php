@@ -9,6 +9,7 @@ use Illuminate\View\View;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Services\ElectronicBillingService;
 use Modules\ElectronicDocuments\Services\InvoicePdfService;
+use Modules\Security\Services\SecurityScopeService;
 use RuntimeException;
 
 class BillingDocumentController extends Controller
@@ -18,8 +19,10 @@ class BillingDocumentController extends Controller
         return view('billing::documents.index');
     }
 
-    public function show(BillingDocument $document): View
+    public function show(BillingDocument $document, SecurityScopeService $scopeService): View
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $document = $this->loadDocumentContext($document);
 
         return view('billing::documents.show', [
@@ -27,8 +30,10 @@ class BillingDocumentController extends Controller
         ]);
     }
 
-    public function history(BillingDocument $document): View
+    public function history(BillingDocument $document, SecurityScopeService $scopeService): View
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $document = $this->loadDocumentContext($document);
 
         return view('billing::documents.history', [
@@ -36,8 +41,10 @@ class BillingDocumentController extends Controller
         ]);
     }
 
-    public function redeclare(BillingDocument $document, ElectronicBillingService $electronicBilling): RedirectResponse
+    public function redeclare(BillingDocument $document, ElectronicBillingService $electronicBilling, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $payload = is_array($document->request_payload) ? $document->request_payload : [];
 
         if ($payload === [] || ! isset($payload['items']) || ! is_array($payload['items'])) {
@@ -59,8 +66,10 @@ class BillingDocumentController extends Controller
         return back()->with('success', 'Re-declaración enviada correctamente al proveedor configurado.');
     }
 
-    public function downloadXml(BillingDocument $document)
+    public function downloadXml(BillingDocument $document, SecurityScopeService $scopeService)
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $file = $document->xmlFile();
         $path = $file?->storage_path ?? $document->xml_path ?: data_get($document->request_payload, 'xml_path');
         $disk = $file?->storage_disk ?? 'public';
@@ -76,8 +85,10 @@ class BillingDocumentController extends Controller
         );
     }
 
-    public function downloadCdr(BillingDocument $document)
+    public function downloadCdr(BillingDocument $document, SecurityScopeService $scopeService)
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $cdrFile = $document->cdrFile();
         if ($cdrFile && Storage::disk($cdrFile->storage_disk)->exists($cdrFile->storage_path)) {
             $extension = str_ends_with(strtolower($cdrFile->storage_path), '.zip') ? 'zip' : 'xml';
@@ -117,8 +128,10 @@ class BillingDocumentController extends Controller
         abort(404, 'CDR no disponible para este comprobante.');
     }
 
-    public function downloadPdf(BillingDocument $document, InvoicePdfService $invoicePdfService)
+    public function downloadPdf(BillingDocument $document, InvoicePdfService $invoicePdfService, SecurityScopeService $scopeService)
     {
+        abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
+
         $xmlPath = $this->resolveXmlPathFromDocument($document);
         if (! $xmlPath) {
             abort(404, 'XML no disponible para generar PDF.');

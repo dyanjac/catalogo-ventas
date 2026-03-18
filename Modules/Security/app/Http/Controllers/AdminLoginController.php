@@ -6,14 +6,15 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Modules\Security\Services\SecurityAuthorizationService;
 
 class AdminLoginController extends Controller
 {
-    public function create(): View|RedirectResponse
+    public function create(SecurityAuthorizationService $authorization): View|RedirectResponse
     {
         if (Auth::check()) {
             return redirect()->intended(
-                Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home')
+                $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home')
             );
         }
 

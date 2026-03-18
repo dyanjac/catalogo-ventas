@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Support\SimplePdfBuilder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Modules\Security\Services\SecurityScopeService;
 
 class OrderController extends Controller
 {
@@ -15,15 +17,19 @@ class OrderController extends Controller
         return view('admin.orders.index');
     }
 
-    public function show(Order $order): View
+    public function show(Order $order, SecurityScopeService $scopeService): View
     {
+        abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
+
         $order->load(['user', 'items.product']);
 
         return view('admin.orders.show', compact('order'));
     }
 
-    public function update(Request $request, Order $order): RedirectResponse
+    public function update(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless($scopeService->canAccessOrder($request->user(), $order, 'sales'), 403);
+
         $data = $request->validate([
             'status' => ['required', 'in:confirmed,processing,delivered,cancelled,pending'],
             'payment_status' => ['required', 'in:pending,paid,failed,refunded'],
@@ -47,8 +53,10 @@ class OrderController extends Controller
             ->with('success', 'Pedido actualizado correctamente.');
     }
 
-    public function downloadPdf(Order $order)
+    public function downloadPdf(Order $order, SecurityScopeService $scopeService)
     {
+        abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
+
         $order->loadMissing(['user', 'items.product']);
 
         $lines = [

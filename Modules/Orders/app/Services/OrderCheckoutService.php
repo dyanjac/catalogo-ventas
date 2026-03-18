@@ -2,19 +2,23 @@
 
 namespace Modules\Orders\Services;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Catalog\Entities\Product;
+use Modules\Catalog\Services\ProductInventoryService;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
 use Modules\Orders\Repositories\OrderRepositoryInterface;
+use Modules\Security\Models\SecurityBranch;
 
 class OrderCheckoutService
 {
-    public function __construct(private readonly OrderRepositoryInterface $orders)
-    {
+    public function __construct(
+        private readonly OrderRepositoryInterface $orders,
+        private readonly ProductInventoryService $inventory
+    ) {
     }
 
     /**
@@ -35,8 +39,9 @@ class OrderCheckoutService
         $shipping = round((float) ($payload['shipping'] ?? 0), 2);
         $discount = round((float) ($payload['discount'] ?? 0), 2);
         $taxRate = (float) ($payload['tax_rate'] ?? 0.18);
+        $branchId = (int) (($payload['branch_id'] ?? 0) ?: User::query()->whereKey((int) ($payload['user_id'] ?? 0))->value('branch_id') ?: SecurityBranch::query()->where('is_default', true)->value('id') ?: 0);
 
-        $checkoutData = $this->buildCheckoutData($cart, true);
+        $checkoutData = $this->buildCheckoutData($cart, true, $branchId);
         $items = $checkoutData['items'];
         $subtotal = $checkoutData['subtotal'];
         $discount = min($discount, $subtotal);
@@ -59,16 +64,19 @@ class OrderCheckoutService
             $paymentMethod,
             $paymentStatus,
             $payload,
+            $branchId,
             &$result
         ): void {
             $products = $this->lockProductsForCart($items);
-            $this->assertStockForItems($items, $products);
+            $branchStocks = $this->inventory->lockBranchStocksForProducts(array_keys($products->all()), $branchId);
+            $this->assertStockForItems($items, $products, $branchStocks);
 
             $nextOrderNumber = $this->orders->nextOrderNumber($series);
             $paidAt = $paymentStatus === 'paid' ? now() : null;
 
             $order = $this->orders->create([
                 'user_id' => (int) ($payload['user_id'] ?? 0),
+                'branch_id' => $branchId ?: null,
                 'series' => $series,
                 'order_number' => $nextOrderNumber,
                 'status' => 'confirmed',
@@ -115,7 +123,7 @@ class OrderCheckoutService
                     'line_total' => $lineTotal,
                 ]);
 
-                $products->get((string) $item['id'])?->decrement('stock', $qty);
+                $this->inventory->decrementBranchStock($products->get((string) $item['id']), $branchId, $qty);
             }
 
             $result = [
@@ -131,12 +139,13 @@ class OrderCheckoutService
      * @param array<string,mixed> $cart
      * @return array{items:array<int,array<string,mixed>>,subtotal:float,has_issues:bool}
      */
-    public function buildCheckoutData(array $cart, bool $requireStock = false): array
+    public function buildCheckoutData(array $cart, bool $requireStock = false, ?int $branchId = null): array
     {
         $items = [];
         $hasIssues = false;
 
         $products = Product::query()
+            ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId) : $query])
             ->whereKey(array_keys($cart))
             ->get()
             ->keyBy(fn (Product $product) => (string) $product->id);
@@ -150,13 +159,15 @@ class OrderCheckoutService
                 continue;
             }
 
-            if ($requireStock && $product->stock < $qty) {
+            $available = $this->inventory->availableStock($product, $branchId);
+
+            if ($requireStock && $available < $qty) {
                 throw ValidationException::withMessages([
-                    'cart' => ["El producto {$product->name} solo tiene {$product->stock} unidades disponibles."],
+                    'cart' => ["El producto {$product->name} solo tiene {$available} unidades disponibles en la sucursal."],
                 ]);
             }
 
-            if (! $requireStock && $product->stock < $qty) {
+            if (! $requireStock && $available < $qty) {
                 $hasIssues = true;
             }
 
@@ -166,7 +177,7 @@ class OrderCheckoutService
                 'image' => $product->primary_image_path,
                 'price' => (float) ($product->display_price ?? $product->price ?? 0),
                 'quantity' => $qty,
-                'stock' => (int) $product->stock,
+                'stock' => $available,
             ];
         }
 
@@ -194,19 +205,21 @@ class OrderCheckoutService
     /**
      * @param array<int,array<string,mixed>> $items
      * @param EloquentCollection<int,Product> $products
+     * @param EloquentCollection<int,\Modules\Catalog\Entities\ProductBranchStock> $branchStocks
      */
-    private function assertStockForItems(array $items, EloquentCollection $products): void
+    private function assertStockForItems(array $items, EloquentCollection $products, EloquentCollection $branchStocks): void
     {
         foreach ($items as $item) {
             $product = $products->get((string) ($item['id'] ?? ''));
             $qty = (int) ($item['quantity'] ?? 0);
+            $branchStock = $branchStocks->get((int) ($item['id'] ?? 0));
+            $available = (int) ($branchStock?->stock ?? 0);
 
-            if (! $product || ! $product->is_active || $product->stock < $qty) {
+            if (! $product || ! $product->is_active || $available < $qty) {
                 throw ValidationException::withMessages([
-                    'cart' => ["El producto {$item['name']} ya no tiene stock suficiente para completar el pedido."],
+                    'cart' => ["El producto {$item['name']} ya no tiene stock suficiente en la sucursal para completar el pedido."],
                 ]);
             }
         }
     }
 }
-

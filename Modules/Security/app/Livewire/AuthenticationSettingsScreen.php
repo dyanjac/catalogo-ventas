@@ -3,6 +3,8 @@
 namespace Modules\Security\Livewire;
 
 use Livewire\Component;
+use Modules\Security\Services\SecurityAuditService;
+use Modules\Security\Services\SecurityAuthorizationService;
 use Modules\Security\Services\SecurityAuthSettingsService;
 
 class AuthenticationSettingsScreen extends Component
@@ -36,8 +38,13 @@ class AuthenticationSettingsScreen extends Component
         }
     }
 
-    public function save(SecurityAuthSettingsService $settingsService): void
+    public function save(SecurityAuthSettingsService $settingsService, SecurityAuditService $audit): void
     {
+        abort_unless(
+            app(SecurityAuthorizationService::class)->hasPermission(auth()->user(), 'security.auth.configure'),
+            403
+        );
+
         $validated = $this->validate([
             'form.session_lifetime_hours' => ['required', 'integer', 'min:1', 'max:24'],
             'form.auth_method' => ['required', 'in:internal,ldap,oauth'],
@@ -78,6 +85,7 @@ class AuthenticationSettingsScreen extends Component
             'form.ldap_group_membership_attribute' => ['nullable', 'string', 'max:120'],
             'form.ldap_assign_admin_by_group' => ['boolean'],
             'form.ldap_admin_group_names' => ['nullable', 'string', 'max:500'],
+            'form.ldap_group_role_map' => ['nullable', 'string', 'max:5000'],
             'form.ldap_fallback_email_domain' => ['nullable', 'string', 'max:160'],
             'form.login_headline' => ['nullable', 'string', 'max:120'],
             'form.login_slogan' => ['nullable', 'string', 'max:500'],
@@ -87,10 +95,28 @@ class AuthenticationSettingsScreen extends Component
         $this->statusTone = 'success';
         $this->statusMessage = 'Configuracion de autenticacion actualizada correctamente.';
         $this->dispatch('security-auth-settings-updated');
+
+        $audit->log(
+            eventType: 'configuration',
+            eventCode: 'security.auth.settings.updated',
+            result: 'success',
+            message: 'Se actualizo la configuracion de autenticacion del panel.',
+            actor: auth()->user(),
+            context: [
+                'auth_method' => $this->form['auth_method'] ?? 'internal',
+                'ldap_enabled' => (bool) ($this->form['ldap_enabled'] ?? false),
+                'oauth_provider' => $this->form['oauth_provider'] ?? null,
+            ],
+        );
     }
 
-    public function testLdap(): void
+    public function testLdap(SecurityAuditService $audit): void
     {
+        abort_unless(
+            app(SecurityAuthorizationService::class)->hasPermission(auth()->user(), 'security.auth.configure'),
+            403
+        );
+
         $validated = $this->validate([
             'form.ldap_enabled' => ['boolean'],
             'form.ldap_host' => ['nullable', 'string', 'max:255'],
@@ -118,10 +144,34 @@ class AuthenticationSettingsScreen extends Component
 
             $this->statusTone = 'success';
             $this->statusMessage = $result['message'];
+
+            $audit->log(
+                eventType: 'authentication',
+                eventCode: 'security.ldap.test.success',
+                result: 'success',
+                message: 'La prueba LDAP respondio correctamente.',
+                actor: auth()->user(),
+                context: [
+                    'identifier' => trim($validated['ldapTestIdentifier']),
+                    'host' => $validated['form']['ldap_host'] ?? null,
+                ],
+            );
         } catch (\Throwable $exception) {
             report($exception);
             $this->statusTone = 'danger';
             $this->statusMessage = $exception->getMessage() !== '' ? $exception->getMessage() : 'La prueba LDAP fallo.';
+
+            $audit->log(
+                eventType: 'authentication',
+                eventCode: 'security.ldap.test.failed',
+                result: 'failed',
+                message: $this->statusMessage,
+                actor: auth()->user(),
+                context: [
+                    'identifier' => trim($validated['ldapTestIdentifier']),
+                    'host' => $validated['form']['ldap_host'] ?? null,
+                ],
+            );
         }
     }
 

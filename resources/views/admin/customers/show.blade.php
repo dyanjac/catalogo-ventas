@@ -11,6 +11,7 @@
         >
             <x-slot:actions>
                 <x-admin.action-bar>
+                    <a href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" class="btn btn-outline-primary rounded-pill px-4">Gestion RBAC</a>
                     <a href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
                 </x-admin.action-bar>
             </x-slot:actions>
@@ -25,55 +26,61 @@
                     :cancel-href="route('admin.customers.index')"
                     class="h-100"
                 >
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Nombre</label>
-                                <input type="text" name="name" class="form-control" value="{{ old('name', $customer->name) }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Correo</label>
-                                <input type="email" name="email" class="form-control" value="{{ old('email', $customer->email) }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Celular</label>
-                                <input type="text" name="phone" class="form-control" value="{{ old('phone', $customer->phone) }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Tipo documento</label>
-                                <select name="document_type" class="form-select">
-                                    <option value="">Sin definir</option>
-                                    <option value="dni" @selected(old('document_type', $customer->document_type) === 'dni')>DNI</option>
-                                    <option value="ruc" @selected(old('document_type', $customer->document_type) === 'ruc')>RUC</option>
-                                    <option value="ce" @selected(old('document_type', $customer->document_type) === 'ce')>CE</option>
-                                    <option value="pasaporte" @selected(old('document_type', $customer->document_type) === 'pasaporte')>Pasaporte</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Numero documento</label>
-                                <input type="text" name="document_number" class="form-control" value="{{ old('document_number', $customer->document_number) }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Ciudad</label>
-                                <input type="text" name="city" class="form-control" value="{{ old('city', $customer->city) }}">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Direccion</label>
-                                <input type="text" name="address" class="form-control" value="{{ old('address', $customer->address) }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Perfil</label>
-                                <select name="role" class="form-select">
-                                    <option value="customer" @selected(old('role', $customer->role) === 'customer')>Cliente</option>
-                                    <option value="super_admin" @selected(old('role', $customer->role) === 'super_admin')>Super usuario</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-end">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" @checked(old('is_active', $customer->is_active))>
-                                    <label class="form-check-label" for="is_active">Usuario activo</label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="name" class="form-control" value="{{ old('name', $customer->name) }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Correo</label>
+                            <input type="email" name="email" class="form-control" value="{{ old('email', $customer->email) }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Celular</label>
+                            <input type="text" name="phone" class="form-control" value="{{ old('phone', $customer->phone) }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tipo documento</label>
+                            <select name="document_type" class="form-select">
+                                <option value="">Sin definir</option>
+                                <option value="dni" @selected(old('document_type', $customer->document_type) === 'dni')>DNI</option>
+                                <option value="ruc" @selected(old('document_type', $customer->document_type) === 'ruc')>RUC</option>
+                                <option value="ce" @selected(old('document_type', $customer->document_type) === 'ce')>CE</option>
+                                <option value="pasaporte" @selected(old('document_type', $customer->document_type) === 'pasaporte')>Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Numero documento</label>
+                            <input type="text" name="document_number" class="form-control" value="{{ old('document_number', $customer->document_number) }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ciudad</label>
+                            <input type="text" name="city" class="form-control" value="{{ old('city', $customer->city) }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Direccion</label>
+                            <input type="text" name="address" class="form-control" value="{{ old('address', $customer->address) }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Roles RBAC</label>
+                            <div class="rounded-3 border bg-light px-3 py-2">
+                                <div class="flex flex-wrap gap-2">
+                                    @forelse($customer->roles as $role)
+                                        <span class="badge {{ $role->code === 'super_admin' ? 'bg-dark' : 'bg-primary' }}">{{ $role->name }}</span>
+                                    @empty
+                                        <span class="text-muted">Sin roles asignados.</span>
+                                    @endforelse
                                 </div>
+                                <small class="text-muted d-block mt-2">La asignacion de roles y accesos se administra desde Seguridad &gt; Accesos de usuarios.</small>
                             </div>
                         </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" @checked(old('is_active', $customer->is_active))>
+                                <label class="form-check-label" for="is_active">Usuario activo</label>
+                            </div>
+                        </div>
+                    </div>
                 </x-admin.form-card>
             </div>
             <div class="col-lg-5">
@@ -101,4 +108,3 @@
     </div>
 </div>
 @endsection
-

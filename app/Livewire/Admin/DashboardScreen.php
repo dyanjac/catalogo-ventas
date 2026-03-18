@@ -15,7 +15,14 @@ class DashboardScreen extends Component
     {
         return view('livewire.admin.dashboard-screen', [
             'stats' => [
-                'customers' => User::query()->where('role', 'customer')->count(),
+                'customers' => User::query()
+                    ->join('security_user_roles as user_roles', 'user_roles.user_id', '=', 'users.id')
+                    ->join('security_roles as roles', 'roles.id', '=', 'user_roles.role_id')
+                    ->where('user_roles.is_active', true)
+                    ->where('roles.is_active', true)
+                    ->where('roles.code', 'customer')
+                    ->distinct('users.id')
+                    ->count('users.id'),
                 'orders' => Order::query()->count(),
                 'products' => Product::query()->count(),
                 'categories' => Category::query()->count(),

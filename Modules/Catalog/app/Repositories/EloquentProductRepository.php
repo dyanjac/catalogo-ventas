@@ -5,24 +5,40 @@ namespace Modules\Catalog\Repositories;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\Catalog\Entities\Product;
+use Modules\Security\Services\SecurityBranchContextService;
 
 class EloquentProductRepository implements ProductRepositoryInterface
 {
+    public function __construct(private readonly SecurityBranchContextService $branchContext)
+    {
+    }
+
     public function findBySlugOrFail(string $slug): Product
     {
-        return Product::query()->where('slug', $slug)->firstOrFail();
+        $branchId = $this->branchContext->currentBranchId();
+
+        return Product::query()
+            ->with($this->branchStockRelation($branchId))
+            ->where('slug', $slug)
+            ->firstOrFail();
     }
 
     public function findById(int $id): ?Product
     {
-        return Product::query()->find($id);
+        $branchId = $this->branchContext->currentBranchId();
+
+        return Product::query()
+            ->with($this->branchStockRelation($branchId))
+            ->find($id);
     }
 
     public function paginateActive(array $filters = [], int $perPage = 12): LengthAwarePaginator
     {
+        $branchId = $this->branchContext->currentBranchId();
+
         $query = Product::query()
             ->active()
-            ->with(['category', 'unitMeasure', 'mainImage'])
+            ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->latest('id');
 
         $search = trim((string) ($filters['search'] ?? ''));
@@ -40,9 +56,11 @@ class EloquentProductRepository implements ProductRepositoryInterface
 
     public function featured(int $limit = 8): Collection
     {
+        $branchId = $this->branchContext->currentBranchId();
+
         return Product::query()
             ->active()
-            ->with(['category', 'unitMeasure', 'mainImage'])
+            ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->latest('id')
             ->take($limit)
             ->get();
@@ -50,13 +68,21 @@ class EloquentProductRepository implements ProductRepositoryInterface
 
     public function bestPrices(int $limit = 10): Collection
     {
+        $branchId = $this->branchContext->currentBranchId();
+
         return Product::query()
             ->active()
-            ->with(['category', 'unitMeasure', 'mainImage'])
+            ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->orderByRaw('COALESCE(sale_price, price) asc')
             ->latest('id')
             ->take($limit)
             ->get();
     }
-}
 
+    private function branchStockRelation(?int $branchId): array
+    {
+        return [
+            'branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId)->where('is_active', true) : $query,
+        ];
+    }
+}

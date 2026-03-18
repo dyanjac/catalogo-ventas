@@ -6,11 +6,13 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Security\Models\SecurityBranch;
 
 class Order extends Model
 {
     protected $fillable = [
         'user_id',
+        'branch_id',
         'series',
         'order_number',
         'status',
@@ -38,9 +40,13 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(SecurityBranch::class, 'branch_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 }
-

@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Security\Models\SecurityBranch;
+use Modules\Security\Models\SecurityRole;
 use Modules\Security\Models\SecurityUserIdentity;
 use RuntimeException;
 
@@ -38,10 +40,11 @@ class LdapDirectoryService
             }
 
             $groups = $this->resolveNativeGroups($connection, $dn, $settings);
-            $isAdmin = $this->resolveAdminEligibility($groups, $settings);
+            $mappedRoleCodes = $this->resolveMappedRoleCodes($groups, $settings);
+            $isAdmin = $this->resolveAdminEligibility($groups, $settings) || collect($mappedRoleCodes)->reject(fn (string $code) => $code === 'customer')->isNotEmpty();
 
-            return DB::transaction(function () use ($entry, $dn, $settings, $isAdmin, $login): User {
-                return $this->resolveLocalUserFromNative($entry, $dn, $settings, $isAdmin, $login);
+            return DB::transaction(function () use ($entry, $dn, $settings, $isAdmin, $login, $mappedRoleCodes, $groups): User {
+                return $this->resolveLocalUserFromNative($entry, $dn, $settings, $isAdmin, $login, $mappedRoleCodes, $groups);
             });
         } finally {
             @ldap_unbind($connection);
@@ -138,7 +141,41 @@ class LdapDirectoryService
         return $expected->isNotEmpty() && $expected->intersect($groups)->isNotEmpty();
     }
 
-    private function resolveLocalUserFromNative(array $entry, string $dn, array $settings, bool $isAdmin, string $login): User
+    private function resolveMappedRoleCodes(array $groups, array $settings): array
+    {
+        $mapping = trim((string) ($settings['ldap_group_role_map'] ?? ''));
+
+        if ($mapping === '') {
+            return [];
+        }
+
+        $groupSet = collect($groups)->map(fn (string $group) => Str::lower(trim($group)))->filter();
+        $roleCodes = collect();
+
+        foreach (preg_split('/\r\n|\r|\n/', $mapping) ?: [] as $line) {
+            $line = trim($line);
+
+            if ($line === '' || ! str_contains($line, '=')) {
+                continue;
+            }
+
+            [$groupName, $roles] = array_map('trim', explode('=', $line, 2));
+
+            if ($groupName === '' || ! $groupSet->contains(Str::lower($groupName))) {
+                continue;
+            }
+
+            $roleCodes = $roleCodes->merge(
+                collect(explode(',', (string) $roles))
+                    ->map(fn (string $code) => trim($code))
+                    ->filter()
+            );
+        }
+
+        return $roleCodes->unique()->values()->all();
+    }
+
+    private function resolveLocalUserFromNative(array $entry, string $dn, array $settings, bool $isAdmin, string $login, array $mappedRoleCodes, array $groups): User
     {
         $identifier = $login;
         $email = $this->resolveEmailFromNative($entry, $settings, $identifier);
@@ -213,7 +250,57 @@ class LdapDirectoryService
             ]
         );
 
+        $effectiveRoles = $this->syncLocalRoles($user, $mappedRoleCodes, $isAdmin);
+
+        app(SecurityAuditService::class)->log(
+            eventType: 'authentication',
+            eventCode: 'security.ldap.roles.synced',
+            result: 'success',
+            message: 'Sincronizacion LDAP completada para el usuario autenticado.',
+            actor: $user,
+            target: $user,
+            module: 'security',
+            context: [
+                'ldap_groups' => $groups,
+                'assigned_roles' => $effectiveRoles,
+            ],
+        );
+
         return $user->refresh();
+    }
+
+    private function syncLocalRoles(User $user, array $mappedRoleCodes, bool $isAdmin): array
+    {
+        $effectiveRoleCodes = collect($mappedRoleCodes)
+            ->map(fn (string $code) => trim($code))
+            ->filter()
+            ->unique();
+
+        if ($isAdmin && $effectiveRoleCodes->isEmpty()) {
+            $effectiveRoleCodes = $effectiveRoleCodes->push('super_admin');
+        }
+
+        if (! $isAdmin && $effectiveRoleCodes->isEmpty()) {
+            $effectiveRoleCodes = $effectiveRoleCodes->push('customer');
+        }
+
+        $roles = SecurityRole::query()->whereIn('code', $effectiveRoleCodes->all())->get();
+
+        if ($roles->isEmpty()) {
+            return [];
+        }
+
+        $user->roles()->syncWithoutDetaching(
+            $roles->mapWithKeys(fn (SecurityRole $role) => [
+                $role->id => [
+                    'scope' => 'all',
+                    'is_active' => true,
+                    'context' => ['source' => 'ldap'],
+                ],
+            ])->all()
+        );
+
+        return $roles->pluck('code')->values()->all();
     }
 
     private function resolveEmailFromNative(array $entry, array $settings, string $login): string
@@ -442,3 +529,5 @@ class LdapDirectoryService
         return trim((string) $entry[$attribute][0]);
     }
 }
+
+

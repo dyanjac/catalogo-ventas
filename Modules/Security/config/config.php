@@ -41,6 +41,7 @@ return [
         'ldap_group_membership_attribute' => 'member',
         'ldap_assign_admin_by_group' => false,
         'ldap_admin_group_names' => '',
+        'ldap_group_role_map' => "sales-cashiers=sales_cashier\nbilling-team=billing_manager\ncatalog-team=catalog_manager",
         'ldap_fallback_email_domain' => 'ldap.local',
         'login_headline' => 'Ingreso seguro para operacion interna',
         'login_slogan' => 'Acceso administrativo reforzado para operaciones, facturacion y gestion comercial.',

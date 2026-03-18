@@ -8,6 +8,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Services\ElectronicBillingService;
+use Modules\Security\Services\SecurityScopeService;
 
 class BillingDocumentsIndex extends Component
 {
@@ -75,9 +76,9 @@ class BillingDocumentsIndex extends Component
         $this->clearFeedback();
     }
 
-    public function redeclareSelected(ElectronicBillingService $electronicBilling): void
+    public function redeclareSelected(ElectronicBillingService $electronicBilling, SecurityScopeService $scopeService): void
     {
-        $document = $this->selectedDocument();
+        $document = $this->selectedDocument($scopeService);
 
         if (! $document) {
             $this->setFeedback('warning', 'Selecciona un comprobante antes de ejecutar la re-declaracion.');
@@ -105,9 +106,9 @@ class BillingDocumentsIndex extends Component
         $this->resetPage();
     }
 
-    public function render()
+    public function render(SecurityScopeService $scopeService)
     {
-        $documents = BillingDocument::query()
+        $query = BillingDocument::query()
             ->with(['order', 'files'])
             ->when($this->status !== '', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->provider !== '', fn (Builder $query) => $query->where('provider', $this->provider))
@@ -122,7 +123,10 @@ class BillingDocumentsIndex extends Component
                         ->orWhere('customer_document_number', 'like', '%'.$search.'%')
                         ->orWhereHas('order', fn (Builder $order) => $order->where('id', $search));
                 });
-            })
+            });
+
+        $documents = $scopeService
+            ->scopeBillingDocuments($query, auth()->user(), 'billing')
             ->orderByDesc('issue_date')
             ->orderByDesc('id')
             ->paginate(15);
@@ -137,6 +141,7 @@ class BillingDocumentsIndex extends Component
             'documents' => $documents,
             'selectedDocument' => $selectedDocument,
             'providers' => config('billing.providers', []),
+            'branchScopeDegraded' => $scopeService->scopeLevelForModule(auth()->user(), 'billing') === 'branch' && $scopeService->branchModeIsDegraded('billing'),
         ]);
     }
 
@@ -147,14 +152,14 @@ class BillingDocumentsIndex extends Component
         $this->resetPage();
     }
 
-    private function selectedDocument(): ?BillingDocument
+    private function selectedDocument(SecurityScopeService $scopeService): ?BillingDocument
     {
         if (! $this->selectedDocumentId) {
             return null;
         }
 
-        return BillingDocument::query()
-            ->with(['order', 'files'])
+        return $scopeService
+            ->scopeBillingDocuments(BillingDocument::query()->with(['order', 'files']), auth()->user(), 'billing')
             ->find($this->selectedDocumentId);
     }
 

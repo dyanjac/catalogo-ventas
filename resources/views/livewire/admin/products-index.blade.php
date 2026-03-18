@@ -1,9 +1,12 @@
 <div class="space-y-6">
     <x-admin.page-header
         title="Administrar productos"
-        description="Controla catálogo, stock, precios y visibilidad comercial desde una sola vista."
+        description="Controla catálogo, stock y visibilidad comercial con inventario efectivo por sucursal."
     >
         <x-slot:actions>
+            <flux:button href="{{ route('admin.inventory.index') }}" variant="outline" icon="archive-box">
+                Ver inventario
+            </flux:button>
             <flux:button href="{{ route('admin.products.create') }}" variant="primary" icon="plus">
                 Nuevo producto
             </flux:button>
@@ -52,6 +55,11 @@
                 <div class="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-500">
                     {{ $products->total() }} productos encontrados
                 </div>
+                @if($activeBranchId)
+                    <div class="inline-flex items-center rounded-full bg-sky-50 px-3 py-2 text-sm text-sky-700">
+                        Stock visible segun sucursal activa #{{ $activeBranchId }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -72,7 +80,7 @@
                             <th>Unidad</th>
                             <th>Venta</th>
                             <th>Mayor</th>
-                            <th>Stock</th>
+                            <th>Stock sucursal</th>
                             <th>Minimo</th>
                             <th>Activo</th>
                             <th class="text-end">Acciones</th>
@@ -91,12 +99,12 @@
                                 <td>S/ {{ number_format((float) ($product->sale_price ?? 0), 2) }}</td>
                                 <td>S/ {{ number_format((float) ($product->wholesale_price ?? 0), 2) }}</td>
                                 <td>
-                                    {{ $product->stock }}
-                                    @if($product->stock <= $product->min_stock)
+                                    {{ $product->effective_stock }}
+                                    @if($product->effective_stock <= $product->effective_min_stock)
                                         <span class="badge bg-danger ms-1">Bajo</span>
                                     @endif
                                 </td>
-                                <td>{{ $product->min_stock }}</td>
+                                <td>{{ $product->effective_min_stock }}</td>
                                 <td>
                                     <span class="badge {{ $product->is_active ? 'bg-success' : 'bg-secondary' }}">
                                         {{ $product->is_active ? 'Si' : 'No' }}

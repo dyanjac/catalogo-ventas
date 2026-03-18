@@ -4,8 +4,8 @@
         description="Gestiona la base de clientes, perfiles de acceso y estado operativo de cada usuario."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.dashboard') }}" variant="outline" icon="home">
-                Dashboard
+            <flux:button href="{{ route('admin.security.users.index') }}" variant="outline" icon="shield-check">
+                Accesos RBAC
             </flux:button>
         </x-slot:actions>
     </x-admin.page-header>
@@ -18,11 +18,12 @@
                     <flux:input wire:model.live.debounce.300ms="search" placeholder="Nombre, correo, celular o documento" />
                 </div>
                 <div>
-                    <label class="form-label">Perfil</label>
+                    <label class="form-label">Rol RBAC</label>
                     <select wire:model.live="role" class="form-select">
                         <option value="">Todos</option>
-                        <option value="customer">Cliente</option>
-                        <option value="super_admin">Super usuario</option>
+                        @foreach($roleOptions as $roleOption)
+                            <option value="{{ $roleOption->code }}">{{ $roleOption->name }}</option>
+                        @endforeach
                     </select>
                 </div>
             </div>
@@ -50,7 +51,7 @@
                         <tr>
                             <th>Cliente</th>
                             <th>Contacto</th>
-                            <th>Perfil</th>
+                            <th>Roles</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -67,9 +68,15 @@
                                     <small class="text-muted">{{ $customer->document_number ?: 'Sin documento' }}</small>
                                 </td>
                                 <td>
-                                    <span class="badge {{ $customer->role === 'super_admin' ? 'bg-dark' : 'bg-primary' }}">
-                                        {{ $customer->role === 'super_admin' ? 'Super usuario' : 'Cliente' }}
-                                    </span>
+                                    <div class="flex flex-wrap gap-2">
+                                        @forelse($customer->roles as $role)
+                                            <span class="badge {{ $role->code === 'super_admin' ? 'bg-dark' : 'bg-primary' }}">
+                                                {{ $role->name }}
+                                            </span>
+                                        @empty
+                                            <span class="text-sm text-muted">Sin roles RBAC</span>
+                                        @endforelse
+                                    </div>
                                 </td>
                                 <td>
                                     <span class="badge {{ $customer->is_active ? 'bg-success' : 'bg-secondary' }}">
@@ -77,9 +84,14 @@
                                     </span>
                                 </td>
                                 <td class="text-end">
-                                    <flux:button href="{{ route('admin.customers.show', $customer) }}" variant="primary" size="sm">
-                                        Gestionar
-                                    </flux:button>
+                                    <div class="d-inline-flex gap-2">
+                                        <flux:button href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" variant="outline" size="sm">
+                                            RBAC
+                                        </flux:button>
+                                        <flux:button href="{{ route('admin.customers.show', $customer) }}" variant="primary" size="sm">
+                                            Gestionar
+                                        </flux:button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

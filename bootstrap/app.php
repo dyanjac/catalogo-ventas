@@ -4,6 +4,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Modules\Security\Http\Middleware\EnsureModuleAccess;
+use Modules\Security\Http\Middleware\EnsurePermission;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PREFIX
                 | Request::HEADER_X_FORWARDED_AWS_ELB
         );
+
+        $middleware->alias([
+            'security.module' => EnsureModuleAccess::class,
+            'security.permission' => EnsurePermission::class,
+        ]);
 
         $middleware->redirectGuestsTo(function (Request $request): string {
             return $request->is('admin') || $request->is('admin/*')

@@ -2,23 +2,22 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Modules\Orders\Entities\Order;
+use Modules\Security\Models\SecurityBranch;
+use Modules\Security\Models\SecurityRole;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
     use Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
@@ -31,24 +30,15 @@ class User extends Authenticatable
         'role',
         'guid',
         'domain',
+        'branch_id',
         'password',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -60,7 +50,36 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'super_admin';
+        return DB::table('security_user_roles as user_roles')
+            ->join('security_roles as roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $this->id)
+            ->where('user_roles.is_active', true)
+            ->where('roles.is_active', true)
+            ->where('roles.code', 'super_admin')
+            ->exists();
+    }
+
+    public function roleCodes(): array
+    {
+        return DB::table('security_user_roles as user_roles')
+            ->join('security_roles as roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $this->id)
+            ->where('user_roles.is_active', true)
+            ->where('roles.is_active', true)
+            ->pluck('roles.code')
+            ->all();
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(SecurityBranch::class, 'branch_id');
+    }
+
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(SecurityRole::class, 'security_user_roles', 'user_id', 'role_id')
+            ->withPivot(['scope', 'is_active', 'context'])
+            ->withTimestamps();
     }
 
     public function orders(): HasMany

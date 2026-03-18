@@ -13,6 +13,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Modules\Catalog\Services\ProductInventoryService;
+use Modules\Security\Services\SecurityBranchContextService;
+use Modules\Security\Services\SecurityScopeService;
 
 class ProductController extends Controller
 {
@@ -35,10 +38,11 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(StoreProductRequest $request): RedirectResponse
+    public function store(StoreProductRequest $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext): RedirectResponse
     {
         $data = $this->normalizePayload($request->validated());
         $product = Product::create($data);
+        $inventory->syncBranchStock($product, $branchContext->currentBranchId($request->user()), (int) ($data['stock'] ?? 0), (int) ($data['min_stock'] ?? 0));
         $this->syncProductImage($product, $request->file('image_file'));
 
         return redirect()
@@ -46,16 +50,20 @@ class ProductController extends Controller
             ->with('success', 'Producto creado correctamente.');
     }
 
-    public function show(Product $product): View
+    public function show(Product $product, SecurityScopeService $scopeService): View
     {
-        $product->load(['category', 'unitMeasure', 'images', 'mainImage']);
+        abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
+
+        $product->load(['category', 'unitMeasure', 'images', 'mainImage', 'branchStocks.branch']);
 
         return view('admin.products.show', compact('product'));
     }
 
-    public function edit(Product $product): View
+    public function edit(Product $product, SecurityScopeService $scopeService): View
     {
-        $product->load(['images', 'mainImage']);
+        abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
+
+        $product->load(['images', 'mainImage', 'branchStocks.branch']);
 
         return view('admin.products.edit', [
             'product' => $product,
@@ -65,9 +73,13 @@ class ProductController extends Controller
         ]);
     }
 
-    public function update(UpdateProductRequest $request, Product $product): RedirectResponse
+    public function update(UpdateProductRequest $request, Product $product, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, SecurityScopeService $scopeService): RedirectResponse
     {
-        $product->update($this->normalizePayload($request->validated(), $product));
+        abort_unless($scopeService->canAccessProduct($request->user(), $product, 'catalog'), 403);
+
+        $payload = $this->normalizePayload($request->validated(), $product);
+        $product->update($payload);
+        $inventory->syncBranchStock($product, $branchContext->currentBranchId($request->user()), (int) ($payload['stock'] ?? 0), (int) ($payload['min_stock'] ?? 0));
         ProductImage::where('product_id', $product->id)->update(['product_sku' => $product->sku]);
         $this->syncProductImage($product, $request->file('image_file'));
 
@@ -76,8 +88,10 @@ class ProductController extends Controller
             ->with('success', 'Producto actualizado correctamente.');
     }
 
-    public function destroy(Product $product): RedirectResponse
+    public function destroy(Product $product, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
+
         $product->delete();
 
         return redirect()

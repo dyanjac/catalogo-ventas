@@ -6,13 +6,16 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Modules\Security\Models\SecurityBranch;
+use Modules\Security\Models\SecurityRole;
+use Modules\Security\Services\SecurityAuthorizationService;
 
 class AuthController extends Controller
 {
-    public function showLogin()
+    public function showLogin(SecurityAuthorizationService $authorization)
     {
         if (Auth::check()) {
-            $target = Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home');
+            $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
 
             return redirect()->intended($target);
         }
@@ -20,14 +23,14 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request)
+    public function login(Request $request, SecurityAuthorizationService $authorization)
     {
         $credentials = $request->validateWithBag('login', [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials, (bool) $request->boolean('remember'))) {
+        if (! Auth::attempt($credentials, (bool) $request->boolean('remember'))) {
             return back()
                 ->withErrors(['email' => 'Credenciales inválidas.'], 'login')
                 ->withInput($request->only('email'))
@@ -36,7 +39,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $target = Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home');
+        $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
 
         return redirect()->intended($target)
             ->with('success', 'Sesión iniciada correctamente.');
@@ -55,6 +58,8 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'confirmed', 'min:8'],
         ]);
 
+        $defaultBranchId = SecurityBranch::query()->where('is_default', true)->value('id');
+
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
@@ -64,9 +69,20 @@ class AuthController extends Controller
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
             'role' => 'customer',
+            'branch_id' => $defaultBranchId,
             'password' => $data['password'],
             'is_active' => true,
         ]);
+
+        if ($customerRole = SecurityRole::query()->where('code', 'customer')->first()) {
+            $user->roles()->syncWithoutDetaching([
+                $customerRole->id => [
+                    'scope' => 'all',
+                    'is_active' => true,
+                    'context' => null,
+                ],
+            ]);
+        }
 
         Auth::login($user);
         $request->session()->regenerate();

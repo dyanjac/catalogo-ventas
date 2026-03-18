@@ -5,6 +5,8 @@ namespace Modules\Security\Livewire;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Modules\Security\Services\LdapDirectoryService;
+use Modules\Security\Services\SecurityAuditService;
+use Modules\Security\Services\SecurityAuthorizationService;
 use Modules\Security\Services\SecurityAuthSettingsService;
 use Throwable;
 
@@ -16,14 +18,14 @@ class AdminLoginScreen extends Component
 
     public bool $remember = false;
 
-    public function mount(): void
+    public function mount(SecurityAuthorizationService $authorization): void
     {
         if (Auth::check()) {
-            $this->redirectAuthenticatedUser();
+            $this->redirectAuthenticatedUser($authorization);
         }
     }
 
-    public function login(): void
+    public function login(SecurityAuthorizationService $authorization, SecurityAuditService $audit): void
     {
         $settings = app(SecurityAuthSettingsService::class)->getForView();
         $ldapEnabled = (bool) ($settings['ldap_enabled'] ?? false);
@@ -37,7 +39,7 @@ class AdminLoginScreen extends Component
         $identifier = trim($credentials['identifier']);
         $looksLikeEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false;
 
-        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'])) {
+        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'], $authorization, $audit)) {
             return;
         }
 
@@ -51,43 +53,54 @@ class AdminLoginScreen extends Component
             } catch (Throwable $exception) {
                 report($exception);
 
-                if ($looksLikeEmail) {
-                    $this->addError('identifier', 'Credenciales internas invalidas y LDAP respondio: '.$exception->getMessage());
-                } else {
-                    $this->addError('identifier', $exception->getMessage() !== '' ? $exception->getMessage() : 'No se pudo autenticar contra LDAP.');
-                }
+                $message = $looksLikeEmail
+                    ? 'Credenciales internas invalidas y LDAP respondio: '.$exception->getMessage()
+                    : ($exception->getMessage() !== '' ? $exception->getMessage() : 'No se pudo autenticar contra LDAP.');
+
+                $this->addError('identifier', $message);
+                $audit->log('authentication', 'security.admin.login.ldap.failed', 'failed', $message, null, null, 'security', ['identifier' => $identifier]);
 
                 return;
             }
 
             if (! $user) {
-                $this->addError('identifier', $looksLikeEmail
+                $message = $looksLikeEmail
                     ? 'No fue posible autenticar la cuenta interna y tampoco se encontro el usuario en LDAP.'
-                    : 'No se encontro el usuario en el directorio LDAP.');
+                    : 'No se encontro el usuario en el directorio LDAP.';
+
+                $this->addError('identifier', $message);
+                $audit->log('authentication', 'security.admin.login.ldap.not_found', 'failed', $message, null, null, 'security', ['identifier' => $identifier]);
 
                 return;
             }
 
-            if (! $user->isSuperAdmin()) {
-                $this->addError('identifier', 'La cuenta LDAP es valida, pero no tiene acceso administrativo.');
+            if (! $authorization->canAccessAdminPanel($user)) {
+                $message = 'La cuenta LDAP es valida, pero no tiene acceso administrativo.';
+                $this->addError('identifier', $message);
+                $audit->log('authentication', 'security.admin.login.ldap.denied', 'warning', $message, $user, $user, 'security', ['identifier' => $identifier]);
 
                 return;
             }
 
             Auth::login($user, $this->remember);
             request()->session()->regenerate();
+            $audit->log('authentication', 'security.admin.login.ldap.success', 'success', 'Ingreso administrativo por LDAP.', $user, $user, 'security', ['identifier' => $identifier]);
             $this->redirectIntended(route('admin.dashboard'), navigate: false);
 
             return;
         }
 
         if (! $looksLikeEmail) {
-            $this->addError('identifier', 'Ingresa un correo para cuentas internas o habilita LDAP para usar un usuario sin dominio.');
+            $message = 'Ingresa un correo para cuentas internas o habilita LDAP para usar un usuario sin dominio.';
+            $this->addError('identifier', $message);
+            $audit->log('authentication', 'security.admin.login.identifier.invalid', 'failed', $message, null, null, 'security', ['identifier' => $identifier]);
 
             return;
         }
 
-        $this->addError('identifier', 'Credenciales internas invalidas.');
+        $message = 'Credenciales internas invalidas.';
+        $this->addError('identifier', $message);
+        $audit->log('authentication', 'security.admin.login.internal.failed', 'failed', $message, null, null, 'security', ['identifier' => $identifier]);
     }
 
     public function render(SecurityAuthSettingsService $settingsService)
@@ -97,14 +110,14 @@ class AdminLoginScreen extends Component
         ]);
     }
 
-    private function redirectAuthenticatedUser(): void
+    private function redirectAuthenticatedUser(SecurityAuthorizationService $authorization): void
     {
-        $target = Auth::user()?->isSuperAdmin() ? route('admin.dashboard') : route('home');
+        $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
 
         $this->redirectIntended($target, navigate: false);
     }
 
-    private function attemptInternalLogin(string $email, string $password): bool
+    private function attemptInternalLogin(string $email, string $password, SecurityAuthorizationService $authorization, SecurityAuditService $audit): bool
     {
         if (! Auth::attempt([
             'email' => $email,
@@ -113,16 +126,19 @@ class AdminLoginScreen extends Component
             return false;
         }
 
-        if (! Auth::user()?->isSuperAdmin()) {
+        if (! $authorization->canAccessAdminPanel(Auth::user())) {
             Auth::logout();
             request()->session()->invalidate();
             request()->session()->regenerateToken();
-            $this->addError('identifier', 'Tu cuenta no tiene acceso al panel administrativo.');
+            $message = 'Tu cuenta no tiene acceso al panel administrativo.';
+            $this->addError('identifier', $message);
+            $audit->log('authentication', 'security.admin.login.internal.denied', 'warning', $message, null, null, 'security', ['identifier' => $email]);
 
             return true;
         }
 
         request()->session()->regenerate();
+        $audit->log('authentication', 'security.admin.login.internal.success', 'success', 'Ingreso administrativo interno correcto.', Auth::user(), Auth::user(), 'security', ['identifier' => $email]);
         $this->redirectIntended(route('admin.dashboard'), navigate: false);
 
         return true;

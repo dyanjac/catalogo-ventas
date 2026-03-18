@@ -69,6 +69,11 @@ class Product extends Model
         return $this->hasMany(ProductImage::class);
     }
 
+    public function branchStocks(): HasMany
+    {
+        return $this->hasMany(ProductBranchStock::class);
+    }
+
     public function mainImage(): HasOne
     {
         return $this->hasOne(ProductImage::class)->where('is_main', true)->orderBy('sort')->orderByDesc('id');
@@ -99,5 +104,22 @@ class Product extends Model
 
         return $mainImage?->path ?: $this->image;
     }
-}
 
+    public function getEffectiveStockAttribute(): int
+    {
+        if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
+            return (int) ($this->branchStocks->first()?->stock ?? 0);
+        }
+
+        return (int) ($this->stock ?? 0);
+    }
+
+    public function getEffectiveMinStockAttribute(): int
+    {
+        if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
+            return (int) ($this->branchStocks->first()?->min_stock ?? 0);
+        }
+
+        return (int) ($this->min_stock ?? 0);
+    }
+}

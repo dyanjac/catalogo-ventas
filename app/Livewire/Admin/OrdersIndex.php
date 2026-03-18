@@ -6,6 +6,7 @@ use App\Models\Order;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Modules\Security\Services\SecurityScopeService;
 
 class OrdersIndex extends Component
 {
@@ -56,9 +57,9 @@ class OrdersIndex extends Component
         $this->resetPage();
     }
 
-    public function render()
+    public function render(SecurityScopeService $scopeService)
     {
-        $orders = Order::query()
+        $query = Order::query()
             ->with('user')
             ->when($this->search !== '', function ($query) {
                 $search = trim($this->search);
@@ -73,7 +74,10 @@ class OrdersIndex extends Component
                 });
             })
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
-            ->when($this->paymentStatus !== '', fn ($query) => $query->where('payment_status', $this->paymentStatus))
+            ->when($this->paymentStatus !== '', fn ($query) => $query->where('payment_status', $this->paymentStatus));
+
+        $orders = $scopeService
+            ->scopeOrders($query, auth()->user(), 'sales')
             ->latest()
             ->paginate(15);
 
