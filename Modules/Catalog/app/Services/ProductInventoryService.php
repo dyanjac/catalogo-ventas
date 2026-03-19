@@ -10,8 +10,10 @@ use Modules\Security\Services\SecurityBranchContextService;
 
 class ProductInventoryService
 {
-    public function __construct(private readonly SecurityBranchContextService $branchContext)
-    {
+    public function __construct(
+        private readonly SecurityBranchContextService $branchContext,
+        private readonly InventoryMovementService $movements,
+    ) {
     }
 
     public function syncBranchStock(Product $product, ?int $branchId, int $stock, int $minStock): void
@@ -112,20 +114,19 @@ class ProductInventoryService
         }
     }
 
-    public function decrementBranchStock(Product $product, int $branchId, int $quantity): void
+    public function decrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
     {
-        $branchStock = ProductBranchStock::query()
-            ->where('product_id', $product->id)
-            ->where('branch_id', $branchId)
-            ->lockForUpdate()
-            ->first();
+        $this->movements->recordOutbound($product, $branchId, $quantity, $context);
+    }
 
-        if (! $branchStock || $branchStock->stock < $quantity) {
-            throw new \RuntimeException("Stock insuficiente en sucursal para {$product->name}.");
-        }
+    public function incrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
+    {
+        $this->movements->recordInbound($product, $branchId, $quantity, $context);
+    }
 
-        $branchStock->decrement('stock', $quantity);
-        $this->syncAggregateStock($product->fresh());
+    public function adjustBranchStock(Product $product, int $branchId, int $targetStock, array $context = []): void
+    {
+        $this->movements->recordAdjustment($product, $branchId, $targetStock, $context);
     }
 
     public function preloadBranchStock(Collection $products, ?int $branchId = null): Collection

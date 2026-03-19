@@ -169,7 +169,17 @@ class SalesPosController extends Controller
                     'line_total' => $lineTotal,
                 ]);
 
-                $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity']);
+                $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity'], [
+                    'reason' => 'pos_sale',
+                    'performed_by' => auth()->id(),
+                    'reference_type' => Order::class,
+                    'reference_id' => $createdOrder->id,
+                    'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
+                    'meta' => [
+                        'channel' => 'pos',
+                        'document_type' => $data['document_type'],
+                    ],
+                ]);
             }
 
             if ($data['document_type'] !== 'order') {
@@ -330,3 +340,5 @@ class SalesPosController extends Controller
         return [$series, str_pad((string) $next, 8, '0', STR_PAD_LEFT)];
     }
 }
+
+

@@ -74,6 +74,11 @@ class Product extends Model
         return $this->hasMany(ProductBranchStock::class);
     }
 
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
     public function mainImage(): HasOne
     {
         return $this->hasOne(ProductImage::class)->where('is_main', true)->orderBy('sort')->orderByDesc('id');
@@ -123,3 +128,4 @@ class Product extends Model
         return (int) ($this->min_stock ?? 0);
     }
 }
+

@@ -173,9 +173,31 @@ class SecurityScopeService
         return $this->scopeProducts(Product::query(), $actor, $moduleCode)->whereKey($product->id)->exists();
     }
 
+    public function scopeInventoryMovements(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        $scope = $this->scopeLevelForModule($actor, $moduleCode);
+
+        if ($scope === 'none') {
+            return $query->whereKey(0);
+        }
+
+        if (in_array($scope, ['own', 'branch'], true)) {
+            $branchId = $this->actorBranchId($actor);
+
+            return $branchId ? $query->where('branch_id', $branchId) : $query->whereKey(0);
+        }
+
+        return $query;
+    }
+
     public function canAccessInventoryStock(?User $actor, ProductBranchStock $stock, string $moduleCode = 'inventory'): bool
     {
         return $this->scopeInventoryStocks(ProductBranchStock::query(), $actor, $moduleCode)->whereKey($stock->id)->exists();
+    }
+
+    public function canAccessInventoryMovement(?User $actor, InventoryMovement $movement, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryMovements(InventoryMovement::query(), $actor, $moduleCode)->whereKey($movement->id)->exists();
     }
 
     public function branchModeIsDegraded(string $moduleCode): bool
@@ -188,3 +210,5 @@ class SecurityScopeService
         return $this->branchContext->currentBranchId($actor);
     }
 }
+
+

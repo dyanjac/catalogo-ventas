@@ -123,7 +123,17 @@ class OrderCheckoutService
                     'line_total' => $lineTotal,
                 ]);
 
-                $this->inventory->decrementBranchStock($products->get((string) $item['id']), $branchId, $qty);
+                $this->inventory->decrementBranchStock($products->get((string) $item['id']), $branchId, $qty, [
+                    'reason' => 'ecommerce_order',
+                    'performed_by' => (int) ($payload['user_id'] ?? 0) ?: null,
+                    'reference_type' => Order::class,
+                    'reference_id' => $order->id,
+                    'reference_code' => $order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
+                    'meta' => [
+                        'channel' => 'ecommerce',
+                        'payment_method' => $paymentMethod,
+                    ],
+                ]);
             }
 
             $result = [
@@ -223,3 +233,4 @@ class OrderCheckoutService
         }
     }
 }
+
