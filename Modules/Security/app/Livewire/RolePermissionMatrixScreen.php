@@ -13,6 +13,10 @@ class RolePermissionMatrixScreen extends Component
 {
     public string $roleSearch = '';
 
+    public string $permissionSearch = '';
+
+    public string $moduleFilter = 'all';
+
     public ?int $selectedRoleId = null;
 
     public array $selectedPermissionIds = [];
@@ -24,6 +28,12 @@ class RolePermissionMatrixScreen extends Component
     public ?string $flashMessage = null;
 
     public string $flashTone = 'success';
+
+    public array $initialPermissionIds = [];
+
+    public array $initialModuleAccessLevels = [];
+
+    public array $initialModuleNavigationVisibility = [];
 
     protected ?int $loadedRoleId = null;
 
@@ -61,7 +71,55 @@ class RolePermissionMatrixScreen extends Component
             ->mapWithKeys(fn (SecurityModule $module) => [$module->id => (bool) $module->pivot->navigation_visible])
             ->all();
         $this->loadedRoleId = $role->id;
+        $this->syncSnapshot();
         $this->flashMessage = null;
+    }
+
+    public function selectModulePermissions(int $moduleId): void
+    {
+        $permissionIds = SecurityModule::query()
+            ->with('permissions:id,module_id')
+            ->findOrFail($moduleId)
+            ->permissions
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->selectedPermissionIds = collect($this->selectedPermissionIds)
+            ->merge($permissionIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function clearModulePermissions(int $moduleId): void
+    {
+        $permissionIds = SecurityModule::query()
+            ->with('permissions:id,module_id')
+            ->findOrFail($moduleId)
+            ->permissions
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->selectedPermissionIds = collect($this->selectedPermissionIds)
+            ->reject(fn ($id) => in_array((int) $id, $permissionIds, true))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    public function applyAccessPreset(string $level): void
+    {
+        abort_unless(in_array($level, ['none', 'readonly', 'limited', 'full', 'placeholder'], true), 404);
+
+        $moduleIds = SecurityModule::query()->pluck('id')->map(fn ($id) => (int) $id);
+
+        foreach ($moduleIds as $moduleId) {
+            $this->moduleAccessLevels[$moduleId] = $level;
+            $this->moduleNavigationVisibility[$moduleId] = $level !== 'none';
+        }
     }
 
     public function save(SecurityAuthorizationService $authorization, SecurityAuditService $audit): void
@@ -113,6 +171,13 @@ class RolePermissionMatrixScreen extends Component
         $this->flashMessage = 'Permisos y modulos del rol actualizados correctamente.';
     }
 
+    public function hasUnsavedChanges(): bool
+    {
+        return $this->normalizePermissionIds($this->selectedPermissionIds) !== $this->normalizePermissionIds($this->initialPermissionIds)
+            || $this->normalizeAssocArray($this->moduleAccessLevels) !== $this->normalizeAssocArray($this->initialModuleAccessLevels)
+            || $this->normalizeAssocArray($this->moduleNavigationVisibility) !== $this->normalizeAssocArray($this->initialModuleNavigationVisibility);
+    }
+
     public function render()
     {
         $roles = SecurityRole::query()
@@ -132,7 +197,7 @@ class RolePermissionMatrixScreen extends Component
         }
 
         $selectedRole = $this->selectedRoleId
-            ? SecurityRole::query()->with(['permissions:id', 'modules:id'])->find($this->selectedRoleId)
+            ? SecurityRole::query()->withCount('users')->with(['permissions:id', 'modules:id'])->find($this->selectedRoleId)
             : null;
 
         if ($selectedRole && $this->loadedRoleId !== $selectedRole->id) {
@@ -144,10 +209,40 @@ class RolePermissionMatrixScreen extends Component
             ->orderBy('sort_order')
             ->get();
 
+        $permissionSearch = mb_strtolower(trim($this->permissionSearch));
+
+        $filteredModules = $modules
+            ->when($this->moduleFilter !== 'all', fn ($collection) => $collection->where('code', $this->moduleFilter))
+            ->map(function (SecurityModule $module) use ($permissionSearch) {
+                if ($permissionSearch === '') {
+                    return $module;
+                }
+
+                $module->setRelation(
+                    'permissions',
+                    $module->permissions->filter(function ($permission) use ($permissionSearch): bool {
+                        return str_contains(mb_strtolower($permission->code), $permissionSearch)
+                            || str_contains(mb_strtolower($permission->resource), $permissionSearch)
+                            || str_contains(mb_strtolower($permission->action), $permissionSearch);
+                    })->values()
+                );
+
+                return $module;
+            })
+            ->filter(function (SecurityModule $module) use ($permissionSearch): bool {
+                if ($permissionSearch === '') {
+                    return true;
+                }
+
+                return $module->permissions->isNotEmpty();
+            })
+            ->values();
+
         return view('security::settings.livewire.role-permission-matrix-screen', [
             'roles' => $roles,
             'selectedRole' => $selectedRole,
             'modules' => $modules,
+            'filteredModules' => $filteredModules,
             'accessLevelOptions' => [
                 'none' => 'Sin acceso',
                 'readonly' => 'Solo lectura',
@@ -156,5 +251,31 @@ class RolePermissionMatrixScreen extends Component
                 'placeholder' => 'En construccion',
             ],
         ]);
+    }
+
+    private function syncSnapshot(): void
+    {
+        $this->initialPermissionIds = $this->normalizePermissionIds($this->selectedPermissionIds);
+        $this->initialModuleAccessLevels = $this->normalizeAssocArray($this->moduleAccessLevels);
+        $this->initialModuleNavigationVisibility = $this->normalizeAssocArray($this->moduleNavigationVisibility);
+    }
+
+    private function normalizePermissionIds(array $ids): array
+    {
+        return collect($ids)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeAssocArray(array $values): array
+    {
+        ksort($values);
+
+        return collect($values)
+            ->mapWithKeys(fn ($value, $key) => [(int) $key => is_bool($value) ? $value : (string) $value])
+            ->all();
     }
 }

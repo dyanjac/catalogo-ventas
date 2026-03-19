@@ -1,4 +1,11 @@
 <div class="space-y-6">
+    @php
+        $selectedPermissionCount = count($selectedPermissionIds);
+        $modulesWithAccess = collect($moduleAccessLevels)->filter(fn ($level) => $level !== 'none')->count();
+        $visibleModules = collect($moduleNavigationVisibility)->filter(fn ($isVisible) => (bool) $isVisible)->count();
+        $hasUnsavedChanges = $this->hasUnsavedChanges();
+    @endphp
+
     <x-admin.page-header
         title="Roles y permisos"
         description="Define el acceso por modulo, navegacion y permisos operativos de cada rol del sistema."
@@ -23,6 +30,30 @@
                     <label class="form-label">Buscar rol</label>
                     <flux:input wire:model.live.debounce.300ms="roleSearch" placeholder="Codigo o nombre del rol" />
                 </div>
+
+                @if($selectedRole)
+                    <div class="rounded-4 border border-slate-200 bg-slate-50 p-3">
+                        <div class="text-xs uppercase tracking-[0.2em] text-muted">Resumen del rol</div>
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <div class="text-2xl font-semibold text-slate-900">{{ $selectedPermissionCount }}</div>
+                                <div class="text-sm text-muted">Permisos activos</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-semibold text-slate-900">{{ $modulesWithAccess }}</div>
+                                <div class="text-sm text-muted">Modulos operativos</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-semibold text-slate-900">{{ $visibleModules }}</div>
+                                <div class="text-sm text-muted">Items en sidebar</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-semibold text-slate-900">{{ $selectedRole->users_count ?? 0 }}</div>
+                                <div class="text-sm text-muted">Usuarios impactados</div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="space-y-2">
                     @forelse($roles as $role)
@@ -60,6 +91,7 @@
                         <div class="d-flex flex-wrap gap-2 align-items-start">
                             <span class="badge bg-dark">{{ $selectedRole->code }}</span>
                             <span class="badge {{ $selectedRole->is_system ? 'bg-info' : 'bg-secondary' }}">{{ $selectedRole->is_system ? 'Sistema' : 'Personalizado' }}</span>
+                            <span class="badge {{ $hasUnsavedChanges ? 'bg-warning text-dark' : 'bg-success' }}">{{ $hasUnsavedChanges ? 'Cambios sin guardar' : 'Sincronizado' }}</span>
                         </div>
                     </div>
                 </div>
@@ -68,8 +100,23 @@
                     <div class="card border-0 overflow-hidden">
                         <div class="card-body p-0">
                             <div class="border-bottom px-4 py-3">
-                                <h4 class="mb-1 text-lg font-semibold text-slate-900">Acceso por modulo</h4>
-                                <p class="mb-0 text-sm text-muted">Controla si el rol ve el modulo, el nivel operativo y su visibilidad en el menu.</p>
+                                <div class="d-flex flex-wrap justify-content-between gap-3">
+                                    <div>
+                                        <h4 class="mb-1 text-lg font-semibold text-slate-900">Acceso por modulo</h4>
+                                        <p class="mb-0 text-sm text-muted">Controla si el rol ve el modulo, el nivel operativo y su visibilidad en el menu.</p>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <flux:button type="button" variant="ghost" size="sm" wire:click="applyAccessPreset('readonly')">
+                                            Todo lectura
+                                        </flux:button>
+                                        <flux:button type="button" variant="ghost" size="sm" wire:click="applyAccessPreset('full')">
+                                            Todo full
+                                        </flux:button>
+                                        <flux:button type="button" variant="ghost" size="sm" wire:click="applyAccessPreset('none')">
+                                            Limpiar acceso
+                                        </flux:button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="table mb-0 align-middle">
@@ -114,20 +161,47 @@
 
                     <div class="card border-0">
                         <div class="card-body space-y-4">
-                            <div>
-                                <h4 class="mb-1 text-lg font-semibold text-slate-900">Permisos operativos</h4>
-                                <p class="mb-0 text-sm text-muted">Activa o desactiva acciones puntuales por cada modulo y recurso.</p>
+                            <div class="d-flex flex-wrap justify-content-between gap-3">
+                                <div>
+                                    <h4 class="mb-1 text-lg font-semibold text-slate-900">Permisos operativos</h4>
+                                    <p class="mb-0 text-sm text-muted">Activa o desactiva acciones puntuales por cada modulo y recurso.</p>
+                                </div>
+                                <div class="grid gap-3 md:grid-cols-2">
+                                    <div>
+                                        <label class="form-label">Buscar permiso</label>
+                                        <flux:input wire:model.live.debounce.250ms="permissionSearch" placeholder="Codigo, recurso o accion" />
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Filtrar modulo</label>
+                                        <select wire:model.live="moduleFilter" class="form-select">
+                                            <option value="all">Todos los modulos</option>
+                                            @foreach($modules as $module)
+                                                <option value="{{ $module->code }}">{{ $module->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="grid gap-4 lg:grid-cols-2">
-                                @foreach($modules as $module)
+                                @forelse($filteredModules as $module)
                                     <div class="rounded-4 border border-slate-200 p-4" wire:key="permission-group-{{ $module->id }}">
                                         <div class="mb-3 d-flex justify-content-between gap-3">
                                             <div>
                                                 <div class="fw-semibold text-slate-900">{{ $module->name }}</div>
                                                 <div class="text-sm text-muted">{{ $module->permissions->count() }} permisos definidos</div>
                                             </div>
-                                            <span class="badge badge-light">{{ $module->code }}</span>
+                                            <div class="d-flex flex-wrap justify-content-end gap-2">
+                                                <span class="badge badge-light">{{ $module->code }}</span>
+                                                @if($module->permissions->isNotEmpty())
+                                                    <flux:button type="button" variant="ghost" size="sm" wire:click="selectModulePermissions({{ $module->id }})">
+                                                        Marcar todo
+                                                    </flux:button>
+                                                    <flux:button type="button" variant="ghost" size="sm" wire:click="clearModulePermissions({{ $module->id }})">
+                                                        Limpiar
+                                                    </flux:button>
+                                                @endif
+                                            </div>
                                         </div>
 
                                         <div class="space-y-2">
@@ -135,21 +209,28 @@
                                                 <label class="flex items-start gap-3 rounded-3 border border-slate-100 px-3 py-2 text-sm">
                                                     <input type="checkbox" wire:model="selectedPermissionIds" value="{{ $permission->id }}" class="mt-1">
                                                     <span>
-                                                        <span class="d-block fw-semibold text-slate-800">{{ $permission->resource }} · {{ $permission->action }}</span>
+                                                        <span class="d-block fw-semibold text-slate-800">{{ $permission->resource }} - {{ $permission->action }}</span>
                                                         <span class="text-muted">{{ $permission->code }}</span>
                                                     </span>
                                                 </label>
                                             @empty
-                                                <div class="text-sm text-muted">Este modulo aun no define permisos finos.</div>
+                                                <div class="text-sm text-muted">No hay permisos que coincidan con el filtro actual.</div>
                                             @endforelse
                                         </div>
                                     </div>
-                                @endforeach
+                                @empty
+                                    <div class="rounded-4 border border-dashed p-4 text-sm text-muted lg:col-span-2">
+                                        No hay modulos o permisos que coincidan con los filtros aplicados.
+                                    </div>
+                                @endforelse
                             </div>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-end">
+                    <div class="d-flex flex-wrap justify-content-between gap-3 align-items-center">
+                        <div class="text-sm text-muted">
+                            {{ $selectedPermissionCount }} permisos seleccionados en {{ $modulesWithAccess }} modulos con acceso.
+                        </div>
                         <flux:button type="submit" variant="primary" icon="shield-check" wire:loading.attr="disabled">
                             Guardar permisos del rol
                         </flux:button>

@@ -1,4 +1,14 @@
 <div class="space-y-6">
+    @php
+        $selectedRoleCount = count($selectedRoleIds);
+        $branchScopedCount = collect($roleScopes)
+            ->filter(fn ($scope, $roleId) => in_array((int) $roleId, $selectedRoleIds, true) && $scope === 'branch')
+            ->count();
+        $ownScopedCount = collect($roleScopes)
+            ->filter(fn ($scope, $roleId) => in_array((int) $roleId, $selectedRoleIds, true) && $scope === 'own')
+            ->count();
+    @endphp
+
     <x-admin.page-header
         title="Accesos de usuarios"
         description="Asigna roles operativos y una sucursal base a cada cuenta. El alcance branch se resuelve usando branch_id real."
@@ -25,6 +35,20 @@
                 <div class="card-body">
                     <label class="form-label">Buscar usuario</label>
                     <flux:input wire:model.live.debounce.300ms="search" placeholder="Nombre, correo, celular o documento" />
+                    <div class="mt-3 grid gap-3 md:grid-cols-3">
+                        <div class="rounded-3 bg-slate-50 px-3 py-2">
+                            <div class="text-lg font-semibold text-slate-900">{{ $users->total() }}</div>
+                            <div class="text-sm text-muted">Usuarios encontrados</div>
+                        </div>
+                        <div class="rounded-3 bg-slate-50 px-3 py-2">
+                            <div class="text-lg font-semibold text-slate-900">{{ $users->getCollection()->filter(fn ($user) => $user->roles->filter(fn ($role) => (bool) data_get($role, 'pivot.is_active', false))->isNotEmpty())->count() }}</div>
+                            <div class="text-sm text-muted">Con roles RBAC</div>
+                        </div>
+                        <div class="rounded-3 bg-slate-50 px-3 py-2">
+                            <div class="text-lg font-semibold text-slate-900">{{ $users->getCollection()->filter(fn ($user) => $user->branch_id)->count() }}</div>
+                            <div class="text-sm text-muted">Con sucursal base</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -95,6 +119,21 @@
                                 <span class="badge {{ $selectedUser->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $selectedUser->is_active ? 'Activo' : 'Inactivo' }}</span>
                             </div>
 
+                            <div class="grid gap-3 md:grid-cols-3">
+                                <div class="rounded-3 bg-slate-50 px-3 py-2">
+                                    <div class="text-lg font-semibold text-slate-900">{{ $selectedRoleCount }}</div>
+                                    <div class="text-sm text-muted">Roles activos</div>
+                                </div>
+                                <div class="rounded-3 bg-slate-50 px-3 py-2">
+                                    <div class="text-lg font-semibold text-slate-900">{{ $branchScopedCount }}</div>
+                                    <div class="text-sm text-muted">Scopes branch</div>
+                                </div>
+                                <div class="rounded-3 bg-slate-50 px-3 py-2">
+                                    <div class="text-lg font-semibold text-slate-900">{{ $ownScopedCount }}</div>
+                                    <div class="text-sm text-muted">Scopes own</div>
+                                </div>
+                            </div>
+
                             <div class="grid gap-3 md:grid-cols-2">
                                 <div>
                                     <label class="form-label">Sucursal base</label>
@@ -132,7 +171,7 @@
                                                     <input type="checkbox" wire:model="selectedRoleIds" value="{{ $role->id }}" class="mt-1">
                                                     <span>
                                                         <span class="d-block fw-semibold text-slate-900">{{ $role->name }}</span>
-                                                        <span class="text-sm text-muted">{{ $role->code }}{{ $role->description ? ' · '.$role->description : '' }}</span>
+                                                        <span class="text-sm text-muted">{{ $role->code }}{{ $role->description ? ' - '.$role->description : '' }}</span>
                                                     </span>
                                                 </label>
                                             </div>

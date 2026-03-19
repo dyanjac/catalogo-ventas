@@ -15,6 +15,8 @@ class SecurityAuthorizationService
 
     protected array $permissionCache = [];
 
+    protected array $navigationModulesCache = [];
+
     public function hasRole(?User $user, string $roleCode): bool
     {
         if (! $user) {
@@ -86,21 +88,7 @@ class SecurityAuthorizationService
             return true;
         }
 
-        if (isset($this->permissionCache[$user->id][$permissionCode])) {
-            return $this->permissionCache[$user->id][$permissionCode];
-        }
-
-        $allowed = DB::table('security_role_permissions as role_permissions')
-            ->join('security_roles as roles', 'roles.id', '=', 'role_permissions.role_id')
-            ->join('security_permissions as permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-            ->join('security_user_roles as user_roles', 'user_roles.role_id', '=', 'roles.id')
-            ->where('user_roles.user_id', $user->id)
-            ->where('user_roles.is_active', true)
-            ->where('roles.is_active', true)
-            ->where('permissions.code', $permissionCode)
-            ->exists();
-
-        return $this->permissionCache[$user->id][$permissionCode] = $allowed;
+        return $this->resolvePermissionMap($user)->get($permissionCode, false);
     }
 
     public function modulesForNavigation(?User $user): Collection
@@ -109,14 +97,18 @@ class SecurityAuthorizationService
             return collect();
         }
 
+        if (isset($this->navigationModulesCache[$user->id])) {
+            return $this->navigationModulesCache[$user->id];
+        }
+
         if ($this->hasRole($user, 'super_admin')) {
-            return SecurityModule::query()
+            return $this->navigationModulesCache[$user->id] = SecurityModule::query()
                 ->where('navigation_visible', true)
                 ->orderBy('sort_order')
                 ->get();
         }
 
-        return SecurityModule::query()
+        return $this->navigationModulesCache[$user->id] = SecurityModule::query()
             ->select('security_modules.*')
             ->join('security_role_module_access as access', 'access.module_id', '=', 'security_modules.id')
             ->join('security_roles as roles', 'roles.id', '=', 'access.role_id')
@@ -130,6 +122,29 @@ class SecurityAuthorizationService
             ->orderBy('security_modules.sort_order')
             ->distinct()
             ->get();
+    }
+
+    protected function resolvePermissionMap(User $user): Collection
+    {
+        if (isset($this->permissionCache[$user->id])) {
+            return collect($this->permissionCache[$user->id]);
+        }
+
+        $permissions = DB::table('security_role_permissions as role_permissions')
+            ->join('security_roles as roles', 'roles.id', '=', 'role_permissions.role_id')
+            ->join('security_permissions as permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->join('security_user_roles as user_roles', 'user_roles.role_id', '=', 'roles.id')
+            ->where('user_roles.user_id', $user->id)
+            ->where('user_roles.is_active', true)
+            ->where('roles.is_active', true)
+            ->pluck('permissions.code')
+            ->map(fn (string $code) => trim($code))
+            ->filter()
+            ->unique()
+            ->values()
+            ->mapWithKeys(fn (string $code) => [$code => true]);
+
+        return collect($this->permissionCache[$user->id] = $permissions->all());
     }
 
     protected function resolveRoleCodes(User $user): Collection

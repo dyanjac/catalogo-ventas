@@ -56,7 +56,7 @@
                 </flux:button>
             @endif
 
-            <flux:button href="{{ route('home') }}" variant="primary" icon="shopping-bag" size="sm">
+            <flux:button href="{{ route('home') }}" wire:navigate.hover variant="primary" icon="shopping-bag" size="sm">
                 Ver tienda
             </flux:button>
 
@@ -72,11 +72,11 @@
                         {{ $user?->email }}
                     </flux:menu.item>
 
-                    <flux:menu.item href="{{ route('admin.dashboard') }}" icon="home">
+                    <flux:menu.item href="{{ route('admin.dashboard') }}" wire:navigate.hover icon="home">
                         Dashboard
                     </flux:menu.item>
 
-                    <flux:menu.item href="{{ route('home') }}" icon="shopping-bag">
+                    <flux:menu.item href="{{ route('home') }}" wire:navigate.hover icon="shopping-bag">
                         Ver tienda
                     </flux:menu.item>
 
@@ -91,4 +91,5 @@
         </div>
     </div>
 </header>
+
 
