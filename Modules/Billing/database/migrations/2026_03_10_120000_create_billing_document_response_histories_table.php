@@ -27,8 +27,8 @@ return new class extends Migration
             $table->text('error_message')->nullable();
             $table->timestamps();
 
-            $table->index(['billing_document_id', 'created_at']);
-            $table->index(['provider', 'ok']);
+            $table->index(['billing_document_id', 'created_at'], 'bill_doc_resp_hist_doc_created_idx');
+            $table->index(['provider', 'ok'], 'bill_doc_resp_hist_provider_ok_idx');
         });
     }
 
@@ -37,3 +37,8 @@ return new class extends Migration
         Schema::dropIfExists('billing_document_response_histories');
     }
 };
+
+
+
+
+
