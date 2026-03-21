@@ -614,9 +614,51 @@ body.auth-shell {
     color: var(--admin-sidebar-text) !important;
 }
 
+.admin-sidebar [data-flux-sidebar-item]:hover [data-content],
+.admin-sidebar [data-flux-sidebar-item]:hover [data-flux-icon],
+.admin-sidebar [data-flux-menu-item]:hover [data-content],
+.admin-sidebar [data-flux-menu-item]:hover [data-flux-icon] {
+    color: var(--admin-sidebar-text) !important;
+}
+
 .admin-sidebar [data-flux-sidebar-item][data-current] [data-content],
 .admin-sidebar [data-flux-sidebar-item][data-current] [data-flux-icon] {
     color: var(--admin-active-link-text) !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > button {
+    background: color-mix(in srgb, var(--admin-sidebar-group-bg) 38%, transparent);
+    border: 1px solid color-mix(in srgb, var(--admin-sidebar-group-bg) 70%, transparent);
+    color: var(--admin-sidebar-group-text) !important;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > button:hover,
+.admin-sidebar [data-flux-sidebar-group] > button:focus-visible {
+    background: color-mix(in srgb, var(--admin-sidebar-group-bg) 52%, transparent);
+    color: var(--admin-sidebar-group-text) !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > button [data-flux-icon],
+.admin-sidebar [data-flux-sidebar-group] > button svg {
+    color: var(--admin-sidebar-group-text) !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > button span {
+    color: var(--admin-sidebar-group-text) !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > div > div {
+    color: var(--admin-sidebar-group-text) !important;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 1 !important;
+}
+
+.admin-sidebar [data-flux-sidebar-group] > div > div.absolute {
+    display: none;
 }
 
 .admin-topbar {

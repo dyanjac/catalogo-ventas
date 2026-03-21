@@ -12,6 +12,8 @@ class AdminThemeSetting extends Model
         'sidebar_bg',
         'sidebar_gradient_to',
         'sidebar_text',
+        'sidebar_group_text',
+        'sidebar_group_bg',
         'topbar_bg',
         'topbar_text',
         'primary_button',
@@ -22,3 +24,5 @@ class AdminThemeSetting extends Model
         'focus_ring',
     ];
 }
+
+

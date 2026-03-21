@@ -18,6 +18,8 @@
             --admin-sidebar-bg: {{ $palette['sidebar_bg'] ?? '#2f3a20' }};
             --admin-sidebar-gradient-to: {{ $palette['sidebar_gradient_to'] ?? '#4f5f2f' }};
             --admin-sidebar-text: {{ $palette['sidebar_text'] ?? '#ffffff' }};
+            --admin-sidebar-group-text: {{ $palette['sidebar_group_text'] ?? ($palette['sidebar_text'] ?? '#ffffff') }};
+            --admin-sidebar-group-bg: {{ $palette['sidebar_group_bg'] ?? ($palette['active_link_bg'] ?? '#d4a64a') }};
             --admin-topbar-bg: {{ $palette['topbar_bg'] ?? '#ffffff' }};
             --admin-topbar-text: {{ $palette['topbar_text'] ?? '#1f2d3d' }};
             --admin-primary-button: {{ $palette['primary_button'] ?? '#6c7f3e' }};

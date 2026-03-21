@@ -25,6 +25,8 @@
                                 'sidebar_bg' => 'Sidebar color inicio',
                                 'sidebar_gradient_to' => 'Sidebar color fin',
                                 'sidebar_text' => 'Sidebar texto',
+                                'sidebar_group_text' => 'Sidebar texto grupos',
+                                'sidebar_group_bg' => 'Sidebar fondo grupos',
                                 'topbar_bg' => 'Topbar fondo',
                                 'topbar_text' => 'Topbar texto',
                                 'primary_button' => 'Botón primario',

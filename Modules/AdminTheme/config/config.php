@@ -6,6 +6,8 @@ return [
         'sidebar_bg' => '#2f3a20',
         'sidebar_gradient_to' => '#4f5f2f',
         'sidebar_text' => '#ffffff',
+        'sidebar_group_text' => '#ffffff',
+        'sidebar_group_bg' => '#d4a64a',
         'topbar_bg' => '#ffffff',
         'topbar_text' => '#1f2d3d',
         'primary_button' => '#6c7f3e',
