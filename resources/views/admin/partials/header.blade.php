@@ -13,6 +13,20 @@
         <div class="admin-topbar__group">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-3" />
 
+            <button
+                type="button"
+                class="admin-topbar__collapse d-none d-lg-inline-flex"
+                data-admin-sidebar-toggle
+                aria-pressed="false"
+                aria-label="Ocultar menu lateral"
+                title="Ocultar menu lateral"
+            >
+                <span class="admin-topbar__collapse-icon admin-topbar__collapse-icon--bars" aria-hidden="true">
+                    <span></span>
+                </span>
+                <span class="admin-topbar__collapse-label" data-admin-sidebar-toggle-label>Ocultar menu</span>
+            </button>
+
             <div class="admin-topbar__brand">
                 <div class="admin-topbar__brand-mark">
                     <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}">
@@ -91,5 +105,8 @@
         </div>
     </div>
 </header>
+
+
+
 
 

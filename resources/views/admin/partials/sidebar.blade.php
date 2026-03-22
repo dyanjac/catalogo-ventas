@@ -8,7 +8,7 @@
     $canViewSecurityAudit = $authorization->hasPermission($user, 'security.audit.view');
 @endphp
 
-<flux:sidebar sticky collapsible="mobile" class="admin-sidebar">
+<flux:sidebar sticky collapsible="mobile" class="admin-sidebar" data-admin-sidebar>
     <flux:sidebar.header>
         <a href="{{ route('admin.dashboard') }}" wire:navigate.hover class="admin-brand">
             <span class="admin-brand__logo-wrap">
@@ -133,5 +133,6 @@
         </flux:button>
     </div>
 </flux:sidebar>
+
 
 

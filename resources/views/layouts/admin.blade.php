@@ -30,6 +30,13 @@
             --admin-focus-ring: {{ $palette['focus_ring'] ?? '#6c7f3e40' }};
         }
     </style>
+    <script>
+        try {
+            document.documentElement.dataset.adminSidebarCollapsed = localStorage.getItem('admin-sidebar-collapsed') === 'true' ? 'true' : 'false';
+        } catch (error) {
+            document.documentElement.dataset.adminSidebarCollapsed = 'false';
+        }
+    </script>
     @stack('styles')
 </head>
 <body class="admin-shell min-h-full">
@@ -51,3 +58,4 @@
     @stack('scripts')
 </body>
 </html>
+
