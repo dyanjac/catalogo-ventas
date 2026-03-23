@@ -12,11 +12,16 @@ class InventoryMovement extends Model
     protected $fillable = [
         'product_id',
         'branch_id',
+        'warehouse_id',
         'movement_type',
         'reason',
         'quantity',
         'stock_before',
         'stock_after',
+        'average_cost_before',
+        'unit_cost',
+        'average_cost_after',
+        'total_cost',
         'performed_by',
         'reference_type',
         'reference_id',
@@ -29,6 +34,10 @@ class InventoryMovement extends Model
         'quantity' => 'integer',
         'stock_before' => 'integer',
         'stock_after' => 'integer',
+        'average_cost_before' => 'decimal:4',
+        'unit_cost' => 'decimal:4',
+        'average_cost_after' => 'decimal:4',
+        'total_cost' => 'decimal:4',
         'performed_by' => 'integer',
         'reference_id' => 'integer',
         'meta' => 'array',
@@ -42,6 +51,11 @@ class InventoryMovement extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(SecurityBranch::class, 'branch_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(InventoryWarehouse::class, 'warehouse_id');
     }
 
     public function actor(): BelongsTo

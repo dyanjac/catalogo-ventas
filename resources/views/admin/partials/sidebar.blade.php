@@ -6,6 +6,7 @@
     $canViewSecurityUsers = $authorization->hasPermission($user, 'security.users.view');
     $canViewSecurityBranches = $authorization->hasPermission($user, 'security.branches.view');
     $canViewSecurityAudit = $authorization->hasPermission($user, 'security.audit.view');
+    $canViewInventoryWarehouses = $authorization->hasPermission($user, 'inventory.warehouses.view');
 @endphp
 
 <flux:sidebar sticky collapsible="mobile" class="admin-sidebar" data-admin-sidebar>
@@ -113,9 +114,14 @@
                 @foreach(['imports' => 'Importaciones', 'finance' => 'Finanzas', 'crm' => 'CRM', 'reports' => 'Reportes', 'inventory' => 'Inventarios', 'warranties' => 'Garantias', 'payroll' => 'Planillas'] as $code => $label)
                     @if($modules->has($code))
                         @if($code === 'inventory')
-                            <flux:sidebar.item wire:navigate.hover href="{{ route('admin.inventory.index') }}" icon="archive-box" :data-current="request()->routeIs('admin.inventory.*') ? 'true' : null">
+                            <flux:sidebar.item wire:navigate.hover href="{{ route('admin.inventory.index') }}" icon="archive-box" :data-current="request()->routeIs('admin.inventory.index') ? 'true' : null">
                                 {{ $label }}
                             </flux:sidebar.item>
+                            @if($canViewInventoryWarehouses)
+                                <flux:sidebar.item wire:navigate.hover href="{{ route('admin.inventory.warehouses.index') }}" icon="building-office-2" :data-current="request()->routeIs('admin.inventory.warehouses.*') ? 'true' : null">
+                                    Almacenes
+                                </flux:sidebar.item>
+                            @endif
                         @else
                             <flux:sidebar.item wire:navigate.hover href="{{ route('admin.modules.placeholder', $code) }}" icon="sparkles" :data-current="request()->routeIs('admin.modules.placeholder') && request()->route('module')?->code === $code ? 'true' : null">
                                 {{ $label }}
@@ -133,6 +139,7 @@
         </flux:button>
     </div>
 </flux:sidebar>
+
 
 
 

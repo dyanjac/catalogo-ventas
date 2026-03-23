@@ -1,12 +1,21 @@
+@php($canViewInventoryWarehouses = app(\Modules\Security\Services\SecurityAuthorizationService::class)->hasPermission(auth()->user(), 'inventory.warehouses.view'))
+
 <div class="space-y-6">
     <x-admin.page-header
         title="Sucursales"
         description="Define la estructura organizacional base del panel. El alcance branch del RBAC filtra usuarios, pedidos y comprobantes por estas sucursales."
     >
         <x-slot:actions>
-            <flux:button type="button" wire:click="createBranch" variant="primary" icon="plus">
-                Nueva sucursal
-            </flux:button>
+            <div class="flex flex-wrap gap-2">
+                @if($canViewInventoryWarehouses)
+                    <flux:button href="{{ route('admin.inventory.warehouses.index') }}" variant="outline" icon="building-office-2">
+                        Almacenes
+                    </flux:button>
+                @endif
+                <flux:button type="button" wire:click="createBranch" variant="primary" icon="plus">
+                    Nueva sucursal
+                </flux:button>
+            </div>
         </x-slot:actions>
     </x-admin.page-header>
 
@@ -124,7 +133,7 @@
                                 <input type="checkbox" wire:model="is_default" class="mt-1">
                                 <span>
                                     <span class="d-block fw-semibold text-slate-900">Sucursal default</span>
-                                    <span class="text-sm text-muted">Se usa para backfill y como fallback en nuevos registros sin sucursal explícita.</span>
+                                    <span class="text-sm text-muted">Se usa para backfill y como fallback en nuevos registros sin sucursal explicita.</span>
                                 </span>
                             </label>
                         </div>

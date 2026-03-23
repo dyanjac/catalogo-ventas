@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
+use Modules\Catalog\Entities\ProductWarehouseStock;
 use Modules\Security\Services\SecurityBranchContextService;
 
 class ProductInventoryService
@@ -41,7 +42,23 @@ class ProductInventoryService
 
     public function syncAggregateStock(Product $product): void
     {
+        $warehouseTotals = ProductWarehouseStock::query()
+            ->where('product_id', $product->id)
+            ->where('is_active', true)
+            ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
+            ->first();
+
+        if ($warehouseTotals && ProductWarehouseStock::query()->where('product_id', $product->id)->where('is_active', true)->exists()) {
+            $product->forceFill([
+                'stock' => (int) ($warehouseTotals->stock_total ?? 0),
+                'min_stock' => (int) ($warehouseTotals->min_stock_total ?? 0),
+            ])->save();
+
+            return;
+        }
+
         $totals = $product->branchStocks()
+            ->where('is_active', true)
             ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
             ->first();
 
@@ -49,6 +66,36 @@ class ProductInventoryService
             'stock' => (int) ($totals?->stock_total ?? 0),
             'min_stock' => (int) ($totals?->min_stock_total ?? 0),
         ])->save();
+    }
+
+    public function syncBranchAggregateStock(Product $product, int $branchId): void
+    {
+        $totals = ProductWarehouseStock::query()
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
+            ->first();
+
+        $branchStock = ProductBranchStock::query()
+            ->firstOrNew([
+                'product_id' => $product->id,
+                'branch_id' => $branchId,
+            ]);
+
+        $hasActiveWarehouses = ProductWarehouseStock::query()
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->exists();
+
+        $branchStock->fill([
+            'stock' => (int) ($totals?->stock_total ?? 0),
+            'min_stock' => (int) ($totals?->min_stock_total ?? 0),
+            'is_active' => $hasActiveWarehouses ? true : (bool) ($branchStock->is_active ?? false),
+        ])->save();
+
+        $this->syncAggregateStock($product->fresh());
     }
 
     public function availableStock(Product $product, ?int $branchId = null): int
@@ -60,12 +107,30 @@ class ProductInventoryService
         }
 
         if ($product->relationLoaded('branchStocks')) {
-            $branchStock = $product->branchStocks->firstWhere('branch_id', $branchId);
+            $branchStock = $product->branchStocks
+                ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
 
             return (int) ($branchStock?->stock ?? 0);
         }
 
-        return (int) ($product->branchStocks()->where('branch_id', $branchId)->value('stock') ?? 0);
+        return (int) ($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('stock') ?? 0);
+    }
+
+    public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
+    {
+        if ($product->relationLoaded('warehouseStocks')) {
+            $warehouseStock = $product->warehouseStocks
+                ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (int) $stock->warehouse_id === $warehouseId && (bool) $stock->is_active);
+
+            return (int) ($warehouseStock?->stock ?? 0);
+        }
+
+        return (int) (ProductWarehouseStock::query()
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('is_active', true)
+            ->value('stock') ?? 0);
     }
 
     public function minimumStock(Product $product, ?int $branchId = null): int
@@ -77,12 +142,13 @@ class ProductInventoryService
         }
 
         if ($product->relationLoaded('branchStocks')) {
-            $branchStock = $product->branchStocks->firstWhere('branch_id', $branchId);
+            $branchStock = $product->branchStocks
+                ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
 
             return (int) ($branchStock?->min_stock ?? 0);
         }
 
-        return (int) ($product->branchStocks()->where('branch_id', $branchId)->value('min_stock') ?? 0);
+        return (int) ($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('min_stock') ?? 0);
     }
 
     /**
@@ -138,7 +204,7 @@ class ProductInventoryService
         }
 
         $products->load([
-            'branchStocks' => fn ($query) => $query->where('branch_id', $branchId),
+            'branchStocks' => fn ($query) => $query->where('branch_id', $branchId)->where('is_active', true),
         ]);
 
         return $products;

@@ -6,8 +6,12 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Catalog\Entities\InventoryDocument;
+use Modules\Catalog\Entities\InventoryMovement;
+use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
+use Modules\Catalog\Entities\ProductWarehouseStock;
 use Modules\Orders\Entities\Order;
 
 class SecurityScopeService
@@ -138,19 +142,22 @@ class SecurityScopeService
 
     public function scopeInventoryStocks(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
     {
-        $scope = $this->scopeLevelForModule($actor, $moduleCode);
+        return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
+    }
 
-        if ($scope === 'none') {
-            return $query->whereKey(0);
-        }
+    public function scopeInventoryMovements(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
+    }
 
-        if (in_array($scope, ['own', 'branch'], true)) {
-            $branchId = $this->actorBranchId($actor);
+    public function scopeInventoryDocuments(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
+    }
 
-            return $branchId ? $query->where('branch_id', $branchId) : $query->whereKey(0);
-        }
-
-        return $query;
+    public function scopeInventoryWarehouses(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
     }
 
     public function canAccessUser(?User $actor, User $target, string $moduleCode = 'customers'): bool
@@ -173,7 +180,32 @@ class SecurityScopeService
         return $this->scopeProducts(Product::query(), $actor, $moduleCode)->whereKey($product->id)->exists();
     }
 
-    public function scopeInventoryMovements(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    public function canAccessInventoryStock(?User $actor, ProductBranchStock|ProductWarehouseStock $stock, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryStocks($stock::query(), $actor, $moduleCode)->whereKey($stock->id)->exists();
+    }
+
+    public function canAccessInventoryMovement(?User $actor, InventoryMovement $movement, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryMovements(InventoryMovement::query(), $actor, $moduleCode)->whereKey($movement->id)->exists();
+    }
+
+    public function canAccessInventoryDocument(?User $actor, InventoryDocument $document, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryDocuments(InventoryDocument::query(), $actor, $moduleCode)->whereKey($document->id)->exists();
+    }
+
+    public function canAccessInventoryWarehouse(?User $actor, InventoryWarehouse $warehouse, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryWarehouses(InventoryWarehouse::query(), $actor, $moduleCode)->whereKey($warehouse->id)->exists();
+    }
+
+    public function branchModeIsDegraded(string $moduleCode): bool
+    {
+        return ! in_array($moduleCode, ['customers', 'sales', 'billing', 'catalog', 'inventory'], true);
+    }
+
+    private function applyInventoryBranchScope(Builder $query, ?User $actor, string $moduleCode): Builder
     {
         $scope = $this->scopeLevelForModule($actor, $moduleCode);
 
@@ -190,25 +222,8 @@ class SecurityScopeService
         return $query;
     }
 
-    public function canAccessInventoryStock(?User $actor, ProductBranchStock $stock, string $moduleCode = 'inventory'): bool
-    {
-        return $this->scopeInventoryStocks(ProductBranchStock::query(), $actor, $moduleCode)->whereKey($stock->id)->exists();
-    }
-
-    public function canAccessInventoryMovement(?User $actor, InventoryMovement $movement, string $moduleCode = 'inventory'): bool
-    {
-        return $this->scopeInventoryMovements(InventoryMovement::query(), $actor, $moduleCode)->whereKey($movement->id)->exists();
-    }
-
-    public function branchModeIsDegraded(string $moduleCode): bool
-    {
-        return ! in_array($moduleCode, ['customers', 'sales', 'billing', 'catalog', 'inventory'], true);
-    }
-
     private function actorBranchId(?User $actor): ?int
     {
         return $this->branchContext->currentBranchId($actor);
     }
 }
-
-

@@ -19,6 +19,8 @@ class BranchManagementScreen extends Component
 
     public ?int $selectedBranchId = null;
 
+    public bool $isCreating = false;
+
     public string $code = '';
 
     public string $name = '';
@@ -53,6 +55,7 @@ class BranchManagementScreen extends Component
     {
         $this->selectedBranchId = null;
         $this->loadedBranchId = null;
+        $this->isCreating = true;
         $this->resetForm();
     }
 
@@ -69,6 +72,7 @@ class BranchManagementScreen extends Component
         $this->is_active = (bool) $branch->is_active;
         $this->is_default = (bool) $branch->is_default;
         $this->loadedBranchId = $branch->id;
+        $this->isCreating = false;
         $this->flashMessage = null;
     }
 
@@ -107,7 +111,7 @@ class BranchManagementScreen extends Component
             eventType: 'authorization',
             eventCode: 'security.branch.saved',
             result: 'success',
-            message: 'Se guardó una sucursal de seguridad.',
+            message: 'Se guardo una sucursal de seguridad.',
             actor: auth()->user(),
             target: $branch,
             module: 'security',
@@ -137,7 +141,7 @@ class BranchManagementScreen extends Component
             ->orderBy('name')
             ->paginate(10);
 
-        if ($branches->count() > 0 && ! collect($branches->items())->contains('id', $this->selectedBranchId)) {
+        if (! $this->isCreating && $branches->count() > 0 && ! collect($branches->items())->contains('id', $this->selectedBranchId)) {
             $this->selectBranch((int) $branches->items()[0]->id);
         }
 

@@ -26,6 +26,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('admin/inventory', [AdminInventoryController::class, 'index'])
         ->middleware(['security.module:inventory', 'security.permission:inventory.module.view'])
         ->name('admin.inventory.index');
+    Route::get('admin/inventory/warehouses', [AdminInventoryController::class, 'warehouses'])
+        ->middleware(['security.module:inventory', 'security.permission:inventory.warehouses.view'])
+        ->name('admin.inventory.warehouses.index');
 
     Route::resource('admin/products', AdminProductController::class)
         ->middleware('security.module:catalog')

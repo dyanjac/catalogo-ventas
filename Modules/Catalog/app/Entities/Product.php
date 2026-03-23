@@ -74,9 +74,19 @@ class Product extends Model
         return $this->hasMany(ProductBranchStock::class);
     }
 
+    public function warehouseStocks(): HasMany
+    {
+        return $this->hasMany(ProductWarehouseStock::class);
+    }
+
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    public function inventoryDocumentItems(): HasMany
+    {
+        return $this->hasMany(InventoryDocumentItem::class);
     }
 
     public function mainImage(): HasOne
@@ -112,6 +122,10 @@ class Product extends Model
 
     public function getEffectiveStockAttribute(): int
     {
+        if ($this->relationLoaded('warehouseStocks') && $this->warehouseStocks->isNotEmpty()) {
+            return (int) $this->warehouseStocks->sum('stock');
+        }
+
         if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
             return (int) ($this->branchStocks->first()?->stock ?? 0);
         }
@@ -121,6 +135,10 @@ class Product extends Model
 
     public function getEffectiveMinStockAttribute(): int
     {
+        if ($this->relationLoaded('warehouseStocks') && $this->warehouseStocks->isNotEmpty()) {
+            return (int) $this->warehouseStocks->sum('min_stock');
+        }
+
         if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
             return (int) ($this->branchStocks->first()?->min_stock ?? 0);
         }
@@ -128,4 +146,3 @@ class Product extends Model
         return (int) ($this->min_stock ?? 0);
     }
 }
-

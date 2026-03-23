@@ -3,5 +3,5 @@
 @section('page_title', 'Sucursales')
 
 @section('content')
-    <livewire:security::branch-management-screen />
+    @livewire(\Modules\Security\Livewire\BranchManagementScreen::class)
 @endsection
