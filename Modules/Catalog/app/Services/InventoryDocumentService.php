@@ -21,6 +21,7 @@ class InventoryDocumentService
     public function createDraft(array $payload): InventoryDocument
     {
         $warehouse = InventoryWarehouse::query()
+            ->forCurrentOrganization()
             ->whereKey($payload['warehouse_id'])
             ->where('branch_id', $payload['branch_id'])
             ->first();
@@ -38,7 +39,7 @@ class InventoryDocumentService
         }
 
         foreach ($payload['items'] ?? [] as $item) {
-            $product = Product::query()->find($item['product_id']);
+            $product = Product::query()->forCurrentOrganization()->find($item['product_id']);
 
             if (! $product) {
                 throw ValidationException::withMessages([
@@ -59,6 +60,7 @@ class InventoryDocumentService
             'code' => $code,
             'document_type' => $payload['document_type'],
             'status' => $payload['status'] ?? 'draft',
+            'organization_id' => $payload['organization_id'] ?? null,
             'branch_id' => $payload['branch_id'],
             'warehouse_id' => $payload['warehouse_id'],
             'reason' => $payload['reason'] ?? null,
@@ -71,6 +73,7 @@ class InventoryDocumentService
 
         foreach ($payload['items'] ?? [] as $item) {
             InventoryDocumentItem::query()->create([
+                'organization_id' => $payload['organization_id'] ?? null,
                 'document_id' => $document->id,
                 'product_id' => $item['product_id'],
                 'quantity' => (int) $item['quantity'],
@@ -88,6 +91,7 @@ class InventoryDocumentService
     {
         return DB::transaction(function () use ($documentId, $actorId): InventoryDocument {
             $document = InventoryDocument::query()
+                ->forCurrentOrganization()
                 ->with(['items.product', 'warehouse', 'branch'])
                 ->lockForUpdate()
                 ->findOrFail($documentId);
@@ -99,6 +103,7 @@ class InventoryDocumentService
             }
 
             $warehouse = InventoryWarehouse::query()
+                ->forCurrentOrganization()
                 ->whereKey($document->warehouse_id)
                 ->where('branch_id', $document->branch_id)
                 ->lockForUpdate()
@@ -119,6 +124,7 @@ class InventoryDocumentService
             }
 
             ProductWarehouseStock::query()
+                ->forCurrentOrganization()
                 ->where('branch_id', $document->branch_id)
                 ->where('warehouse_id', $warehouse->id)
                 ->whereIn('product_id', $items->pluck('product_id')->all())
@@ -126,6 +132,7 @@ class InventoryDocumentService
                 ->get();
 
             ProductBranchStock::query()
+                ->forCurrentOrganization()
                 ->where('branch_id', $document->branch_id)
                 ->whereIn('product_id', $items->pluck('product_id')->all())
                 ->lockForUpdate()
@@ -201,7 +208,7 @@ class InventoryDocumentService
             default => 'GIV',
         };
 
-        $nextId = (int) (InventoryDocument::query()->max('id') ?? 0) + 1;
+        $nextId = (int) (InventoryDocument::query()->forCurrentOrganization()->max('id') ?? 0) + 1;
 
         return $prefix.'-'.str_pad((string) $nextId, 8, '0', STR_PAD_LEFT);
     }
@@ -222,6 +229,7 @@ class InventoryDocumentService
     private function resolveOutboundUnitCost(InventoryDocument $document, Product $product, int $warehouseId): float
     {
         $stock = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $document->branch_id)
             ->where('warehouse_id', $warehouseId)
@@ -247,6 +255,7 @@ class InventoryDocumentService
         }
 
         $branchStock = ProductBranchStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->first();
@@ -258,6 +267,7 @@ class InventoryDocumentService
         }
 
         $warehouseStock = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('warehouse_id', $warehouseId)

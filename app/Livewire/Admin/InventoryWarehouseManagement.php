@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
@@ -75,7 +76,7 @@ class InventoryWarehouseManagement extends Component
 
     public function selectWarehouse(int $warehouseId, SecurityScopeService $scopeService): void
     {
-        $warehouse = InventoryWarehouse::query()->with('branch')->findOrFail($warehouseId);
+        $warehouse = InventoryWarehouse::query()->forCurrentOrganization()->with('branch')->findOrFail($warehouseId);
 
         abort_unless($scopeService->canAccessInventoryWarehouse(auth()->user(), $warehouse, 'inventory'), 403);
 
@@ -93,20 +94,22 @@ class InventoryWarehouseManagement extends Component
         SecurityAuthorizationService $authorization,
         SecurityAuditService $audit,
         SecurityScopeService $scopeService,
-        SecurityBranchContextService $branchContext
+        SecurityBranchContextService $branchContext,
+        OrganizationContextService $organizationContext,
     ): void {
         $actor = auth()->user();
+        $organizationId = $organizationContext->currentOrganizationId();
 
         abort_unless($authorization->hasPermission($actor, 'inventory.warehouses.update'), 403);
 
         $validated = $this->validate([
-            'branch_id' => ['required', 'integer', 'exists:security_branches,id'],
+            'branch_id' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
             'code' => [
                 'required',
                 'string',
                 'max:40',
                 Rule::unique('inventory_warehouses', 'code')
-                    ->where(fn ($query) => $query->where('branch_id', (int) $this->branch_id))
+                    ->where(fn ($query) => $query->where('organization_id', $organizationId)->where('branch_id', (int) $this->branch_id))
                     ->ignore($this->selectedWarehouseId),
             ],
             'name' => ['required', 'string', 'max:120'],
@@ -125,15 +128,15 @@ class InventoryWarehouseManagement extends Component
         }
 
         if ($this->selectedWarehouseId && ! (bool) $validated['is_active']) {
-            $warehouseWithRelations = InventoryWarehouse::query()->findOrFail($this->selectedWarehouseId);
+            $warehouseWithRelations = InventoryWarehouse::query()->forCurrentOrganization()->findOrFail($this->selectedWarehouseId);
 
-            if (ProductWarehouseStock::query()->where('warehouse_id', $warehouseWithRelations->id)->where('stock', '>', 0)->exists()) {
+            if (ProductWarehouseStock::query()->forCurrentOrganization()->where('warehouse_id', $warehouseWithRelations->id)->where('stock', '>', 0)->exists()) {
                 throw ValidationException::withMessages([
                     'is_active' => 'No puedes desactivar un almacen mientras existan productos con stock disponible.',
                 ]);
             }
 
-            if (InventoryDocument::query()->where('warehouse_id', $warehouseWithRelations->id)->where('status', 'draft')->exists()) {
+            if (InventoryDocument::query()->forCurrentOrganization()->where('warehouse_id', $warehouseWithRelations->id)->where('status', 'draft')->exists()) {
                 throw ValidationException::withMessages([
                     'is_active' => 'No puedes desactivar un almacen mientras existan guias en borrador asociadas.',
                 ]);
@@ -142,6 +145,7 @@ class InventoryWarehouseManagement extends Component
 
         if ($validated['is_default']) {
             InventoryWarehouse::query()
+                ->forCurrentOrganization()
                 ->where('branch_id', (int) $validated['branch_id'])
                 ->update(['is_default' => false]);
         }
@@ -149,6 +153,7 @@ class InventoryWarehouseManagement extends Component
         $warehouse = InventoryWarehouse::query()->updateOrCreate(
             ['id' => $this->selectedWarehouseId],
             [
+                'organization_id' => $organizationId,
                 'branch_id' => (int) $validated['branch_id'],
                 'code' => strtoupper(trim($validated['code'])),
                 'name' => trim($validated['name']),
@@ -184,9 +189,11 @@ class InventoryWarehouseManagement extends Component
         $scopeLevel = $scopeService->scopeLevelForModule($actor, 'inventory');
         $actorBranchId = $branchContext->currentBranchId($actor);
 
-        $branches = SecurityBranch::query()
-            ->where('is_active', true)
-            ->when(in_array($scopeLevel, ['branch', 'own'], true) && $actorBranchId, fn ($query) => $query->whereKey($actorBranchId))
+        $branches = $scopeService->scopeBranches(
+            SecurityBranch::query()->where('is_active', true),
+            $actor,
+            'inventory'
+        )
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get();

@@ -159,15 +159,15 @@
                         </div>
 
                         <div class="dashboard-stock-list">
-                            @forelse ($lowStockProducts as $product)
-                                <a href="{{ route('admin.products.edit', $product) }}" class="dashboard-stock-item">
+                            @forelse ($lowStockProducts as $stock)
+                                <a href="{{ route('admin.products.edit', $stock->product) }}" class="dashboard-stock-item">
                                     <div>
-                                        <div class="fw-semibold text-slate-900">{{ $product->name }}</div>
+                                        <div class="fw-semibold text-slate-900">{{ $stock->product?->name ?? 'Producto sin referencia' }}</div>
                                         <div class="text-sm text-slate-500">
-                                            {{ $product->category?->name ?? 'Sin categoria' }} · {{ $product->unitMeasure?->name ?? '-' }}
+                                            {{ $stock->product?->category?->name ?? 'Sin categoria' }} · {{ $stock->branch?->name ?? 'Sin sucursal' }}
                                         </div>
                                     </div>
-                                    <span class="dashboard-stock-badge">{{ $product->stock }}</span>
+                                    <span class="dashboard-stock-badge">{{ $stock->stock }}</span>
                                 </a>
                             @empty
                                 <div class="dashboard-empty-state">

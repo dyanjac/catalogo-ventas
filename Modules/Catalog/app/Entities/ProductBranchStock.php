@@ -2,14 +2,18 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Security\Models\SecurityBranch;
 
 class ProductBranchStock extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'product_id',
+        'organization_id',
         'branch_id',
         'stock',
         'min_stock',

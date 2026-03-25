@@ -3,8 +3,10 @@
 namespace Modules\Commerce\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Modules\Commerce\Entities\CommerceSetting;
@@ -12,26 +14,21 @@ use Modules\Commerce\Services\CommerceSettingsService;
 
 class CommerceSettingController extends Controller
 {
-    public function __construct(private readonly CommerceSettingsService $commerceSettingsService)
-    {
-    }
+    public function __construct(
+        private readonly CommerceSettingsService $commerceSettingsService,
+        private readonly OrganizationContextService $organizationContext
+    ) {}
 
     public function edit(): View
     {
-        $setting = CommerceSetting::query()->firstOrCreate(
-            ['id' => 1],
-            ['company_name' => 'Mi Empresa', 'email' => '']
-        );
+        $setting = $this->setting();
 
         return view('admin.settings.edit', compact('setting'));
     }
 
     public function update(Request $request): RedirectResponse
     {
-        $setting = CommerceSetting::query()->firstOrCreate(
-            ['id' => 1],
-            ['company_name' => 'Mi Empresa', 'email' => '']
-        );
+        $setting = $this->setting();
 
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:160'],
@@ -65,5 +62,19 @@ class CommerceSettingController extends Controller
         return redirect()
             ->route('admin.settings.edit')
             ->with('success', 'Configuracion del comercio actualizada correctamente.');
+    }
+
+    private function setting(): CommerceSetting
+    {
+        $defaults = ['company_name' => 'Mi Empresa', 'email' => ''];
+
+        if (! Schema::hasColumn('commerce_settings', 'organization_id')) {
+            return CommerceSetting::query()->firstOrCreate(['id' => 1], $defaults);
+        }
+
+        return CommerceSetting::query()->firstOrCreate(
+            ['organization_id' => $this->organizationContext->currentOrganizationId()],
+            $defaults
+        );
     }
 }

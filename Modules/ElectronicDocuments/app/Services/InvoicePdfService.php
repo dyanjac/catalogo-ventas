@@ -2,6 +2,7 @@
 
 namespace Modules\ElectronicDocuments\Services;
 
+use App\Services\OrganizationContextService;
 use Barryvdh\Snappy\Facades\SnappyPdf;
 use DOMDocument;
 use Illuminate\Support\Facades\File;
@@ -17,7 +18,11 @@ use XSLTProcessor;
 
 class InvoicePdfService
 {
-    public function generateFromXml(string $xmlPath, ?int $companyId = null): string
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
+    public function generateFromXml(string $xmlPath, ?int $organizationId = null): string
     {
         $this->assertDependencies();
 
@@ -33,7 +38,7 @@ class InvoicePdfService
         }
 
         $documentType = $this->detectDocumentType($xmlDom);
-        $template = DocumentTemplate::activeForType($documentType, $companyId);
+        $template = DocumentTemplate::activeForType($documentType, $organizationId ?? $this->organizationContext->currentOrganizationId());
         if (! $template) {
             throw new RuntimeException('No existe plantilla activa para tipo de documento: '.$documentType);
         }
@@ -219,7 +224,7 @@ class InvoicePdfService
             return $params;
         }
 
-        $setting = CommerceSetting::query()->first();
+        $setting = $this->currentCommerceSetting();
         $logoPath = trim((string) ($setting?->logo_path ?? ''));
         if ($logoPath === '' || ! Storage::disk('public')->exists($logoPath)) {
             return $params;
@@ -234,6 +239,24 @@ class InvoicePdfService
         $params['company_logo_file_uri'] = 'file:///'.str_replace('\\', '/', $absolutePath);
 
         return $params;
+    }
+
+    private function currentCommerceSetting(): ?CommerceSetting
+    {
+        if (! Schema::hasColumn('commerce_settings', 'organization_id')) {
+            return CommerceSetting::query()->first();
+        }
+
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            return CommerceSetting::query()->where('organization_id', $organizationId)->first()
+                ?? CommerceSetting::query()->whereNull('organization_id')->first()
+                ?? CommerceSetting::query()->first();
+        }
+
+        return CommerceSetting::query()->whereNull('organization_id')->first()
+            ?? CommerceSetting::query()->first();
     }
 
     /**

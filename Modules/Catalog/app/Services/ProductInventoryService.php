@@ -43,12 +43,13 @@ class ProductInventoryService
     public function syncAggregateStock(Product $product): void
     {
         $warehouseTotals = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('is_active', true)
             ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
             ->first();
 
-        if ($warehouseTotals && ProductWarehouseStock::query()->where('product_id', $product->id)->where('is_active', true)->exists()) {
+        if ($warehouseTotals && ProductWarehouseStock::query()->forCurrentOrganization()->where('product_id', $product->id)->where('is_active', true)->exists()) {
             $product->forceFill([
                 'stock' => (int) ($warehouseTotals->stock_total ?? 0),
                 'min_stock' => (int) ($warehouseTotals->min_stock_total ?? 0),
@@ -71,6 +72,7 @@ class ProductInventoryService
     public function syncBranchAggregateStock(Product $product, int $branchId): void
     {
         $totals = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('is_active', true)
@@ -78,12 +80,14 @@ class ProductInventoryService
             ->first();
 
         $branchStock = ProductBranchStock::query()
+            ->forCurrentOrganization()
             ->firstOrNew([
                 'product_id' => $product->id,
                 'branch_id' => $branchId,
             ]);
 
         $hasActiveWarehouses = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('is_active', true)
@@ -126,6 +130,7 @@ class ProductInventoryService
         }
 
         return (int) (ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('warehouse_id', $warehouseId)
@@ -158,6 +163,7 @@ class ProductInventoryService
     public function lockBranchStocksForProducts(array $productIds, int $branchId): EloquentCollection
     {
         return ProductBranchStock::query()
+            ->forCurrentOrganization()
             ->whereIn('product_id', $productIds)
             ->where('branch_id', $branchId)
             ->lockForUpdate()

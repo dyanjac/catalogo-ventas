@@ -2,11 +2,15 @@
 
 namespace Modules\Billing\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 
 class BillingSetting extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'enabled',
         'country',
         'provider',

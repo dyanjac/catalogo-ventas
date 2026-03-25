@@ -2,6 +2,7 @@
 
 namespace Modules\Billing\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Jobs\IssueBillingDocumentJob;
@@ -16,7 +17,8 @@ class ElectronicBillingService
 {
     public function __construct(
         private readonly BillingProviderResolver $resolver,
-        private readonly BillingXmlGenerator $xmlGenerator
+        private readonly BillingXmlGenerator $xmlGenerator,
+        private readonly OrganizationContextService $organizationContext
     )
     {
     }
@@ -27,7 +29,7 @@ class ElectronicBillingService
      */
     public function issueOrQueue(BillingDocument $document, array $payload): array
     {
-        $setting = BillingSetting::query()->first();
+        $setting = $this->resolveSetting();
         if (! $setting || ! $setting->enabled) {
             return [
                 'ok' => false,
@@ -87,7 +89,7 @@ class ElectronicBillingService
      */
     public function issue(BillingDocument $document, array $payload): array
     {
-        $setting = BillingSetting::query()->first();
+        $setting = $this->resolveSetting();
 
         if (! $setting || ! $setting->enabled) {
             return [
@@ -358,5 +360,24 @@ class ElectronicBillingService
             'error_class' => null,
             'error_message' => null,
         ]);
+    }
+
+    private function resolveSetting(): ?BillingSetting
+    {
+        $query = BillingSetting::query();
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('billing_settings', 'organization_id')) {
+            return $query->first();
+        }
+
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            return $query->where('organization_id', $organizationId)->first()
+                ?? BillingSetting::query()->whereNull('organization_id')->first()
+                ?? BillingSetting::query()->first();
+        }
+
+        return $query->whereNull('organization_id')->first() ?? $query->first();
     }
 }

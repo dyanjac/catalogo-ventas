@@ -2,6 +2,7 @@
 
 namespace Modules\Orders\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,8 +11,11 @@ use Modules\Security\Models\SecurityBranch;
 
 class Order extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'user_id',
+        'organization_id',
         'branch_id',
         'series',
         'order_number',

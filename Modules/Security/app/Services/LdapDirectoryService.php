@@ -3,16 +3,20 @@
 namespace Modules\Security\Services;
 
 use App\Models\User;
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
 use Modules\Security\Models\SecurityUserIdentity;
 use RuntimeException;
 
 class LdapDirectoryService
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function authenticate(string $login, string $password, array $settings): ?User
     {
         $this->guardPrerequisites($settings, $password);
@@ -178,9 +182,11 @@ class LdapDirectoryService
     private function resolveLocalUserFromNative(array $entry, string $dn, array $settings, bool $isAdmin, string $login, array $mappedRoleCodes, array $groups): User
     {
         $identifier = $login;
+        $organizationId = $this->organizationContext->currentOrganizationId();
         $email = $this->resolveEmailFromNative($entry, $settings, $identifier);
         $emailAttribute = trim((string) ($settings['ldap_email_attribute'] ?? 'mail')) ?: 'mail';
         $identity = SecurityUserIdentity::query()
+            ->when($organizationId, fn ($query) => $query->where('organization_id', $organizationId))
             ->where('provider_type', 'ldap')
             ->where('provider_identifier', $identifier)
             ->first();
@@ -188,7 +194,10 @@ class LdapDirectoryService
         $user = $identity?->user;
 
         if (! $user && $email !== '') {
-            $user = User::query()->where('email', $email)->first();
+            $user = User::query()
+                ->when($organizationId, fn ($query) => $query->where('organization_id', $organizationId))
+                ->where('email', $email)
+                ->first();
         }
 
         if (! $user && empty($settings['auto_user_provisioning'])) {
@@ -203,6 +212,7 @@ class LdapDirectoryService
                 'name' => $displayName,
                 'email' => $email,
                 'phone' => $phone !== '' ? $phone : null,
+                'organization_id' => $organizationId,
                 'is_active' => true,
                 'role' => $isAdmin ? 'super_admin' : 'customer',
                 'guid' => $this->resolveGuidFromNative($entry),
@@ -213,6 +223,7 @@ class LdapDirectoryService
             $updates = [
                 'name' => $displayName,
                 'phone' => $phone !== '' ? $phone : $user->phone,
+                'organization_id' => $user->organization_id ?: $organizationId,
                 'is_active' => true,
                 'domain' => 'ldap',
             ];
@@ -237,6 +248,7 @@ class LdapDirectoryService
 
         SecurityUserIdentity::query()->updateOrCreate(
             [
+                'organization_id' => $organizationId,
                 'provider_type' => 'ldap',
                 'provider_identifier' => $identifier,
             ],
@@ -529,5 +541,3 @@ class LdapDirectoryService
         return trim((string) $entry[$attribute][0]);
     }
 }
-
-

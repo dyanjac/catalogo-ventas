@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,6 +16,7 @@ use Modules\Security\Models\SecurityRole;
 
 class User extends Authenticatable
 {
+    use BelongsToOrganization;
     use HasFactory;
     use Notifiable;
 
@@ -30,6 +32,7 @@ class User extends Authenticatable
         'role',
         'guid',
         'domain',
+        'organization_id',
         'branch_id',
         'password',
     ];

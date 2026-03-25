@@ -2,13 +2,17 @@
 
 namespace Modules\Accounting\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountingAuditLog extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'entity_type',
         'entity_id',
         'action',
@@ -18,6 +22,7 @@ class AccountingAuditLog extends Model
     ];
 
     protected $casts = [
+        'organization_id' => 'integer',
         'payload' => 'array',
     ];
 

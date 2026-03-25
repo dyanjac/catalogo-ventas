@@ -24,12 +24,12 @@ class CatalogService
 
     public function categoriesWithProductsCount(): Collection
     {
-        return Category::query()->withCount('products')->orderBy('name')->get();
+        return Category::query()->forCurrentOrganization()->withCount('products')->orderBy('name')->get();
     }
 
     public function categoryBySlugOrFail(string $slug): Category
     {
-        return Category::query()->where('slug', $slug)->firstOrFail();
+        return Category::query()->forCurrentOrganization()->where('slug', $slug)->firstOrFail();
     }
 
     public function productBySlugOrFail(string $slug): Product
@@ -50,9 +50,11 @@ class CatalogService
     public function homeGroups(int $limitCategories = 6, int $limitProducts = 8): Collection
     {
         return Category::query()
-            ->whereHas('products', fn ($query) => $query->active())
+            ->forCurrentOrganization()
+            ->whereHas('products', fn ($query) => $query->active()->forCurrentOrganization())
             ->with([
                 'products' => fn ($query) => $query
+                    ->forCurrentOrganization()
                     ->active()
                     ->with(['category', 'unitMeasure', 'mainImage'])
                     ->latest('id')
@@ -63,4 +65,3 @@ class CatalogService
             ->get();
     }
 }
-

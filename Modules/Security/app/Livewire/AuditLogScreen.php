@@ -44,6 +44,7 @@ class AuditLogScreen extends Component
     public function render()
     {
         $logs = SecurityAuditLog::query()
+            ->forCurrentOrganization()
             ->with(['actor:id,name,email', 'target:id,name,email'])
             ->when($this->eventType !== '', fn ($query) => $query->where('event_type', $this->eventType))
             ->when($this->result !== '', fn ($query) => $query->where('result', $this->result))
@@ -60,7 +61,12 @@ class AuditLogScreen extends Component
 
         return view('security::settings.livewire.audit-log-screen', [
             'logs' => $logs,
-            'eventTypes' => SecurityAuditLog::query()->select('event_type')->distinct()->orderBy('event_type')->pluck('event_type'),
+            'eventTypes' => SecurityAuditLog::query()
+                ->forCurrentOrganization()
+                ->select('event_type')
+                ->distinct()
+                ->orderBy('event_type')
+                ->pluck('event_type'),
         ]);
     }
 }

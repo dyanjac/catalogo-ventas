@@ -2,11 +2,14 @@
 
 namespace Modules\ElectronicDocuments\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentTemplate extends Model
 {
+    use BelongsToOrganization;
+
     public const TYPES = [
         'factura',
         'boleta',
@@ -17,7 +20,7 @@ class DocumentTemplate extends Model
     ];
 
     protected $fillable = [
-        'company_id',
+        'organization_id',
         'name',
         'document_type',
         'xslt_content',
@@ -25,7 +28,7 @@ class DocumentTemplate extends Model
     ];
 
     protected $casts = [
-        'company_id' => 'integer',
+        'organization_id' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -39,21 +42,27 @@ class DocumentTemplate extends Model
         return $query->where('is_active', true);
     }
 
-    public static function activeForType(string $type, ?int $companyId = null): ?self
+    public function resolveRouteBindingQuery($query, $value, $field = null): Builder
+    {
+        $field ??= $this->getRouteKeyName();
+
+        return $query->forCurrentOrganization()->where($field, $value);
+    }
+
+    public static function activeForType(string $type, ?int $organizationId = null): ?self
     {
         return static::query()
             ->where('document_type', $type)
             ->where('is_active', true)
-            ->when($companyId !== null, function (Builder $query) use ($companyId) {
-                $query->where(function (Builder $subQuery) use ($companyId) {
-                    $subQuery->where('company_id', $companyId)
-                        ->orWhereNull('company_id');
-                })->orderByRaw('CASE WHEN company_id = ? THEN 0 ELSE 1 END', [$companyId]);
+            ->when($organizationId !== null, function (Builder $query) use ($organizationId) {
+                $query->where(function (Builder $subQuery) use ($organizationId) {
+                    $subQuery->where('organization_id', $organizationId)
+                        ->orWhereNull('organization_id');
+                })->orderByRaw('CASE WHEN organization_id = ? THEN 0 ELSE 1 END', [$organizationId]);
             }, function (Builder $query) {
-                $query->whereNull('company_id');
+                $query->whereNull('organization_id');
             })
             ->orderByDesc('id')
             ->first();
     }
 }
-

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -134,7 +135,8 @@ class InventoryIndex extends Component
         InventoryDocumentService $documents,
         SecurityAuthorizationService $authorization,
         SecurityScopeService $scopeService,
-        SecurityBranchContextService $branchContext
+        SecurityBranchContextService $branchContext,
+        OrganizationContextService $organizationContext,
     ): void {
         $actor = auth()->user();
 
@@ -150,15 +152,17 @@ class InventoryIndex extends Component
             ]);
         }
 
+        $organizationId = $organizationContext->currentOrganizationId();
+
         $validated = $this->validate([
             'documentType' => ['required', Rule::in(['inbound', 'outbound'])],
-            'documentBranchId' => ['required', 'integer', 'exists:security_branches,id'],
-            'documentWarehouseId' => ['required', 'integer', 'exists:inventory_warehouses,id'],
+            'documentBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
+            'documentWarehouseId' => ['required', 'integer', Rule::exists('inventory_warehouses', 'id')->where('organization_id', $organizationId)],
             'documentReason' => ['nullable', 'string', 'max:60'],
             'documentExternalReference' => ['nullable', 'string', 'max:80'],
             'documentNotes' => ['nullable', 'string', 'max:1000'],
             'documentItems' => ['required', 'array', 'min:1'],
-            'documentItems.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'documentItems.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
             'documentItems.*.quantity' => ['required', 'integer', 'min:1'],
             'documentItems.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
             'documentItems.*.notes' => ['nullable', 'string', 'max:255'],
@@ -174,6 +178,7 @@ class InventoryIndex extends Component
         }
 
         $warehouse = InventoryWarehouse::query()
+            ->forCurrentOrganization()
             ->whereKey((int) $validated['documentWarehouseId'])
             ->where('branch_id', (int) $validated['documentBranchId'])
             ->first();
@@ -204,6 +209,7 @@ class InventoryIndex extends Component
             ->all();
 
         $document = $documents->createDraft([
+            'organization_id' => $organizationId,
             'document_type' => $validated['documentType'],
             'branch_id' => (int) $validated['documentBranchId'],
             'warehouse_id' => (int) $validated['documentWarehouseId'],
@@ -232,14 +238,17 @@ class InventoryIndex extends Component
         InventoryTransferService $transfers,
         SecurityAuthorizationService $authorization,
         SecurityScopeService $scopeService,
-        SecurityBranchContextService $branchContext
+        SecurityBranchContextService $branchContext,
+        OrganizationContextService $organizationContext,
     ): void {
         abort_unless($authorization->hasPermission(auth()->user(), 'inventory.transfers.create'), 403);
 
+        $organizationId = $organizationContext->currentOrganizationId();
+
         $validated = $this->validate([
-            'transferSourceBranchId' => ['required', 'integer', 'exists:security_branches,id'],
-            'transferDestinationBranchId' => ['required', 'integer', 'exists:security_branches,id', 'different:transferSourceBranchId'],
-            'transferProductId' => ['required', 'integer', 'exists:products,id'],
+            'transferSourceBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
+            'transferDestinationBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId), 'different:transferSourceBranchId'],
+            'transferProductId' => ['required', 'integer', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
             'transferQuantity' => ['required', 'integer', 'min:1'],
             'transferNotes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -254,7 +263,7 @@ class InventoryIndex extends Component
             ]);
         }
 
-        $product = Product::query()->findOrFail((int) $validated['transferProductId']);
+        $product = $scopeService->scopeProducts(Product::query(), $actor, 'catalog')->findOrFail((int) $validated['transferProductId']);
 
         $transfer = $transfers->transferProduct(
             $product,
@@ -309,9 +318,11 @@ class InventoryIndex extends Component
             }
         }
 
-        $branches = SecurityBranch::query()
-            ->where('is_active', true)
-            ->when(in_array($scopeLevel, ['branch', 'own'], true) && $actorBranchId, fn ($query) => $query->whereKey($actorBranchId))
+        $branches = $scopeService->scopeBranches(
+            SecurityBranch::query()->where('is_active', true),
+            $actor,
+            'inventory'
+        )
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get();
@@ -397,16 +408,20 @@ class InventoryIndex extends Component
                 'inventory'
             )->orderBy('name')->get();
 
-            $documentProducts = Product::query()
-                ->where('is_active', true)
-                ->when($this->documentType === 'outbound' && $this->documentWarehouseId !== '', function ($query): void {
-                    $warehouseId = (int) $this->documentWarehouseId;
-                    $query->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId): void {
-                        $stockQuery->where('warehouse_id', $warehouseId)
-                            ->where('is_active', true)
-                            ->where('stock', '>', 0);
-                    });
-                })
+            $documentProducts = $scopeService->scopeProducts(
+                Product::query()
+                    ->where('is_active', true)
+                    ->when($this->documentType === 'outbound' && $this->documentWarehouseId !== '', function ($query): void {
+                        $warehouseId = (int) $this->documentWarehouseId;
+                        $query->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId): void {
+                            $stockQuery->where('warehouse_id', $warehouseId)
+                                ->where('is_active', true)
+                                ->where('stock', '>', 0);
+                        });
+                    }),
+                $actor,
+                'catalog'
+            )
                 ->orderBy('name')
                 ->get(['id', 'name', 'sku', 'purchase_price', 'average_price']);
         }
@@ -435,26 +450,33 @@ class InventoryIndex extends Component
             $recentDocuments = $documentQuery->latest('id')->take(8)->get();
         }
 
-        $transferProducts = Product::query()
-            ->whereHas('branchStocks', function ($query) use ($scopeLevel, $actorBranchId): void {
+        $transferProducts = $scopeService->scopeProducts(
+            Product::query()->whereHas('branchStocks', function ($query) use ($scopeLevel, $actorBranchId): void {
                 $query->where('is_active', true)->where('stock', '>', 0);
 
                 if (in_array($scopeLevel, ['branch', 'own'], true) && $actorBranchId) {
                     $query->where('branch_id', $actorBranchId);
                 }
-            })
+            }),
+            $actor,
+            'catalog'
+        )
             ->orderBy('name')
             ->get(['id', 'name', 'sku']);
 
         $recentTransfers = $canViewTransfers
-            ? InventoryTransfer::query()
-                ->with(['sourceBranch', 'destinationBranch', 'items.product', 'creator'])
-                ->when($effectiveBranchId, function ($query) use ($effectiveBranchId): void {
-                    $query->where(function ($subQuery) use ($effectiveBranchId): void {
-                        $subQuery->where('source_branch_id', $effectiveBranchId)
-                            ->orWhere('destination_branch_id', $effectiveBranchId);
-                    });
-                })
+            ? $scopeService->scopeInventoryTransfers(
+                InventoryTransfer::query()
+                    ->with(['sourceBranch', 'destinationBranch', 'items.product', 'creator'])
+                    ->when($effectiveBranchId, function ($query) use ($effectiveBranchId): void {
+                        $query->where(function ($subQuery) use ($effectiveBranchId): void {
+                            $subQuery->where('source_branch_id', $effectiveBranchId)
+                                ->orWhere('destination_branch_id', $effectiveBranchId);
+                        });
+                    }),
+                $actor,
+                'inventory'
+            )
                 ->latest('id')
                 ->take(8)
                 ->get()

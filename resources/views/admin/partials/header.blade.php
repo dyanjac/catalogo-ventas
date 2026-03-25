@@ -1,6 +1,9 @@
 @php
     $pageTitle = View::yieldContent('page_title', View::yieldContent('title', 'Panel CMS'));
     $user = auth()->user();
+    $orgName = $organizationContext['organization_name'] ?? null;
+    $isDemo = (bool) ($organizationContext['is_demo'] ?? false);
+    $environment = strtoupper((string) ($organizationContext['environment'] ?? 'production'));
     $initials = collect(explode(' ', (string) $user?->name))
         ->filter()
         ->take(2)
@@ -34,12 +37,21 @@
                 <div class="admin-topbar__title">
                     <div class="admin-topbar__eyebrow">
                         <span class="admin-topbar__eyebrow-badge">Monolito modular</span>
+                        @if($isDemo)
+                            <span class="admin-topbar__eyebrow-badge admin-topbar__eyebrow-badge--demo">
+                                Entorno {{ $environment }}
+                            </span>
+                        @endif
                         <span class="d-none d-md-inline">{{ now()->format('d/m/Y H:i') }}</span>
                     </div>
                     <div>
                         <h1 class="admin-topbar__heading">{{ $pageTitle }}</h1>
                         <p class="admin-topbar__subtitle">
-                            {{ $commerce['name'] }} · Panel administrativo centralizado con módulos desacoplados.
+                            {{ $commerce['name'] }}
+                            @if($orgName)
+                                · {{ $orgName }}
+                            @endif
+                            · Panel administrativo centralizado con módulos desacoplados.
                         </p>
                     </div>
                 </div>
@@ -104,8 +116,14 @@
             </flux:dropdown>
         </div>
     </div>
-</header>
 
+    @if($isDemo)
+        <div class="admin-topbar__demo-banner">
+            <strong>ENTORNO DEMO</strong>
+            <span>Estás operando sobre datos de demostración{{ $orgName ? ' de '.$orgName : '' }}.</span>
+        </div>
+    @endif
+</header>
 
 
 

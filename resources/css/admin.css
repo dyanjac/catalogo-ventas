@@ -837,6 +837,11 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
     background: linear-gradient(135deg, var(--admin-primary-button) 0%, var(--admin-primary-button-hover) 100%);
 }
 
+.admin-topbar__eyebrow-badge--demo {
+    background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+    color: #fff7ed;
+}
+
 .admin-topbar__heading {
     margin: 0;
     font-size: clamp(1rem, 1.8vw, 1.4rem);
@@ -849,6 +854,23 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
     margin: 0;
     font-size: 0.9rem;
     color: #64748b;
+}
+
+.admin-topbar__demo-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    padding: 0.7rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.45);
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.96) 0%, rgba(220, 38, 38, 0.96) 100%);
+    color: #fff7ed;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.admin-topbar__demo-banner strong {
+    letter-spacing: 0.08em;
 }
 
 .admin-main {
@@ -1347,6 +1369,5 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
         padding-top: 1rem;
     }
 }
-
 
 

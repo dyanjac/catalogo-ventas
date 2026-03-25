@@ -5,7 +5,7 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <x-admin.page-header title="Plantillas XSLT para comprobantes">
+        <x-admin.page-header title="Plantillas XSLT para comprobantes" description="Las plantillas se administran por organización y no se comparten entre tenants.">
             <x-slot:actions>
                 <a href="{{ route('admin.electronic-documents.templates.create') }}" class="btn btn-primary rounded-pill px-4">Nueva plantilla</a>
             </x-slot:actions>
@@ -53,7 +53,6 @@
                             <th>ID</th>
                             <th>Nombre</th>
                             <th>Tipo</th>
-                            <th>Empresa</th>
                             <th>Activo</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -64,7 +63,6 @@
                             <td>{{ $template->id }}</td>
                             <td>{{ $template->name }}</td>
                             <td>{{ strtoupper($template->document_type) }}</td>
-                            <td>{{ $template->company_id ?? '-' }}</td>
                             <td>
                                 <span class="badge {{ $template->is_active ? 'bg-success' : 'bg-secondary' }}">
                                     {{ $template->is_active ? 'ACTIVA' : 'INACTIVA' }}
@@ -91,7 +89,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No hay plantillas registradas.</td>
+                            <td colspan="5" class="text-center text-muted py-4">No hay plantillas registradas.</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -102,4 +100,3 @@
     </div>
 </div>
 @endsection
-

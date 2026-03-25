@@ -13,7 +13,7 @@ class UnitMeasuresIndex extends Component
     public function render()
     {
         return view('livewire.admin.unit-measures-index', [
-            'unitMeasures' => UnitMeasure::query()
+            'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()
                 ->withCount('products')
                 ->orderBy('name')
                 ->paginate(15),

@@ -2,37 +2,43 @@
 
 namespace Modules\Accounting\Http\Controllers;
 
-use App\Models\Product;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
+use App\Models\Product;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingAccount;
 use Modules\Accounting\Services\AccountingAuditService;
 
 class AccountingAccountController extends Controller
 {
-    public function __construct(private readonly AccountingAuditService $audit)
-    {
+    public function __construct(
+        private readonly AccountingAuditService $audit,
+        private readonly OrganizationContextService $organizationContext
+    ) {
     }
 
     public function index(): View
     {
         return view('accounting::accounts.index', [
-            'accounts' => AccountingAccount::query()->with('parent')->orderBy('code')->paginate(30),
-            'parents' => AccountingAccount::query()->orderBy('code')->get(['id', 'code', 'name']),
+            'accounts' => AccountingAccount::query()->forCurrentOrganization()->with('parent')->orderBy('code')->paginate(30),
+            'parents' => AccountingAccount::query()->forCurrentOrganization()->orderBy('code')->get(['id', 'code', 'name']),
             'types' => ['activo', 'pasivo', 'patrimonio', 'ingreso', 'gasto'],
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:40', 'unique:accounting_accounts,code'],
+            'code' => ['required', 'string', 'max:40', Rule::unique('accounting_accounts', 'code')->where('organization_id', $organizationId)],
             'name' => ['required', 'string', 'max:160'],
             'type' => ['required', 'in:activo,pasivo,patrimonio,ingreso,gasto'],
-            'parent_id' => ['nullable', 'exists:accounting_accounts,id'],
+            'parent_id' => ['nullable', Rule::exists('accounting_accounts', 'id')->where('organization_id', $organizationId)],
             'level' => ['nullable', 'integer', 'min:1', 'max:9'],
             'is_active' => ['nullable', 'boolean'],
             'is_default_sales' => ['nullable', 'boolean'],
@@ -43,6 +49,7 @@ class AccountingAccountController extends Controller
 
         $account = AccountingAccount::query()->create([
             ...$data,
+            'organization_id' => $organizationId,
             'is_active' => (bool) ($data['is_active'] ?? false),
             'is_default_sales' => (bool) ($data['is_default_sales'] ?? false),
             'is_default_purchase' => (bool) ($data['is_default_purchase'] ?? false),
@@ -58,11 +65,13 @@ class AccountingAccountController extends Controller
 
     public function update(Request $request, AccountingAccount $account): RedirectResponse
     {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:40', 'unique:accounting_accounts,code,' . $account->id],
+            'code' => ['required', 'string', 'max:40', Rule::unique('accounting_accounts', 'code')->where('organization_id', $organizationId)->ignore($account->id)],
             'name' => ['required', 'string', 'max:160'],
             'type' => ['required', 'in:activo,pasivo,patrimonio,ingreso,gasto'],
-            'parent_id' => ['nullable', 'exists:accounting_accounts,id'],
+            'parent_id' => ['nullable', Rule::exists('accounting_accounts', 'id')->where('organization_id', $organizationId)],
             'level' => ['nullable', 'integer', 'min:1', 'max:9'],
             'is_active' => ['nullable', 'boolean'],
             'is_default_sales' => ['nullable', 'boolean'],
@@ -116,8 +125,10 @@ class AccountingAccountController extends Controller
             ],
         ];
 
-        DB::transaction(function () use ($seed): void {
-            AccountingAccount::query()->update([
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        DB::transaction(function () use ($seed, $organizationId): void {
+            AccountingAccount::query()->forCurrentOrganization()->update([
                 'is_default_sales' => false,
                 'is_default_tax' => false,
                 'is_default_receivable' => false,
@@ -125,7 +136,10 @@ class AccountingAccountController extends Controller
 
             foreach ($seed as $accountData) {
                 AccountingAccount::query()->updateOrCreate(
-                    ['code' => $accountData['code']],
+                    [
+                        'organization_id' => $organizationId,
+                        'code' => $accountData['code'],
+                    ],
                     [
                         'name' => $accountData['name'],
                         'type' => $accountData['type'],
@@ -151,11 +165,11 @@ class AccountingAccountController extends Controller
     public function resetChart(): RedirectResponse
     {
         DB::transaction(function (): void {
-            $deleted = AccountingAccount::query()->count();
+            $deleted = AccountingAccount::query()->forCurrentOrganization()->count();
 
-            AccountingAccount::query()->delete();
+            AccountingAccount::query()->forCurrentOrganization()->delete();
 
-            Product::query()->update([
+            Product::query()->forCurrentOrganization()->update([
                 'account' => null,
                 'account_revenue' => null,
                 'account_receivable' => null,

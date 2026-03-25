@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -54,13 +55,14 @@ class UpdateProductRequest extends FormRequest
     public function rules(): array
     {
         $product = $this->route('product');
+        $organizationId = app(OrganizationContextService::class)->currentOrganizationId();
 
         return [
             'name' => ['required', 'string', 'max:190'],
-            'category_id' => ['required', 'integer', 'exists:categories,id'],
-            'unit_measure_id' => ['required', 'integer', 'exists:unit_measures,id'],
-            'sku' => ['nullable', 'string', 'max:80', Rule::unique('products', 'sku')->ignore($product?->id)],
-            'slug' => ['nullable', 'string', 'max:220', Rule::unique('products', 'slug')->ignore($product?->id)],
+            'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('organization_id', $organizationId)],
+            'unit_measure_id' => ['required', 'integer', Rule::exists('unit_measures', 'id')->where('organization_id', $organizationId)],
+            'sku' => ['nullable', 'string', 'max:80', Rule::unique('products', 'sku')->where('organization_id', $organizationId)->ignore($product?->id)],
+            'slug' => ['nullable', 'string', 'max:220', Rule::unique('products', 'slug')->where('organization_id', $organizationId)->ignore($product?->id)],
             'description' => ['nullable', 'string'],
             'tax_affectation' => ['required', Rule::in(['Gravado', 'Exonerado', 'Inafecto'])],
             'uses_series' => ['nullable', 'boolean'],

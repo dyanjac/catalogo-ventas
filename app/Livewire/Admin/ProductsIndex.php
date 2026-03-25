@@ -253,6 +253,7 @@ class ProductsIndex extends Component
         SecurityAuthorizationService $authorization
     ) {
         $branchId = $branchContext->currentBranchId(auth()->user());
+        $actor = auth()->user();
         $branches = $this->availableBranches($scopeService, $branchContext);
         $warehouses = $this->availableWarehouses($scopeService, $branchContext);
         $hasWarehouseSchema = $this->hasWarehouseSchema();
@@ -293,17 +294,19 @@ class ProductsIndex extends Component
         }
 
         $selectedProduct = $this->selectedProductId
-            ? Product::query()
-                ->with(['category', 'branchStocks.branch', 'warehouseStocks.warehouse.branch'])
-                ->find($this->selectedProductId)
+            ? $scopeService->scopeProducts(
+                Product::query()->with(['category', 'branchStocks.branch', 'warehouseStocks.warehouse.branch']),
+                $actor,
+                'catalog'
+            )->find($this->selectedProductId)
             : null;
 
         $warehousesByBranch = $warehouses->groupBy('branch_id');
 
         return view('livewire.admin.products-index', [
             'products' => $products,
-            'categories' => Category::query()->orderBy('name')->get(),
-            'unitMeasures' => UnitMeasure::query()->orderBy('name')->get(),
+            'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(),
+            'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(),
             'activeBranchId' => $branchId,
             'branches' => $branches,
             'warehousesByBranch' => $warehousesByBranch,
@@ -342,9 +345,11 @@ class ProductsIndex extends Component
         $scopeLevel = $scopeService->scopeLevelForModule($actor, 'inventory');
         $actorBranchId = $branchContext->currentBranchId($actor);
 
-        return SecurityBranch::query()
-            ->where('is_active', true)
-            ->when(in_array($scopeLevel, ['branch', 'own'], true) && $actorBranchId, fn ($query) => $query->whereKey($actorBranchId))
+        return $scopeService->scopeBranches(
+            SecurityBranch::query()->where('is_active', true),
+            $actor,
+            'inventory'
+        )
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get();
@@ -375,7 +380,7 @@ class ProductsIndex extends Component
 
     private function hasDraftDocumentsForBranch(int $productId, int $branchId): bool
     {
-        return InventoryDocument::query()
+        return InventoryDocument::query()->forCurrentOrganization()
             ->where('status', 'draft')
             ->where('branch_id', $branchId)
             ->whereHas('items', fn ($query) => $query->where('product_id', $productId))
@@ -384,7 +389,7 @@ class ProductsIndex extends Component
 
     private function hasDraftDocumentsForWarehouse(int $productId, int $warehouseId): bool
     {
-        return InventoryDocument::query()
+        return InventoryDocument::query()->forCurrentOrganization()
             ->where('status', 'draft')
             ->where('warehouse_id', $warehouseId)
             ->whereHas('items', fn ($query) => $query->where('product_id', $productId))
@@ -397,3 +402,4 @@ class ProductsIndex extends Component
             && Schema::hasTable('product_warehouse_stocks');
     }
 }
+

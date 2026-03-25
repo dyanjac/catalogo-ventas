@@ -3,6 +3,7 @@
 namespace Modules\Accounting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -12,19 +13,23 @@ use Modules\Accounting\Services\AccountingAuditService;
 
 class AccountingPeriodController extends Controller
 {
-    public function __construct(private readonly AccountingAuditService $audit)
-    {
+    public function __construct(
+        private readonly AccountingAuditService $audit,
+        private readonly OrganizationContextService $organizationContext
+    ) {
     }
 
     public function index(): View
     {
         return view('accounting::periods.index', [
-            'periods' => AccountingPeriod::query()->latest('year')->latest('month')->paginate(24),
+            'periods' => AccountingPeriod::query()->forCurrentOrganization()->latest('year')->latest('month')->paginate(24),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'month' => [
@@ -32,7 +37,9 @@ class AccountingPeriodController extends Controller
                 'integer',
                 'min:1',
                 'max:12',
-                Rule::unique('accounting_periods', 'month')->where(fn ($query) => $query->where('year', $request->integer('year'))),
+                Rule::unique('accounting_periods', 'month')->where(fn ($query) => $query
+                    ->where('organization_id', $organizationId)
+                    ->where('year', $request->integer('year'))),
             ],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],
@@ -41,6 +48,7 @@ class AccountingPeriodController extends Controller
 
         $period = AccountingPeriod::query()->create([
             ...$data,
+            'organization_id' => $organizationId,
             'closed_at' => $data['status'] === 'closed' ? now() : null,
             'closed_by' => $data['status'] === 'closed' ? auth()->id() : null,
         ]);
@@ -52,6 +60,8 @@ class AccountingPeriodController extends Controller
 
     public function update(Request $request, AccountingPeriod $period): RedirectResponse
     {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'month' => [
@@ -61,7 +71,9 @@ class AccountingPeriodController extends Controller
                 'max:12',
                 Rule::unique('accounting_periods', 'month')
                     ->ignore($period->id)
-                    ->where(fn ($query) => $query->where('year', $request->integer('year'))),
+                    ->where(fn ($query) => $query
+                        ->where('organization_id', $organizationId)
+                        ->where('year', $request->integer('year'))),
             ],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],

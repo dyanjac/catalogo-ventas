@@ -3,6 +3,7 @@
 namespace Modules\Billing\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +14,10 @@ use Modules\Billing\Services\BillingProviderResolver;
 
 class BillingSettingsController extends Controller
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function edit(): View
     {
         return view('billing::settings.edit', [
@@ -171,7 +176,13 @@ class BillingSettingsController extends Controller
             $defaults['queue_name'] = null;
         }
 
-        return BillingSetting::query()->firstOrCreate([], $defaults);
+        if (! Schema::hasColumn('billing_settings', 'organization_id')) {
+            return BillingSetting::query()->firstOrCreate([], $defaults);
+        }
+
+        return BillingSetting::query()->firstOrCreate([
+            'organization_id' => $this->organizationContext->currentOrganizationId(),
+        ], $defaults);
     }
 
     private function normalizeSeries(?string $series): ?string

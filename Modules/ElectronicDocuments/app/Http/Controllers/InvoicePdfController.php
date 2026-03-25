@@ -3,6 +3,7 @@
 namespace Modules\ElectronicDocuments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingDocument;
 use Modules\ElectronicDocuments\Services\InvoicePdfService;
@@ -10,6 +11,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class InvoicePdfController extends Controller
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function generate(string $serieNumero, InvoicePdfService $pdfService)
     {
         $document = $this->findDocumentBySerieNumero($serieNumero);
@@ -22,7 +27,7 @@ class InvoicePdfController extends Controller
             throw new NotFoundHttpException('El comprobante no tiene XML disponible.');
         }
 
-        $pdfPath = $pdfService->generateFromXml($xmlPath);
+        $pdfPath = $pdfService->generateFromXml($xmlPath, (int) $document->organization_id);
         if (! Storage::disk('local')->exists($pdfPath)) {
             throw new NotFoundHttpException('No se pudo generar el PDF del comprobante.');
         }
@@ -49,6 +54,7 @@ class InvoicePdfController extends Controller
         }
 
         return BillingDocument::query()
+            ->forCurrentOrganization()
             ->where('series', $series)
             ->where(function ($query) use ($normalizedNumber, $rawNumber) {
                 $query->where('number', $normalizedNumber)

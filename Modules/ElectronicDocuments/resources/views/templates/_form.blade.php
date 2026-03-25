@@ -4,11 +4,7 @@
 @endif
 
 <div class="row g-3">
-    <div class="col-md-3">
-        <label class="form-label">Company ID (opcional)</label>
-        <input type="number" name="company_id" class="form-control" value="{{ old('company_id', $template->company_id ?? '') }}">
-    </div>
-    <div class="col-md-5">
+    <div class="col-md-8">
         <label class="form-label">Nombre</label>
         <input type="text" name="name" class="form-control" required value="{{ old('name', $template->name ?? '') }}">
     </div>
@@ -59,7 +55,7 @@
             <input type="hidden" name="is_active" value="0">
             <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1"
                    @checked(old('is_active', $template->is_active ?? true))>
-            <label for="is_active" class="form-check-label">Plantilla activa</label>
+            <label for="is_active" class="form-check-label">Plantilla activa para la organización actual</label>
         </div>
     </div>
 </div>

@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 use Modules\Commerce\Services\CommerceSettingsService;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,6 +15,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(OrganizationContextService::class);
         $this->app->singleton(CommerceSettingsService::class);
     }
 
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
+        View::share('organizationContext', $this->app->make(OrganizationContextService::class)->forView());
         View::share('commerce', $this->app->make(CommerceSettingsService::class)->getForView());
     }
 }

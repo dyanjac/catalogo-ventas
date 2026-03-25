@@ -13,7 +13,7 @@ class CategoriesIndex extends Component
     public function render()
     {
         return view('livewire.admin.categories-index', [
-            'categories' => Category::query()
+            'categories' => Category::query()->forCurrentOrganization()
                 ->withCount('products')
                 ->orderBy('name')
                 ->paginate(15),

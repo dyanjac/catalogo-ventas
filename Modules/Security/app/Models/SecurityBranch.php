@@ -2,6 +2,7 @@
 
 namespace Modules\Security\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,7 +11,10 @@ use Modules\Orders\Entities\Order;
 
 class SecurityBranch extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'code',
         'name',
         'city',

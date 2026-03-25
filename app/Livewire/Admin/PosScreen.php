@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Modules\Catalog\Entities\Product;
 use Modules\Sales\Services\CustomerDocumentLookupService;
+use Modules\Security\Services\SecurityBranchContextService;
+use Modules\Security\Services\SecurityScopeService;
 
 class PosScreen extends Component
 {
@@ -48,25 +50,36 @@ class PosScreen extends Component
      */
     public array $productIndex = [];
 
-    public function mount(): void
+    public function mount(SecurityScopeService $scopeService, SecurityBranchContextService $branchContext): void
     {
-        $this->productIndex = Product::query()
+        $actor = auth()->user();
+        $branchId = $branchContext->currentBranchId($actor);
+
+        $this->productIndex = $scopeService->scopeProducts(Product::query(), $actor, 'catalog')
             ->where('is_active', true)
-            ->where('stock', '>', 0)
+            ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId)->where('is_active', true) : $query])
             ->orderBy('name')
             ->get(['id', 'name', 'sku', 'sale_price', 'price', 'stock'])
-            ->map(function (Product $product): array {
+            ->map(function (Product $product) use ($branchId): ?array {
                 $price = (float) ($product->sale_price ?? $product->price ?? 0);
+                $stock = $branchId
+                    ? (int) ($product->branchStocks->first()?->stock ?? 0)
+                    : (int) ($product->stock ?? 0);
+
+                if ($stock <= 0) {
+                    return null;
+                }
 
                 return [
                     'id' => (int) $product->id,
                     'name' => (string) $product->name,
                     'sku' => (string) ($product->sku ?: 'SIN-SKU'),
-                    'stock' => (int) ($product->stock ?? 0),
+                    'stock' => $stock,
                     'price' => round($price, 2),
                     'label' => (string) ($product->name.' ('.($product->sku ?: 'SIN-SKU').')'),
                 ];
             })
+            ->filter()
             ->values()
             ->all();
 

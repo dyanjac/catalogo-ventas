@@ -10,6 +10,7 @@ use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
 use Modules\Security\Services\SecurityAuditService;
 use Modules\Security\Services\SecurityAuthorizationService;
+use Modules\Security\Services\SecurityScopeService;
 
 class UserRoleAssignmentsScreen extends Component
 {
@@ -37,9 +38,13 @@ class UserRoleAssignmentsScreen extends Component
         $this->resetPage();
     }
 
-    public function selectUser(int $userId): void
+    public function selectUser(int $userId, SecurityScopeService $scopeService): void
     {
-        $user = User::query()->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch'])->findOrFail($userId);
+        $user = $scopeService->scopeUsers(
+            User::query()->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch']),
+            auth()->user(),
+            'customers'
+        )->findOrFail($userId);
 
         $this->selectedUserId = $user->id;
         $this->selectedBranchId = $user->branch_id ? (int) $user->branch_id : null;
@@ -56,7 +61,7 @@ class UserRoleAssignmentsScreen extends Component
         $this->flashMessage = null;
     }
 
-    public function save(SecurityAuthorizationService $authorization, SecurityAuditService $audit): void
+    public function save(SecurityAuthorizationService $authorization, SecurityAuditService $audit, SecurityScopeService $scopeService): void
     {
         abort_unless($authorization->hasPermission(auth()->user(), 'security.users.assign'), 403);
 
@@ -68,8 +73,13 @@ class UserRoleAssignmentsScreen extends Component
             'roleScopes' => ['array'],
         ]);
 
-        $user = User::query()->findOrFail($validated['selectedUserId']);
+        $user = $scopeService->scopeUsers(User::query(), auth()->user(), 'customers')->findOrFail($validated['selectedUserId']);
         $roles = SecurityRole::query()->whereIn('id', $validated['selectedRoleIds'])->get();
+        $branch = null;
+
+        if (! empty($validated['selectedBranchId'])) {
+            $branch = $scopeService->scopeBranches(SecurityBranch::query(), auth()->user(), 'security')->findOrFail($validated['selectedBranchId']);
+        }
 
         $payload = $roles->mapWithKeys(function (SecurityRole $role) use ($validated): array {
             return [
@@ -93,7 +103,7 @@ class UserRoleAssignmentsScreen extends Component
 
         $user->forceFill([
             'role' => $legacyRole,
-            'branch_id' => $validated['selectedBranchId'] ?? null,
+            'branch_id' => $branch?->id,
         ])->save();
 
         $audit->log(
@@ -110,15 +120,18 @@ class UserRoleAssignmentsScreen extends Component
             ],
         );
 
-        $this->selectUser($user->id);
+        $this->selectUser($user->id, $scopeService);
         $this->flashTone = 'success';
         $this->flashMessage = 'Accesos y sucursal del usuario actualizados correctamente.';
     }
 
-    public function render(SecurityAuthorizationService $authorization)
+    public function render(SecurityAuthorizationService $authorization, SecurityScopeService $scopeService)
     {
-        $users = User::query()
-            ->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch'])
+        $users = $scopeService->scopeUsers(
+            User::query()->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch']),
+            auth()->user(),
+            'customers'
+        )
             ->when(trim($this->search) !== '', function ($query): void {
                 $search = trim($this->search);
                 $query->where(function ($subQuery) use ($search): void {
@@ -132,22 +145,29 @@ class UserRoleAssignmentsScreen extends Component
             ->paginate(10);
 
         if ($users->count() > 0 && ! collect($users->items())->contains('id', $this->selectedUserId)) {
-            $this->selectUser((int) $users->items()[0]->id);
+            $this->selectUser((int) $users->items()[0]->id, $scopeService);
         }
 
         $selectedUser = $this->selectedUserId
-            ? User::query()->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch'])->find($this->selectedUserId)
+            ? $scopeService->scopeUsers(
+                User::query()->with(['roles' => fn ($query) => $query->orderBy('name'), 'branch']),
+                auth()->user(),
+                'customers'
+            )->find($this->selectedUserId)
             : null;
 
         if ($selectedUser && $this->loadedUserId !== $selectedUser->id) {
-            $this->selectUser($selectedUser->id);
+            $this->selectUser($selectedUser->id, $scopeService);
         }
 
         return view('security::settings.livewire.user-role-assignments-screen', [
             'users' => $users,
             'selectedUser' => $selectedUser,
             'roles' => SecurityRole::query()->where('is_active', true)->orderBy('name')->get(),
-            'branches' => SecurityBranch::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(),
+            'branches' => $scopeService->scopeBranches(SecurityBranch::query()->where('is_active', true), auth()->user(), 'security')
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get(),
             'authorization' => $authorization,
         ]);
     }

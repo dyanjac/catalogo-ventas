@@ -2,13 +2,17 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryDocumentItem extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'document_id',
+        'organization_id',
         'product_id',
         'quantity',
         'unit_cost',

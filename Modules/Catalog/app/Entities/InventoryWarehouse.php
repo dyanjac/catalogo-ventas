@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,7 +10,10 @@ use Modules\Security\Models\SecurityBranch;
 
 class InventoryWarehouse extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'branch_id',
         'code',
         'name',

@@ -3,11 +3,13 @@
 namespace Modules\Accounting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingCostCenter;
 use Modules\Accounting\Models\AccountingEntry;
@@ -17,8 +19,10 @@ use Modules\Accounting\Services\AccountingAuditService;
 
 class AccountingEntryController extends Controller
 {
-    public function __construct(private readonly AccountingAuditService $audit)
-    {
+    public function __construct(
+        private readonly AccountingAuditService $audit,
+        private readonly OrganizationContextService $organizationContext
+    ) {
     }
 
     public function index(Request $request): View
@@ -29,6 +33,7 @@ class AccountingEntryController extends Controller
         $search = trim((string) $request->input('search', ''));
 
         $entries = AccountingEntry::query()
+            ->forCurrentOrganization()
             ->withCount('lines')
             ->when($year > 0, fn (Builder $q) => $q->where('period_year', $year))
             ->when($month > 0, fn (Builder $q) => $q->where('period_month', $month))
@@ -58,17 +63,22 @@ class AccountingEntryController extends Controller
 
     public function edit(AccountingEntry $entry): View
     {
-        $entry->load(['lines.costCenter', 'attachments']);
+        $entry->load([
+            'lines.costCenter' => fn ($query) => $query->forCurrentOrganization(),
+            'attachments' => fn ($query) => $query->forCurrentOrganization(),
+        ]);
 
         return view('accounting::entries.edit', [
             'entry' => $entry,
             'statuses' => config('accounting.entry_statuses', []),
-            'costCenters' => AccountingCostCenter::query()->where('is_active', true)->orderBy('code')->get(),
+            'costCenters' => AccountingCostCenter::query()->forCurrentOrganization()->where('is_active', true)->orderBy('code')->get(),
         ]);
     }
 
     public function update(Request $request, AccountingEntry $entry): RedirectResponse
     {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
             'entry_date' => ['required', 'date'],
             'voucher_type' => ['nullable', 'string', 'max:30'],
@@ -83,13 +93,14 @@ class AccountingEntryController extends Controller
             'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.line_description' => ['nullable', 'string', 'max:255'],
-            'lines.*.cost_center_id' => ['nullable', 'exists:accounting_cost_centers,id'],
+            'lines.*.cost_center_id' => ['nullable', Rule::exists('accounting_cost_centers', 'id')->where('organization_id', $organizationId)],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['nullable', 'file', 'max:10240'],
         ]);
 
         $entryDate = now()->parse($data['entry_date']);
         $period = AccountingPeriod::query()
+            ->forCurrentOrganization()
             ->where('year', (int) $entryDate->year)
             ->where('month', (int) $entryDate->month)
             ->first();
@@ -130,7 +141,7 @@ class AccountingEntryController extends Controller
         }
 
         $before = $entry->toArray();
-        DB::transaction(function () use ($entry, $data, $entryDate, $lines, $totalDebit, $totalCredit): void {
+        DB::transaction(function () use ($entry, $data, $entryDate, $lines, $totalDebit, $totalCredit, $organizationId): void {
             $entry->update([
                 'entry_date' => $entryDate->toDateString(),
                 'period_year' => (int) $entryDate->year,
@@ -147,7 +158,10 @@ class AccountingEntryController extends Controller
             ]);
 
             $entry->lines()->delete();
-            $entry->lines()->createMany($lines->all());
+            $entry->lines()->createMany($lines->map(fn (array $line) => [
+                ...$line,
+                'organization_id' => $organizationId,
+            ])->all());
         });
 
         foreach (($request->file('attachments') ?? []) as $file) {
@@ -158,6 +172,7 @@ class AccountingEntryController extends Controller
             $path = $file->store('accounting/entries/' . $entry->id, 'public');
 
             $entry->attachments()->create([
+                'organization_id' => $organizationId,
                 'path' => $path,
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType(),

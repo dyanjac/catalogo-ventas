@@ -22,10 +22,13 @@ class OrderQueryService
 
     public function myOrderDetailOrFail(int $userId, int $orderId): Order
     {
-        $order = Order::query()->with(['items.product'])->findOrFail($orderId);
+        $order = Order::query()
+            ->forCurrentOrganization()
+            ->with(['items.product'])
+            ->findOrFail($orderId);
+
         abort_unless($order->user_id === $userId, 403);
 
         return $order;
     }
 }
-

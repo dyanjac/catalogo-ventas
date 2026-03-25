@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,10 +11,13 @@ use Modules\Security\Models\SecurityBranch;
 
 class InventoryDocument extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'code',
         'document_type',
         'status',
+        'organization_id',
         'branch_id',
         'warehouse_id',
         'reason',

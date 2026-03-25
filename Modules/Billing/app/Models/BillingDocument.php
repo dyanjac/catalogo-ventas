@@ -2,6 +2,7 @@
 
 namespace Modules\Billing\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,8 +11,11 @@ use Modules\Security\Models\SecurityBranch;
 
 class BillingDocument extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'order_id',
+        'organization_id',
         'branch_id',
         'provider',
         'document_type',

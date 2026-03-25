@@ -2,15 +2,27 @@
 
 namespace Modules\Orders\Repositories;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Orders\Entities\Order;
 
 class EloquentOrderRepository implements OrderRepositoryInterface
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function nextOrderNumber(string $series): int
     {
-        return ((int) Order::query()->where('series', $series)->lockForUpdate()->max('order_number')) + 1;
+        return ((int) Order::query()
+            ->when(
+                $this->organizationContext->currentOrganizationId(),
+                fn (Builder $query, int $organizationId) => $query->where('organization_id', $organizationId)
+            )
+            ->where('series', $series)
+            ->lockForUpdate()
+            ->max('order_number')) + 1;
     }
 
     public function create(array $data): Order
@@ -26,6 +38,7 @@ class EloquentOrderRepository implements OrderRepositoryInterface
         $dateTo = $filters['date_to'] ?? null;
 
         return Order::query()
+            ->forCurrentOrganization()
             ->where('user_id', $userId)
             ->withCount('items')
             ->when($search !== '', function (Builder $query) use ($search) {
@@ -47,4 +60,3 @@ class EloquentOrderRepository implements OrderRepositoryInterface
             ->withQueryString();
     }
 }
-

@@ -3,11 +3,13 @@
 namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Services\SalesAccountingService;
@@ -27,6 +29,7 @@ class SalesPosController extends Controller
     public function __construct(
         private readonly ProductInventoryService $inventory,
         private readonly SecurityBranchContextService $branchContext,
+        private readonly OrganizationContextService $organizationContext,
     ) {
     }
 
@@ -55,8 +58,9 @@ class SalesPosController extends Controller
         Request $request,
         ElectronicBillingService $electronicBilling,
         SalesAccountingService $salesAccounting
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
         $data = $request->validate([
             'document_type' => ['required', 'in:order,boleta,factura'],
             'currency' => ['required', 'in:PEN,USD'],
@@ -72,7 +76,7 @@ class SalesPosController extends Controller
             'customer.document_type' => ['nullable', 'in:DNI,RUC,CE,PAS'],
             'customer.document_number' => ['nullable', 'string', 'max:20'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.product_id' => ['required', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string', 'max:1000'],
@@ -103,9 +107,10 @@ class SalesPosController extends Controller
         $createdBillingDocument = null;
         $payload = [];
 
-        DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, $data, $taxRate, $discount, $shipping, $branchId): void {
+        DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, $data, $taxRate, $discount, $shipping, $branchId, $organizationId): void {
             $items = collect($data['items']);
             $products = Product::query()
+                ->forCurrentOrganization()
                 ->with(['branchStocks' => fn ($query) => $query->where('branch_id', $branchId)])
                 ->whereIn('id', $items->pluck('product_id')->all())
                 ->lockForUpdate()
@@ -120,10 +125,15 @@ class SalesPosController extends Controller
             $total = round($taxableBase + $tax + $shipping, 2);
             $series = $this->resolveOrderSeries($data['document_type']);
 
-            $nextOrderNumber = ((int) Order::query()->where('series', $series)->lockForUpdate()->max('order_number')) + 1;
+            $nextOrderNumber = ((int) Order::query()
+                ->forCurrentOrganization()
+                ->where('series', $series)
+                ->lockForUpdate()
+                ->max('order_number')) + 1;
             $paidAt = $data['payment_status'] === 'paid' ? now() : null;
 
             $createdOrder = Order::query()->create([
+                'organization_id' => $organizationId,
                 'user_id' => (int) auth()->id(),
                 'branch_id' => $branchId ?: null,
                 'series' => $series,
@@ -183,7 +193,7 @@ class SalesPosController extends Controller
             }
 
             if ($data['document_type'] !== 'order') {
-                $billingSetting = BillingSetting::query()->first();
+                $billingSetting = $this->resolveBillingSetting();
                 if (! $billingSetting || ! $billingSetting->enabled) {
                     throw ValidationException::withMessages([
                         'document_type' => 'La facturación electrónica está desactivada. Actívala antes de emitir boletas o facturas.',
@@ -193,6 +203,7 @@ class SalesPosController extends Controller
                 [$billingSeries, $billingNumber] = $this->nextDocumentCorrelative($data['document_type'], $billingSetting);
 
                 $createdBillingDocument = BillingDocument::query()->create([
+                    'organization_id' => $organizationId,
                     'order_id' => $createdOrder->id,
                     'branch_id' => $branchId ?: null,
                     'provider' => $billingSetting->provider,
@@ -330,6 +341,7 @@ class SalesPosController extends Controller
             : strtoupper((string) ($setting->receipt_series ?: 'B001'));
 
         $max = BillingDocument::query()
+            ->forCurrentOrganization()
             ->where('document_type', $documentType)
             ->where('series', $series)
             ->lockForUpdate()
@@ -339,6 +351,22 @@ class SalesPosController extends Controller
 
         return [$series, str_pad((string) $next, 8, '0', STR_PAD_LEFT)];
     }
+
+    private function resolveBillingSetting(): ?BillingSetting
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('billing_settings', 'organization_id')) {
+            return BillingSetting::query()->first();
+        }
+
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            return BillingSetting::query()->where('organization_id', $organizationId)->first()
+                ?? BillingSetting::query()->whereNull('organization_id')->first()
+                ?? BillingSetting::query()->first();
+        }
+
+        return BillingSetting::query()->whereNull('organization_id')->first()
+            ?? BillingSetting::query()->first();
+    }
 }
-
-

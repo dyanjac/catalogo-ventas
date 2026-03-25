@@ -18,6 +18,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $branchId = $this->branchContext->currentBranchId();
 
         return Product::query()
+            ->forCurrentOrganization()
             ->with($this->branchStockRelation($branchId))
             ->where('slug', $slug)
             ->firstOrFail();
@@ -28,6 +29,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $branchId = $this->branchContext->currentBranchId();
 
         return Product::query()
+            ->forCurrentOrganization()
             ->with($this->branchStockRelation($branchId))
             ->find($id);
     }
@@ -37,6 +39,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $branchId = $this->branchContext->currentBranchId();
 
         $query = Product::query()
+            ->forCurrentOrganization()
             ->active()
             ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->latest('id');
@@ -59,6 +62,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $branchId = $this->branchContext->currentBranchId();
 
         return Product::query()
+            ->forCurrentOrganization()
             ->active()
             ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->latest('id')
@@ -71,6 +75,7 @@ class EloquentProductRepository implements ProductRepositoryInterface
         $branchId = $this->branchContext->currentBranchId();
 
         return Product::query()
+            ->forCurrentOrganization()
             ->active()
             ->with(array_merge(['category', 'unitMeasure', 'mainImage'], $this->branchStockRelation($branchId)))
             ->orderByRaw('COALESCE(sale_price, price) asc')

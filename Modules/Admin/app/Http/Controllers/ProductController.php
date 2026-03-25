@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\UnitMeasure;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -32,8 +33,8 @@ class ProductController extends Controller
                 'requires_accounting_entry' => true,
                 'is_active' => true,
             ]),
-            'categories' => Category::orderBy('name')->get(),
-            'unitMeasures' => UnitMeasure::orderBy('name')->get(),
+            'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(),
+            'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(),
             'taxAffectations' => $this->taxAffectations(),
         ]);
     }
@@ -67,8 +68,8 @@ class ProductController extends Controller
 
         return view('admin.products.edit', [
             'product' => $product,
-            'categories' => Category::orderBy('name')->get(),
-            'unitMeasures' => UnitMeasure::orderBy('name')->get(),
+            'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(),
+            'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(),
             'taxAffectations' => $this->taxAffectations(),
         ]);
     }
@@ -147,6 +148,7 @@ class ProductController extends Controller
 
         while (
             Product::query()
+                ->forCurrentOrganization()
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                 ->where('slug', $candidate)
                 ->exists()
@@ -162,7 +164,7 @@ class ProductController extends Controller
     {
         do {
             $sku = 'PRD-' . Str::upper(Str::random(8));
-        } while (Product::where('sku', $sku)->exists());
+        } while (Product::query()->forCurrentOrganization()->where('sku', $sku)->exists());
 
         return $sku;
     }

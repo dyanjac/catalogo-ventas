@@ -2,23 +2,28 @@
 
 namespace Modules\Commerce\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Modules\Commerce\Entities\CommerceSetting;
 
 class CommerceSettingsService
 {
-    public const CACHE_KEY = 'commerce.settings.view';
     public const CACHE_TTL_SECONDS = 900;
+
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
 
     public function getForView(): array
     {
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL_SECONDS, fn () => $this->build());
+        return Cache::remember($this->cacheKey(), self::CACHE_TTL_SECONDS, fn () => $this->build());
     }
 
     public function forgetCache(): void
     {
-        Cache::forget(self::CACHE_KEY);
+        Cache::forget($this->cacheKey());
+        Cache::forget('commerce.settings.view.default');
     }
 
     private function build(): array
@@ -34,7 +39,7 @@ class CommerceSettingsService
         $setting = null;
 
         if (Schema::hasTable('commerce_settings')) {
-            $setting = CommerceSetting::query()->first();
+            $setting = $this->currentSetting();
         }
 
         $resolvedLogoUrl = $setting?->logo_path
@@ -72,5 +77,30 @@ class CommerceSettingsService
 
         return asset(ltrim($logo, '/'));
     }
-}
 
+    private function cacheKey(): string
+    {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        return 'commerce.settings.view.'.($organizationId ?: 'default');
+    }
+
+    private function currentSetting(): ?CommerceSetting
+    {
+        $query = CommerceSetting::query();
+
+        if (! Schema::hasColumn('commerce_settings', 'organization_id')) {
+            return $query->first();
+        }
+
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            return $query->where('organization_id', $organizationId)->first()
+                ?? CommerceSetting::query()->whereNull('organization_id')->first()
+                ?? CommerceSetting::query()->first();
+        }
+
+        return $query->whereNull('organization_id')->first() ?? $query->first();
+    }
+}

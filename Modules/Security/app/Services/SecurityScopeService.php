@@ -5,9 +5,11 @@ namespace Modules\Security\Services;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Catalog\Entities\InventoryDocument;
 use Modules\Catalog\Entities\InventoryMovement;
+use Modules\Catalog\Entities\InventoryTransfer;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
@@ -66,6 +68,8 @@ class SecurityScopeService
             return $query->whereKey(0);
         }
 
+        $query = $this->applyOrganizationScope($query, $actor);
+
         if ($scope === 'own') {
             return $query->whereKey($actor?->id ?? 0);
         }
@@ -86,6 +90,8 @@ class SecurityScopeService
         if ($scope === 'none') {
             return $query->whereKey(0);
         }
+
+        $query = $this->applyOrganizationScope($query, $actor);
 
         if ($scope === 'own') {
             return $query->where('user_id', $actor?->id ?? 0);
@@ -108,6 +114,8 @@ class SecurityScopeService
             return $query->whereKey(0);
         }
 
+        $query = $this->applyOrganizationScope($query, $actor);
+
         if ($scope === 'own') {
             return $query->whereHas('order', fn (Builder $order) => $order->where('user_id', $actor?->id ?? 0));
         }
@@ -129,12 +137,33 @@ class SecurityScopeService
             return $query->whereKey(0);
         }
 
+        $query = $this->applyOrganizationScope($query, $actor);
+
         if (in_array($scope, ['own', 'branch'], true)) {
             $branchId = $this->actorBranchId($actor);
 
             return $branchId
-                ? $query->whereHas('branchStocks', fn (Builder $stock) => $stock->where('branch_id', $branchId)->where('is_active', true))
+                ? $query->whereHas('branchStocks', fn (Builder $stock) => $this->applyOrganizationScope($stock, $actor)->where('branch_id', $branchId)->where('is_active', true))
                 : $query->whereKey(0);
+        }
+
+        return $query;
+    }
+
+    public function scopeBranches(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        $scope = $this->scopeLevelForModule($actor, $moduleCode);
+
+        if ($scope === 'none') {
+            return $query->whereKey(0);
+        }
+
+        $query = $this->applyOrganizationScope($query, $actor);
+
+        if (in_array($scope, ['branch', 'own'], true)) {
+            $branchId = $this->actorBranchId($actor);
+
+            return $branchId ? $query->whereKey($branchId) : $query->whereKey(0);
         }
 
         return $query;
@@ -158,6 +187,30 @@ class SecurityScopeService
     public function scopeInventoryWarehouses(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
     {
         return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
+    }
+
+    public function scopeInventoryTransfers(Builder $query, ?User $actor, string $moduleCode = 'inventory'): Builder
+    {
+        $scope = $this->scopeLevelForModule($actor, $moduleCode);
+
+        if ($scope === 'none') {
+            return $query->whereKey(0);
+        }
+
+        $query = $this->applyOrganizationScope($query, $actor);
+
+        if (in_array($scope, ['own', 'branch'], true)) {
+            $branchId = $this->actorBranchId($actor);
+
+            return $branchId
+                ? $query->where(function (Builder $transferQuery) use ($branchId): void {
+                    $transferQuery->where('source_branch_id', $branchId)
+                        ->orWhere('destination_branch_id', $branchId);
+                })
+                : $query->whereKey(0);
+        }
+
+        return $query;
     }
 
     public function canAccessUser(?User $actor, User $target, string $moduleCode = 'customers'): bool
@@ -200,6 +253,11 @@ class SecurityScopeService
         return $this->scopeInventoryWarehouses(InventoryWarehouse::query(), $actor, $moduleCode)->whereKey($warehouse->id)->exists();
     }
 
+    public function canAccessInventoryTransfer(?User $actor, InventoryTransfer $transfer, string $moduleCode = 'inventory'): bool
+    {
+        return $this->scopeInventoryTransfers(InventoryTransfer::query(), $actor, $moduleCode)->whereKey($transfer->id)->exists();
+    }
+
     public function branchModeIsDegraded(string $moduleCode): bool
     {
         return ! in_array($moduleCode, ['customers', 'sales', 'billing', 'catalog', 'inventory'], true);
@@ -213,6 +271,8 @@ class SecurityScopeService
             return $query->whereKey(0);
         }
 
+        $query = $this->applyOrganizationScope($query, $actor);
+
         if (in_array($scope, ['own', 'branch'], true)) {
             $branchId = $this->actorBranchId($actor);
 
@@ -225,5 +285,31 @@ class SecurityScopeService
     private function actorBranchId(?User $actor): ?int
     {
         return $this->branchContext->currentBranchId($actor);
+    }
+
+    private function actorOrganizationId(?User $actor): ?int
+    {
+        return $actor?->organization_id ? (int) $actor->organization_id : null;
+    }
+
+    private function applyOrganizationScope(Builder $query, ?User $actor): Builder
+    {
+        if (! $actor || app(SecurityAuthorizationService::class)->hasRole($actor, 'super_admin')) {
+            return $query;
+        }
+
+        $organizationId = $this->actorOrganizationId($actor);
+
+        if (! $organizationId) {
+            return $query->whereKey(0);
+        }
+
+        $table = $query->getModel()->getTable();
+
+        if (! Schema::hasColumn($table, 'organization_id')) {
+            return $query;
+        }
+
+        return $query->where($query->getModel()->qualifyColumn('organization_id'), $organizationId);
     }
 }

@@ -3,6 +3,7 @@
 namespace Modules\Orders\Services;
 
 use App\Models\User;
+use App\Services\OrganizationContextService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +18,8 @@ class OrderCheckoutService
 {
     public function __construct(
         private readonly OrderRepositoryInterface $orders,
-        private readonly ProductInventoryService $inventory
+        private readonly ProductInventoryService $inventory,
+        private readonly OrganizationContextService $organizationContext,
     ) {
     }
 
@@ -39,7 +41,11 @@ class OrderCheckoutService
         $shipping = round((float) ($payload['shipping'] ?? 0), 2);
         $discount = round((float) ($payload['discount'] ?? 0), 2);
         $taxRate = (float) ($payload['tax_rate'] ?? 0.18);
-        $branchId = (int) (($payload['branch_id'] ?? 0) ?: User::query()->whereKey((int) ($payload['user_id'] ?? 0))->value('branch_id') ?: SecurityBranch::query()->where('is_default', true)->value('id') ?: 0);
+        $branchId = (int) (($payload['branch_id'] ?? 0)
+            ?: User::query()->forCurrentOrganization()->whereKey((int) ($payload['user_id'] ?? 0))->value('branch_id')
+            ?: SecurityBranch::query()->forCurrentOrganization()->where('is_default', true)->value('id')
+            ?: 0);
+        $organizationId = $this->organizationContext->currentOrganizationId();
 
         $checkoutData = $this->buildCheckoutData($cart, true, $branchId);
         $items = $checkoutData['items'];
@@ -65,6 +71,7 @@ class OrderCheckoutService
             $paymentStatus,
             $payload,
             $branchId,
+            $organizationId,
             &$result
         ): void {
             $products = $this->lockProductsForCart($items);
@@ -75,6 +82,7 @@ class OrderCheckoutService
             $paidAt = $paymentStatus === 'paid' ? now() : null;
 
             $order = $this->orders->create([
+                'organization_id' => $organizationId,
                 'user_id' => (int) ($payload['user_id'] ?? 0),
                 'branch_id' => $branchId ?: null,
                 'series' => $series,
@@ -155,6 +163,7 @@ class OrderCheckoutService
         $hasIssues = false;
 
         $products = Product::query()
+            ->forCurrentOrganization()
             ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId) : $query])
             ->whereKey(array_keys($cart))
             ->get()
@@ -206,6 +215,7 @@ class OrderCheckoutService
         $productIds = collect($items)->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         return Product::query()
+            ->forCurrentOrganization()
             ->whereKey($productIds)
             ->lockForUpdate()
             ->get()
@@ -233,4 +243,3 @@ class OrderCheckoutService
         }
     }
 }
-

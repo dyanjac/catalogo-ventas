@@ -36,6 +36,7 @@ class InventoryMovementService
         $this->assertProductActiveForBranch($product, $branchId);
 
         $branchStock = ProductBranchStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->lockForUpdate()
@@ -86,6 +87,7 @@ class InventoryMovementService
             $this->assertProductActiveForBranch($product, $branchId);
 
             $branchStock = ProductBranchStock::query()
+                ->forCurrentOrganization()
                 ->where('product_id', $product->id)
                 ->where('branch_id', $branchId)
                 ->lockForUpdate()
@@ -258,6 +260,7 @@ class InventoryMovementService
     protected function lockWarehouseStock(int $productId, int $branchId, int $warehouseId): ?ProductWarehouseStock
     {
         return ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $productId)
             ->where('branch_id', $branchId)
             ->where('warehouse_id', $warehouseId)
@@ -274,6 +277,7 @@ class InventoryMovementService
         }
 
         $branchStock = ProductBranchStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->first();
@@ -289,7 +293,7 @@ class InventoryMovementService
     {
         $this->assertProductActiveForBranch($product, $branchId);
 
-        $warehouse = InventoryWarehouse::query()->whereKey($warehouseId)->where('branch_id', $branchId)->first();
+        $warehouse = InventoryWarehouse::query()->forCurrentOrganization()->whereKey($warehouseId)->where('branch_id', $branchId)->first();
 
         if (! $warehouse || ! $warehouse->is_active) {
             throw ValidationException::withMessages([
@@ -298,6 +302,7 @@ class InventoryMovementService
         }
 
         $warehouseStock = ProductWarehouseStock::query()
+            ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('warehouse_id', $warehouseId)

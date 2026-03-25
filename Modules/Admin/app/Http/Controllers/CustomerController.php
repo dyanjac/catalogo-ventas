@@ -21,7 +21,7 @@ class CustomerController extends Controller
         abort_unless($scopeService->canAccessUser(request()->user(), $customer, 'customers'), 403);
 
         $customer->load([
-            'orders' => fn ($query) => $query->latest()->take(10),
+            'orders' => fn ($query) => $query->forCurrentOrganization()->latest()->take(10),
             'roles' => fn ($query) => $query->wherePivot('is_active', true)->orderBy('name'),
         ]);
 

@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Catalog\Entities\InventoryTransfer;
@@ -13,6 +14,7 @@ class InventoryTransferService
     public function __construct(
         private readonly InventoryMovementService $movements,
         private readonly ProductInventoryService $inventory,
+        private readonly OrganizationContextService $organizationContext,
     ) {
     }
 
@@ -44,10 +46,12 @@ class InventoryTransferService
         }
 
         return DB::transaction(function () use ($product, $sourceBranchId, $destinationBranchId, $quantity, $context): InventoryTransfer {
-            $nextId = (int) (InventoryTransfer::query()->max('id') ?? 0) + 1;
+            $organizationId = $this->organizationContext->currentOrganizationId();
+            $nextId = (int) (InventoryTransfer::query()->forCurrentOrganization()->max('id') ?? 0) + 1;
             $code = 'TRF-'.str_pad((string) $nextId, 8, '0', STR_PAD_LEFT);
 
             $transfer = InventoryTransfer::query()->create([
+                'organization_id' => $organizationId,
                 'code' => $code,
                 'source_branch_id' => $sourceBranchId,
                 'destination_branch_id' => $destinationBranchId,
@@ -57,6 +61,7 @@ class InventoryTransferService
             ]);
 
             InventoryTransferItem::query()->create([
+                'organization_id' => $organizationId,
                 'transfer_id' => $transfer->id,
                 'product_id' => $product->id,
                 'quantity' => $quantity,

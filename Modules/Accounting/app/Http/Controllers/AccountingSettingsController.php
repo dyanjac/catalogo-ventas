@@ -3,6 +3,7 @@
 namespace Modules\Accounting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -10,10 +11,14 @@ use Modules\Accounting\Models\AccountingSetting;
 
 class AccountingSettingsController extends Controller
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function edit(): View
     {
         $settings = AccountingSetting::query()->firstOrCreate(
-            ['id' => 1],
+            ['organization_id' => $this->organizationContext->currentOrganizationId()],
             [
                 'fiscal_year' => now()->year,
                 'fiscal_year_start_month' => 1,
@@ -37,7 +42,7 @@ class AccountingSettingsController extends Controller
         ]);
 
         AccountingSetting::query()->updateOrCreate(
-            ['id' => 1],
+            ['organization_id' => $this->organizationContext->currentOrganizationId()],
             [
                 'fiscal_year' => (int) $data['fiscal_year'],
                 'fiscal_year_start_month' => (int) $data['fiscal_year_start_month'],

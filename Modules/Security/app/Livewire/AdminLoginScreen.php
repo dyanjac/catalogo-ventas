@@ -2,6 +2,7 @@
 
 namespace Modules\Security\Livewire;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Modules\Security\Services\LdapDirectoryService;
@@ -39,7 +40,7 @@ class AdminLoginScreen extends Component
         $identifier = trim($credentials['identifier']);
         $looksLikeEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false;
 
-        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'], $authorization, $audit)) {
+        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'], $authorization, $audit, app(OrganizationContextService::class))) {
             return;
         }
 
@@ -117,11 +118,17 @@ class AdminLoginScreen extends Component
         $this->redirectIntended($target, navigate: false);
     }
 
-    private function attemptInternalLogin(string $email, string $password, SecurityAuthorizationService $authorization, SecurityAuditService $audit): bool
-    {
+    private function attemptInternalLogin(
+        string $email,
+        string $password,
+        SecurityAuthorizationService $authorization,
+        SecurityAuditService $audit,
+        OrganizationContextService $organizationContext,
+    ): bool {
         if (! Auth::attempt([
             'email' => $email,
             'password' => $password,
+            'organization_id' => $organizationContext->currentOrganizationId(),
         ], $this->remember)) {
             return false;
         }

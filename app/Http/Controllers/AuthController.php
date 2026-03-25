@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -23,14 +24,20 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request, SecurityAuthorizationService $authorization)
+    public function login(Request $request, SecurityAuthorizationService $authorization, OrganizationContextService $organizationContext)
     {
         $credentials = $request->validateWithBag('login', [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, (bool) $request->boolean('remember'))) {
+        $organizationId = $organizationContext->currentOrganizationId();
+
+        if (! Auth::attempt([
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
+            'organization_id' => $organizationId,
+        ], (bool) $request->boolean('remember'))) {
             return back()
                 ->withErrors(['email' => 'Credenciales inválidas.'], 'login')
                 ->withInput($request->only('email'))
@@ -45,11 +52,13 @@ class AuthController extends Controller
             ->with('success', 'Sesión iniciada correctamente.');
     }
 
-    public function register(Request $request)
+    public function register(Request $request, OrganizationContextService $organizationContext)
     {
+        $organizationId = $organizationContext->currentOrganizationId();
+
         $data = $request->validateWithBag('register', [
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->where('organization_id', $organizationId)],
             'phone' => ['nullable', 'string', 'max:30'],
             'document_type' => ['nullable', Rule::in(['dni', 'ruc', 'ce', 'pasaporte'])],
             'document_number' => ['nullable', 'string', 'max:30'],
@@ -58,7 +67,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'confirmed', 'min:8'],
         ]);
 
-        $defaultBranchId = SecurityBranch::query()->where('is_default', true)->value('id');
+        $defaultBranchId = SecurityBranch::query()->forCurrentOrganization()->where('is_default', true)->value('id');
 
         $user = User::create([
             'name' => $data['name'],
@@ -69,6 +78,7 @@ class AuthController extends Controller
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
             'role' => 'customer',
+            'organization_id' => $organizationId,
             'branch_id' => $defaultBranchId,
             'password' => $data['password'],
             'is_active' => true,

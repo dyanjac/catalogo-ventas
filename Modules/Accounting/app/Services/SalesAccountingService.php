@@ -18,13 +18,13 @@ class SalesAccountingService
      */
     public function postIssuedSale(Order $order, ?BillingDocument $document = null): array
     {
-        $setting = AccountingSetting::query()->first();
+        $setting = AccountingSetting::query()->forCurrentOrganization()->first();
         if ($setting && ! $setting->auto_post_entries) {
             return ['created' => false, 'message' => 'Auto-post contable desactivado.', 'entry_id' => null];
         }
 
         $reference = $this->buildReference($order, $document);
-        $existing = AccountingEntry::query()->where('reference', $reference)->first();
+        $existing = AccountingEntry::query()->forCurrentOrganization()->where('reference', $reference)->first();
         if ($existing) {
             return ['created' => false, 'message' => 'El asiento ya existe para esta venta.', 'entry_id' => (int) $existing->id];
         }
@@ -43,6 +43,7 @@ class SalesAccountingService
 
         $entryDate = now();
         $period = AccountingPeriod::query()
+            ->forCurrentOrganization()
             ->where('year', (int) $entryDate->year)
             ->where('month', (int) $entryDate->month)
             ->first();
@@ -160,15 +161,15 @@ class SalesAccountingService
     private function resolveRevenueAccount(?string $code): ?AccountingAccount
     {
         return $this->findAccountByCode($code)
-            ?? AccountingAccount::query()->where('is_active', true)->where('is_default_sales', true)->first()
-            ?? AccountingAccount::query()->where('is_active', true)->where('type', 'ingreso')->orderBy('code')->first();
+            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('is_default_sales', true)->first()
+            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'ingreso')->orderBy('code')->first();
     }
 
     private function resolveTaxAccount(?string $code): ?AccountingAccount
     {
         return $this->findAccountByCode($code)
-            ?? AccountingAccount::query()->where('is_active', true)->where('is_default_tax', true)->first()
-            ?? AccountingAccount::query()->where('is_active', true)->where('type', 'pasivo')->orderBy('code')->first();
+            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('is_default_tax', true)->first()
+            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'pasivo')->orderBy('code')->first();
     }
 
     private function resolveReceivableAccount(Order $order): ?AccountingAccount
@@ -181,6 +182,7 @@ class SalesAccountingService
         $defaultReceivable = null;
         if (Schema::hasColumn('accounting_accounts', 'is_default_receivable')) {
             $defaultReceivable = AccountingAccount::query()
+                ->forCurrentOrganization()
                 ->where('is_active', true)
                 ->where('is_default_receivable', true)
                 ->first();
@@ -188,7 +190,7 @@ class SalesAccountingService
 
         return $this->findAccountByCode($productCode)
             ?? $defaultReceivable
-            ?? AccountingAccount::query()->where('is_active', true)->where('type', 'activo')->orderBy('code')->first();
+            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'activo')->orderBy('code')->first();
     }
 
     private function findAccountByCode(?string $code): ?AccountingAccount
@@ -198,7 +200,7 @@ class SalesAccountingService
             return null;
         }
 
-        return AccountingAccount::query()->where('is_active', true)->where('code', $value)->first();
+        return AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('code', $value)->first();
     }
 
     private function buildReference(Order $order, ?BillingDocument $document): string

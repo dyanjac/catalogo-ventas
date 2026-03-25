@@ -2,6 +2,8 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Models\Concerns\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,10 +13,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
+    use BelongsToOrganization;
     use HasFactory;
     use SoftDeletes;
 
     protected $fillable = [
+        'organization_id',
         'category_id',
         'unit_measure_id',
         'name',
@@ -102,6 +106,13 @@ class Product extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    public function resolveRouteBindingQuery($query, $value, $field = null): Builder
+    {
+        $field ??= $this->getRouteKeyName();
+
+        return $query->forCurrentOrganization()->where($field, $value);
     }
 
     public function getDisplayPriceAttribute(): ?string
