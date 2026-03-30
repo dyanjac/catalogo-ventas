@@ -102,6 +102,12 @@ class InventoryWarehouseManagement extends Component
 
         abort_unless($authorization->hasPermission($actor, 'inventory.warehouses.update'), 403);
 
+        if ($organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'branch_id' => 'La organización actual está suspendida y no puede administrar almacenes.',
+            ]);
+        }
+
         $validated = $this->validate([
             'branch_id' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
             'code' => [
@@ -243,3 +249,4 @@ class InventoryWarehouseManagement extends Component
         $this->is_default = false;
     }
 }
+

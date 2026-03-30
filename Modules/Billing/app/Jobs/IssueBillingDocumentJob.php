@@ -39,6 +39,10 @@ class IssueBillingDocumentJob implements ShouldQueue
             return;
         }
 
+        if ($document->organization()->first()?->isSuspended()) {
+            return;
+        }
+
         if ($document->order_id && $document->order) {
             $salesAccounting->postIssuedSale($document->order, $document->fresh());
         }

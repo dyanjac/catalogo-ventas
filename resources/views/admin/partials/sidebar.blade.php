@@ -7,6 +7,7 @@
     $canViewSecurityBranches = $authorization->hasPermission($user, 'security.branches.view');
     $canViewSecurityAudit = $authorization->hasPermission($user, 'security.audit.view');
     $canViewInventoryWarehouses = $authorization->hasPermission($user, 'inventory.warehouses.view');
+    $isSuperAdmin = $authorization->hasRole($user, 'super_admin');
 @endphp
 
 <flux:sidebar sticky collapsible="mobile" class="admin-sidebar" data-admin-sidebar>
@@ -92,6 +93,9 @@
                 @endif
                 @if($modules->has('security'))
                     <flux:sidebar.item wire:navigate.hover href="{{ route('admin.security.authentication.edit') }}" icon="shield-check" :data-current="request()->routeIs('admin.security.authentication.*') ? 'true' : null">Autenticacion</flux:sidebar.item>
+                    @if($isSuperAdmin)
+                        <flux:sidebar.item wire:navigate.hover href="{{ route('admin.organizations.index') }}" icon="building-office" :data-current="request()->routeIs('admin.organizations.*') ? 'true' : null">Organizaciones SaaS</flux:sidebar.item>
+                    @endif
                     @if($canViewSecurityRoles)
                         <flux:sidebar.item wire:navigate.hover href="{{ route('admin.security.roles.index') }}" icon="shield-exclamation" :data-current="request()->routeIs('admin.security.roles.*') ? 'true' : null">Roles y permisos</flux:sidebar.item>
                     @endif
@@ -139,6 +143,7 @@
         </flux:button>
     </div>
 </flux:sidebar>
+
 
 
 

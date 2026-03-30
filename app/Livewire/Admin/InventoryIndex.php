@@ -146,11 +146,18 @@ class InventoryIndex extends Component
             403
         );
 
+        if ($organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'document' => 'La organización actual está suspendida y no puede registrar guias de inventario.',
+            ]);
+        }
+
         if (! $this->hasWarehouseSchema()) {
             throw ValidationException::withMessages([
                 'document' => 'Primero debes ejecutar las migraciones de almacenes y documentos de inventario.',
             ]);
         }
+
 
         $organizationId = $organizationContext->currentOrganizationId();
 
@@ -242,6 +249,7 @@ class InventoryIndex extends Component
         OrganizationContextService $organizationContext,
     ): void {
         abort_unless($authorization->hasPermission(auth()->user(), 'inventory.transfers.create'), 403);
+
 
         $organizationId = $organizationContext->currentOrganizationId();
 
@@ -523,3 +531,5 @@ class InventoryIndex extends Component
             && Schema::hasTable('inventory_document_items');
     }
 }
+
+

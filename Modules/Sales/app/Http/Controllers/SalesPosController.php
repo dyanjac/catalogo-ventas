@@ -40,6 +40,13 @@ class SalesPosController extends Controller
 
     public function lookupCustomerDocument(Request $request, CustomerDocumentLookupService $lookupService): JsonResponse
     {
+        if ($this->organizationContext->isSuspended()) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'La organización actual está suspendida y no puede operar consultas del POS.',
+            ], 423);
+        }
+
         $data = $request->validate([
             'document_type' => ['required', 'in:DNI,RUC'],
             'document_number' => ['required', 'string', 'max:20'],
@@ -59,6 +66,12 @@ class SalesPosController extends Controller
         ElectronicBillingService $electronicBilling,
         SalesAccountingService $salesAccounting
     ): RedirectResponse {
+        if ($this->organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'document_type' => 'La organización actual está suspendida y no puede registrar ventas por POS.',
+            ]);
+        }
+
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([

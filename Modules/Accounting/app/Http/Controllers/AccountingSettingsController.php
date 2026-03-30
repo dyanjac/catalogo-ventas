@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingSetting;
 
@@ -33,6 +34,8 @@ class AccountingSettingsController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         $data = $request->validate([
             'fiscal_year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'fiscal_year_start_month' => ['required', 'integer', 'min:1', 'max:12'],
@@ -55,5 +58,16 @@ class AccountingSettingsController extends Controller
         return redirect()
             ->route('admin.accounting.settings.edit')
             ->with('success', 'Configuración contable actualizada correctamente.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'accounting' => 'La organización actual está suspendida y no permite cambios contables.',
+        ]);
     }
 }

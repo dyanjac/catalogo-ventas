@@ -30,6 +30,16 @@ class Organization extends Model
         ];
     }
 
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
+
+    public function isActiveStatus(): bool
+    {
+        return $this->status === 'active';
+    }
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);

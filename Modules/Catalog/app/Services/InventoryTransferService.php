@@ -25,6 +25,8 @@ class InventoryTransferService
         int $quantity,
         array $context = []
     ): InventoryTransfer {
+        $this->ensureTenantOperational();
+
         if ($sourceBranchId === $destinationBranchId) {
             throw ValidationException::withMessages([
                 'transferDestinationBranchId' => 'La sucursal destino debe ser distinta a la sucursal origen.',
@@ -93,5 +95,16 @@ class InventoryTransferService
 
             return $transfer->load(['sourceBranch', 'destinationBranch', 'items.product', 'creator']);
         });
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'transfer' => 'La organización actual está suspendida y no puede registrar transferencias.',
+        ]);
     }
 }

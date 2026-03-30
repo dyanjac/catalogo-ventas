@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingDocument;
 use Modules\ElectronicDocuments\Services\InvoicePdfService;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class InvoicePdfController extends Controller
@@ -20,6 +21,10 @@ class InvoicePdfController extends Controller
         $document = $this->findDocumentBySerieNumero($serieNumero);
         if (! $document) {
             throw new NotFoundHttpException('No se encontró el comprobante para generar PDF.');
+        }
+
+        if ($document->organization()->first()?->isSuspended()) {
+            throw new HttpException(423, 'La organización asociada al comprobante está suspendida y no permite generar PDFs.');
         }
 
         $xmlPath = $this->resolveXmlPathFromDocument($document);

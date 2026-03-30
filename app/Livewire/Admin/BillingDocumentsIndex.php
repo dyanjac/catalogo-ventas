@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -76,12 +77,22 @@ class BillingDocumentsIndex extends Component
         $this->clearFeedback();
     }
 
-    public function redeclareSelected(ElectronicBillingService $electronicBilling, SecurityScopeService $scopeService): void
+    public function redeclareSelected(ElectronicBillingService $electronicBilling, SecurityScopeService $scopeService, OrganizationContextService $organizationContext): void
     {
+        if ($organizationContext->isSuspended()) {
+            $this->setFeedback('danger', 'La organización actual está suspendida y no permite re-declaraciones.');
+            return;
+        }
+
         $document = $this->selectedDocument($scopeService);
 
         if (! $document) {
             $this->setFeedback('warning', 'Selecciona un comprobante antes de ejecutar la re-declaracion.');
+            return;
+        }
+
+        if ($document->organization()->first()?->isSuspended()) {
+            $this->setFeedback('danger', 'La organización asociada al comprobante está suspendida y no permite re-declaraciones.');
             return;
         }
 

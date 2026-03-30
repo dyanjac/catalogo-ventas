@@ -32,6 +32,10 @@
                             <div class="h-100 rounded-4 border bg-white p-4 shadow-sm">
                                 <h2 class="h3 fw-bold mb-4">Iniciar sesion</h2>
 
+                                @if(session('error'))
+                                    <div class="alert alert-danger border-0">{{ session('error') }}</div>
+                                @endif
+
                                 <form method="POST" action="{{ route('login.attempt') }}" class="row g-3">
                                     @csrf
 

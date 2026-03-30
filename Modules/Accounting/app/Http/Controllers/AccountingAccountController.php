@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingAccount;
 use Modules\Accounting\Services\AccountingAuditService;
@@ -32,6 +33,7 @@ class AccountingAccountController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -65,6 +67,7 @@ class AccountingAccountController extends Controller
 
     public function update(Request $request, AccountingAccount $account): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -98,6 +101,8 @@ class AccountingAccountController extends Controller
 
     public function setupDefaultSalesChart(): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         $seed = [
             [
                 'code' => '121201',
@@ -164,6 +169,8 @@ class AccountingAccountController extends Controller
 
     public function resetChart(): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         DB::transaction(function (): void {
             $deleted = AccountingAccount::query()->forCurrentOrganization()->count();
 
@@ -184,5 +191,16 @@ class AccountingAccountController extends Controller
         });
 
         return back()->with('success', 'Plan de cuentas eliminado. Ya puedes crear uno nuevo.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'accounting' => 'La organización actual está suspendida y no permite cambios contables.',
+        ]);
     }
 }

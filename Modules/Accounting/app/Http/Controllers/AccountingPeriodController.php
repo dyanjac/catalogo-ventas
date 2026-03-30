@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingPeriod;
 use Modules\Accounting\Services\AccountingAuditService;
@@ -28,6 +29,7 @@ class AccountingPeriodController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -60,6 +62,7 @@ class AccountingPeriodController extends Controller
 
     public function update(Request $request, AccountingPeriod $period): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -94,5 +97,16 @@ class AccountingPeriodController extends Controller
         $this->audit->log('period', (int) $period->id, 'update', ['before' => $before, 'after' => $period->fresh()->toArray()]);
 
         return back()->with('success', 'Periodo contable actualizado correctamente.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'accounting' => 'La organización actual está suspendida y no permite cambios contables.',
+        ]);
     }
 }

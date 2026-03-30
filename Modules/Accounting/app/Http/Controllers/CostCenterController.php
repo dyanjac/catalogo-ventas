@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingCostCenter;
 use Modules\Accounting\Services\AccountingAuditService;
@@ -28,6 +29,7 @@ class CostCenterController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -50,6 +52,7 @@ class CostCenterController extends Controller
 
     public function update(Request $request, AccountingCostCenter $costCenter): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -68,5 +71,16 @@ class CostCenterController extends Controller
         $this->audit->log('cost_center', (int) $costCenter->id, 'update', ['before' => $before, 'after' => $costCenter->fresh()->toArray()]);
 
         return back()->with('success', 'Centro de costo actualizado correctamente.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'accounting' => 'La organización actual está suspendida y no permite cambios contables.',
+        ]);
     }
 }

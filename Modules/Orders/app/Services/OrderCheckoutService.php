@@ -30,6 +30,8 @@ class OrderCheckoutService
      */
     public function checkout(array $payload, array $cart): array
     {
+        $this->ensureTenantOperational();
+
         $series = strtoupper(trim((string) ($payload['series'] ?? 'PED')));
         if ($series === '') {
             $series = 'PED';
@@ -159,6 +161,8 @@ class OrderCheckoutService
      */
     public function buildCheckoutData(array $cart, bool $requireStock = false, ?int $branchId = null): array
     {
+        $this->ensureTenantOperational();
+
         $items = [];
         $hasIssues = false;
 
@@ -241,5 +245,16 @@ class OrderCheckoutService
                 ]);
             }
         }
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'cart' => 'La organización actual está suspendida y no puede procesar checkout.',
+        ]);
     }
 }

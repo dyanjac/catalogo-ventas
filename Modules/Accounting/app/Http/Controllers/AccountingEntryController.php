@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingCostCenter;
 use Modules\Accounting\Models\AccountingEntry;
@@ -77,6 +78,7 @@ class AccountingEntryController extends Controller
 
     public function update(Request $request, AccountingEntry $entry): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -193,6 +195,8 @@ class AccountingEntryController extends Controller
 
     public function destroyAttachment(AccountingEntry $entry, AccountingEntryAttachment $attachment): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         if ((int) $attachment->accounting_entry_id !== (int) $entry->id) {
             abort(404);
         }
@@ -204,5 +208,16 @@ class AccountingEntryController extends Controller
         $this->audit->log('entry_attachment', (int) $entry->id, 'delete', $payload);
 
         return back()->with('success', 'Adjunto eliminado correctamente.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'accounting' => 'La organización actual está suspendida y no permite cambios contables.',
+        ]);
     }
 }

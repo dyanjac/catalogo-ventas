@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
+use Modules\Security\Services\SecurityAuditService;
 use Modules\Security\Services\SecurityAuthorizationService;
 
 class AuthController extends Controller
@@ -24,14 +25,34 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request, SecurityAuthorizationService $authorization, OrganizationContextService $organizationContext)
-    {
+    public function login(
+        Request $request,
+        SecurityAuthorizationService $authorization,
+        OrganizationContextService $organizationContext,
+        SecurityAuditService $audit,
+    ) {
         $credentials = $request->validateWithBag('login', [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        $organizationId = $organizationContext->currentOrganizationId();
+        $organization = $organizationContext->current();
+
+        if ($organization?->isSuspended()) {
+            $message = 'La organización actual está suspendida y no permite nuevos inicios de sesión.';
+            $audit->log('authentication', 'security.customer.login.suspended_tenant_denied', 'warning', $message, null, null, 'security', [
+                'organization_id' => $organization->id,
+                'organization_code' => $organization->code,
+                'email' => $credentials['email'],
+            ]);
+
+            return back()
+                ->withErrors(['email' => $message], 'login')
+                ->withInput($request->only('email'))
+                ->with('openAuthModal', 'login');
+        }
+
+        $organizationId = $organization?->id;
 
         if (! Auth::attempt([
             'email' => $credentials['email'],
@@ -52,9 +73,23 @@ class AuthController extends Controller
             ->with('success', 'Sesión iniciada correctamente.');
     }
 
-    public function register(Request $request, OrganizationContextService $organizationContext)
+    public function register(Request $request, OrganizationContextService $organizationContext, SecurityAuditService $audit)
     {
-        $organizationId = $organizationContext->currentOrganizationId();
+        $organization = $organizationContext->current();
+        $organizationId = $organization?->id;
+
+        if ($organization?->isSuspended()) {
+            $message = 'La organización actual está suspendida y no permite nuevos registros.';
+            $audit->log('authentication', 'security.customer.register.suspended_tenant_denied', 'warning', $message, null, null, 'security', [
+                'organization_id' => $organization->id,
+                'organization_code' => $organization->code,
+                'email' => $request->input('email'),
+            ]);
+
+            return back()
+                ->withErrors(['register' => $message], 'register')
+                ->withInput($request->except('password', 'password_confirmation'));
+        }
 
         $data = $request->validateWithBag('register', [
             'name' => ['required', 'string', 'max:120'],

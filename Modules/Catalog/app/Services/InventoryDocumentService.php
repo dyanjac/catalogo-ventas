@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Catalog\Entities\InventoryDocument;
@@ -15,11 +16,14 @@ class InventoryDocumentService
 {
     public function __construct(
         private readonly InventoryMovementService $movements,
+        private readonly OrganizationContextService $organizationContext,
     ) {
     }
 
     public function createDraft(array $payload): InventoryDocument
     {
+        $this->ensureTenantOperational();
+
         $warehouse = InventoryWarehouse::query()
             ->forCurrentOrganization()
             ->whereKey($payload['warehouse_id'])
@@ -89,6 +93,8 @@ class InventoryDocumentService
 
     public function confirm(int $documentId, ?int $actorId = null): InventoryDocument
     {
+        $this->ensureTenantOperational();
+
         return DB::transaction(function () use ($documentId, $actorId): InventoryDocument {
             $document = InventoryDocument::query()
                 ->forCurrentOrganization()
@@ -244,6 +250,17 @@ class InventoryDocumentService
         }
 
         return round($unitCost, 4);
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'document' => 'La organización actual está suspendida y no puede operar documentos de inventario.',
+        ]);
     }
 
     private function assertProductOperationalCoverage(Product $product, int $branchId, int $warehouseId): void

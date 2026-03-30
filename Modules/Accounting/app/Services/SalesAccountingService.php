@@ -2,6 +2,7 @@
 
 namespace Modules\Accounting\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Modules\Accounting\Models\AccountingAccount;
@@ -13,11 +14,19 @@ use Modules\Orders\Entities\Order;
 
 class SalesAccountingService
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     /**
      * @return array{created:bool,message:string,entry_id:int|null}
      */
     public function postIssuedSale(Order $order, ?BillingDocument $document = null): array
     {
+        if ($this->organizationContext->isSuspended()) {
+            return ['created' => false, 'message' => 'La organización actual está suspendida y no permite auto-post contable.', 'entry_id' => null];
+        }
+
         $setting = AccountingSetting::query()->forCurrentOrganization()->first();
         if ($setting && ! $setting->auto_post_entries) {
             return ['created' => false, 'message' => 'Auto-post contable desactivado.', 'entry_id' => null];

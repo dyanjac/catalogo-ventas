@@ -3,6 +3,7 @@
 namespace Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\Request;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Services\OrderCheckoutService;
@@ -12,12 +13,19 @@ class OrderController extends Controller
 {
     public function __construct(
         private readonly OrderCheckoutService $checkoutService,
-        private readonly OrderQueryService $orderQueryService
+        private readonly OrderQueryService $orderQueryService,
+        private readonly OrganizationContextService $organizationContext,
     ) {
     }
 
     public function showCheckout()
     {
+        if ($this->organizationContext->isSuspended()) {
+            return redirect()
+                ->route('cart.view')
+                ->with('error', 'La organización actual está suspendida y no puede continuar al checkout.');
+        }
+
         $cart = session('cart', []);
         abort_if(empty($cart), 400, 'Carrito vacío');
 
@@ -38,6 +46,12 @@ class OrderController extends Controller
 
     public function checkout(Request $request)
     {
+        if ($this->organizationContext->isSuspended()) {
+            return redirect()
+                ->route('cart.view')
+                ->with('error', 'La organización actual está suspendida y no puede registrar pedidos.');
+        }
+
         $cart = session('cart', []);
         abort_if(empty($cart), 400, 'Carrito vacío');
 
@@ -80,7 +94,7 @@ class OrderController extends Controller
             'transaction_id' => $request->input('transaction_id'),
             'observations' => $request->input('observations'),
         ], $cart);
-         
+
         session()->forget('cart');
 
         return redirect()

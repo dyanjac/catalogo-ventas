@@ -30,6 +30,7 @@ class AdminLoginScreen extends Component
     {
         $settings = app(SecurityAuthSettingsService::class)->getForView();
         $ldapEnabled = (bool) ($settings['ldap_enabled'] ?? false);
+        $organizationContext = app(OrganizationContextService::class);
 
         $credentials = $this->validate([
             'identifier' => ['required', 'string', 'max:255'],
@@ -40,7 +41,20 @@ class AdminLoginScreen extends Component
         $identifier = trim($credentials['identifier']);
         $looksLikeEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false;
 
-        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'], $authorization, $audit, app(OrganizationContextService::class))) {
+        if ($organizationContext->isSuspended()) {
+            $organization = $organizationContext->current();
+            $message = 'La organización actual está suspendida y no permite ingresos al panel administrativo.';
+            $this->addError('identifier', $message);
+            $audit->log('authentication', 'security.admin.login.suspended_tenant_denied', 'warning', $message, null, null, 'security', [
+                'organization_id' => $organization?->id,
+                'organization_code' => $organization?->code,
+                'identifier' => $identifier,
+            ]);
+
+            return;
+        }
+
+        if ($looksLikeEmail && $this->attemptInternalLogin($identifier, $credentials['password'], $authorization, $audit, $organizationContext)) {
             return;
         }
 
@@ -71,6 +85,20 @@ class AdminLoginScreen extends Component
 
                 $this->addError('identifier', $message);
                 $audit->log('authentication', 'security.admin.login.ldap.not_found', 'failed', $message, null, null, 'security', ['identifier' => $identifier]);
+
+                return;
+            }
+
+            if ($user->organization?->isSuspended()) {
+                Auth::logout();
+                request()->session()->invalidate();
+                request()->session()->regenerateToken();
+                $message = 'La organización de esta cuenta está suspendida y el acceso administrativo fue rechazado.';
+                $this->addError('identifier', $message);
+                $audit->log('authentication', 'security.admin.login.ldap.suspended_tenant_denied', 'warning', $message, $user, $user, 'security', [
+                    'identifier' => $identifier,
+                    'organization_id' => $user->organization_id,
+                ]);
 
                 return;
             }
@@ -131,6 +159,20 @@ class AdminLoginScreen extends Component
             'organization_id' => $organizationContext->currentOrganizationId(),
         ], $this->remember)) {
             return false;
+        }
+
+        if (Auth::user()?->organization?->isSuspended()) {
+            Auth::logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+            $message = 'La organización de esta cuenta está suspendida y no puede ingresar al panel.';
+            $this->addError('identifier', $message);
+            $audit->log('authentication', 'security.admin.login.internal.suspended_tenant_denied', 'warning', $message, null, null, 'security', [
+                'identifier' => $email,
+                'organization_id' => $organizationContext->currentOrganizationId(),
+            ]);
+
+            return true;
         }
 
         if (! $authorization->canAccessAdminPanel(Auth::user())) {

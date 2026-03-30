@@ -65,6 +65,10 @@
                 <flux:badge color="zinc">Flux + Livewire</flux:badge>
             </div>
 
+            @if(session('error'))
+                <div class="auth-form__alert" role="alert">{{ session('error') }}</div>
+            @endif
+
             <form wire:submit="login" class="auth-form">
                 @error('identifier')
                     <div class="auth-form__alert" role="alert">{{ $message }}</div>

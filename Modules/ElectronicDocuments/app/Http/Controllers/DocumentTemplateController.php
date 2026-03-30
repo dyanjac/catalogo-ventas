@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingDocument;
 use Modules\ElectronicDocuments\Models\DocumentTemplate;
@@ -39,6 +40,7 @@ class DocumentTemplateController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $data = $this->validateTemplate($request);
 
         DocumentTemplate::query()->create([
@@ -63,6 +65,7 @@ class DocumentTemplateController extends Controller
 
     public function update(Request $request, DocumentTemplate $template): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $data = $this->validateTemplate($request, $template);
 
         $template->update([
@@ -78,6 +81,7 @@ class DocumentTemplateController extends Controller
 
     public function destroy(DocumentTemplate $template): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $template->delete();
 
         return redirect()->route('admin.electronic-documents.templates.index')
@@ -86,6 +90,7 @@ class DocumentTemplateController extends Controller
 
     public function toggle(DocumentTemplate $template): RedirectResponse
     {
+        $this->ensureTenantOperational();
         $template->update([
             'is_active' => ! $template->is_active,
         ]);
@@ -95,6 +100,12 @@ class DocumentTemplateController extends Controller
 
     public function preview(Request $request, InvoicePdfService $pdfService): View
     {
+        if ($this->organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'xml_path' => 'La organización actual está suspendida y no permite previsualizar plantillas.',
+            ]);
+        }
+
         $data = $request->validate([
             'template_id' => ['required', 'integer', Rule::exists('document_templates', 'id')->where('organization_id', $this->organizationContext->currentOrganizationId())],
             'xml_path' => ['required', 'string'],
@@ -109,6 +120,17 @@ class DocumentTemplateController extends Controller
             'template' => $template,
             'xmlPath' => $data['xml_path'],
             'html' => $html,
+        ]);
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'template' => 'La organización actual está suspendida y no permite mantenimiento de plantillas.',
         ]);
     }
 

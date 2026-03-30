@@ -31,6 +31,16 @@ class OrganizationContextService
         return $this->current()?->id;
     }
 
+    public function currentStatus(): ?string
+    {
+        return $this->current()?->status;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->current()?->isSuspended() ?? false;
+    }
+
     public function currentEnvironment(): string
     {
         if (app()->environment(['local', 'development', 'testing'])) {

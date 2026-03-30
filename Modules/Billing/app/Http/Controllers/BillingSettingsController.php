@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Models\SunatOperationType;
@@ -29,6 +30,8 @@ class BillingSettingsController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         $data = $request->validate([
             'enabled' => ['nullable', 'boolean'],
             'country' => ['required', 'in:PE'],
@@ -86,6 +89,8 @@ class BillingSettingsController extends Controller
 
     public function updateOperationTypes(Request $request): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         $data = $request->validate([
             'default_invoice_operation_code' => ['nullable', 'string', 'max:2'],
             'default_receipt_operation_code' => ['nullable', 'string', 'max:2'],
@@ -134,6 +139,8 @@ class BillingSettingsController extends Controller
 
     public function testConnection(BillingProviderResolver $resolver): RedirectResponse
     {
+        $this->ensureTenantOperational();
+
         $setting = $this->setting();
 
         if (! $setting->enabled) {
@@ -148,6 +155,17 @@ class BillingSettingsController extends Controller
         }
 
         return back()->with('success', $result['message'] ?? 'Conexión validada.');
+    }
+
+    private function ensureTenantOperational(): void
+    {
+        if (! $this->organizationContext->isSuspended()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'billing' => 'La organización actual está suspendida y no permite cambios de facturación electrónica.',
+        ]);
     }
 
     private function setting(): BillingSetting

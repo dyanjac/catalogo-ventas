@@ -4,13 +4,20 @@ namespace Modules\Admin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Security\Services\SecurityScopeService;
 
 class CustomerController extends Controller
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function index(): View
     {
         return view('admin.customers.index');
@@ -32,9 +39,15 @@ class CustomerController extends Controller
     {
         abort_unless($scopeService->canAccessUser($request->user(), $customer, 'customers'), 403);
 
+        if ($customer->organization()->first()?->isSuspended() || $this->organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'customer' => 'La organización asociada al cliente está suspendida y no permite mantenimiento administrativo.',
+            ]);
+        }
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $customer->id],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($customer->id)->where('organization_id', $customer->organization_id)],
             'phone' => ['nullable', 'string', 'max:30'],
             'document_type' => ['nullable', 'in:dni,ruc,ce,pasaporte'],
             'document_number' => ['nullable', 'string', 'max:30'],

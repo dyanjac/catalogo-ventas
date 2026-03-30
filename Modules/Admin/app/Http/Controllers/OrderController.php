@@ -4,14 +4,20 @@ namespace Modules\Admin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\OrganizationContextService;
 use App\Support\SimplePdfBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Security\Services\SecurityScopeService;
 
 class OrderController extends Controller
 {
+    public function __construct(private readonly OrganizationContextService $organizationContext)
+    {
+    }
+
     public function index(): View
     {
         return view('admin.orders.index');
@@ -29,6 +35,12 @@ class OrderController extends Controller
     public function update(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
     {
         abort_unless($scopeService->canAccessOrder($request->user(), $order, 'sales'), 403);
+
+        if ($order->organization()->first()?->isSuspended() || $this->organizationContext->isSuspended()) {
+            throw ValidationException::withMessages([
+                'order' => 'La organización asociada al pedido está suspendida y no permite actualizaciones administrativas.',
+            ]);
+        }
 
         $data = $request->validate([
             'status' => ['required', 'in:confirmed,processing,delivered,cancelled,pending'],
@@ -56,6 +68,10 @@ class OrderController extends Controller
     public function downloadPdf(Order $order, SecurityScopeService $scopeService)
     {
         abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
+
+        if ($order->organization()->first()?->isSuspended()) {
+            abort(423, 'La organización asociada al pedido está suspendida y no permite exportaciones.');
+        }
 
         $order->loadMissing(['user', 'items.product']);
 

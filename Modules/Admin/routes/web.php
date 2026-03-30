@@ -6,6 +6,7 @@ use Modules\Admin\Http\Controllers\CustomerController as AdminCustomerController
 use Modules\Admin\Http\Controllers\DashboardController as AdminDashboardController;
 use Modules\Admin\Http\Controllers\InventoryController as AdminInventoryController;
 use Modules\Admin\Http\Controllers\OrderController as AdminOrderController;
+use Modules\Admin\Http\Controllers\OrganizationController as AdminOrganizationController;
 use Modules\Admin\Http\Controllers\ProductController as AdminProductController;
 use Modules\Admin\Http\Controllers\ProductImageController as AdminProductImageController;
 use Modules\Admin\Http\Controllers\UnitMeasureController as AdminUnitMeasureController;
@@ -15,6 +16,43 @@ Route::middleware(['auth'])->group(function () {
     Route::get('admin', AdminDashboardController::class)
         ->middleware(['security.module:dashboard', 'security.permission:dashboard.overview.view'])
         ->name('admin.dashboard');
+
+    Route::get('admin/organizations', [AdminOrganizationController::class, 'index'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.index');
+    Route::get('admin/organizations/create', [AdminOrganizationController::class, 'create'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.create');
+    Route::post('admin/organizations', [AdminOrganizationController::class, 'store'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.store');
+    Route::get('admin/organizations/{organization}', [AdminOrganizationController::class, 'show'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.show');
+    Route::put('admin/organizations/{organization}', [AdminOrganizationController::class, 'update'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.update');
+    Route::put('admin/organizations/{organization}/primary-branch', [AdminOrganizationController::class, 'updatePrimaryBranch'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.primary-branch.update');
+    Route::post('admin/organizations/{organization}/primary-branch/recover', [AdminOrganizationController::class, 'recoverPrimaryBranch'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.primary-branch.recover');
+    Route::put('admin/organizations/{organization}/initial-admin', [AdminOrganizationController::class, 'updateInitialAdmin'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.initial-admin.update');
+    Route::post('admin/organizations/{organization}/initial-admin/recover', [AdminOrganizationController::class, 'recoverInitialAdmin'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.initial-admin.recover');
+    Route::put('admin/organizations/{organization}/activate-production', [AdminOrganizationController::class, 'activateProduction'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.activate-production');
+    Route::put('admin/organizations/{organization}/suspend', [AdminOrganizationController::class, 'suspendOrganization'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.suspend');
+    Route::put('admin/organizations/{organization}/reactivate', [AdminOrganizationController::class, 'reactivateOrganization'])
+        ->middleware(['security.module:security', 'security.permission:security.auth.configure'])
+        ->name('admin.organizations.reactivate');
 
     Route::get('admin/settings', [CommerceSettingAdminController::class, 'edit'])
         ->middleware(['security.module:commerce', 'security.permission:commerce.settings.view'])

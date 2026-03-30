@@ -45,6 +45,12 @@ class BillingDocumentController extends Controller
     {
         abort_unless($scopeService->canAccessBillingDocument(request()->user(), $document, 'billing'), 403);
 
+        if ($document->organization()->first()?->isSuspended()) {
+            return back()->withErrors([
+                'billing' => 'La organización asociada al comprobante está suspendida y no permite re-declaraciones.',
+            ]);
+        }
+
         $payload = is_array($document->request_payload) ? $document->request_payload : [];
 
         if ($payload === [] || ! isset($payload['items']) || ! is_array($payload['items'])) {

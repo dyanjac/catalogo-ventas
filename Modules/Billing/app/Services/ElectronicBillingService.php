@@ -30,6 +30,11 @@ class ElectronicBillingService
     public function issueOrQueue(BillingDocument $document, array $payload): array
     {
         $setting = $this->resolveSetting();
+
+        if ($blocked = $this->guardSuspendedTenant($document, $setting, $payload, 'tenant_suspended_queue_blocked')) {
+            return $blocked;
+        }
+
         if (! $setting || ! $setting->enabled) {
             return [
                 'ok' => false,
@@ -90,6 +95,10 @@ class ElectronicBillingService
     public function issue(BillingDocument $document, array $payload): array
     {
         $setting = $this->resolveSetting();
+
+        if ($blocked = $this->guardSuspendedTenant($document, $setting, $payload, 'tenant_suspended_issue_blocked')) {
+            return $blocked;
+        }
 
         if (! $setting || ! $setting->enabled) {
             return [
@@ -360,6 +369,39 @@ class ElectronicBillingService
             'error_class' => null,
             'error_message' => null,
         ]);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>|null
+     */
+    private function guardSuspendedTenant(BillingDocument $document, ?BillingSetting $setting, array $payload, string $event): ?array
+    {
+        $organization = $document->organization()->first() ?? $this->organizationContext->current();
+
+        if (! $organization?->isSuspended()) {
+            return null;
+        }
+
+        $result = [
+            'ok' => false,
+            'queued' => false,
+            'message' => 'La organización asociada al comprobante está suspendida. La emisión fue bloqueada.',
+        ];
+
+        $document->update([
+            'provider' => $setting?->provider ?? $document->provider,
+            'request_payload' => $payload,
+            'response_payload' => $result,
+            'status' => 'error',
+            'issued_at' => null,
+        ]);
+
+        if ($setting) {
+            $this->storeResponseHistory($document, $setting, $payload, $result, null, $event);
+        }
+
+        return $result;
     }
 
     private function resolveSetting(): ?BillingSetting
