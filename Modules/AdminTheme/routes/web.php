@@ -10,4 +10,7 @@ Route::middleware(['auth', 'security.module:admin_theme'])->group(function () {
     Route::put('admin/theme', [AdminThemeController::class, 'update'])
         ->middleware('security.permission:admin_theme.palette.update')
         ->name('admin.theme.update');
+    Route::delete('admin/theme', [AdminThemeController::class, 'reset'])
+        ->middleware('security.permission:admin_theme.palette.update')
+        ->name('admin.theme.reset');
 });

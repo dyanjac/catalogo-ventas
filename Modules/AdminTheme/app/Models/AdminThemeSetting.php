@@ -2,13 +2,17 @@
 
 namespace Modules\AdminTheme\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 
 class AdminThemeSetting extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'admin_theme_settings';
 
     protected $fillable = [
+        'organization_id',
         'sidebar_bg',
         'sidebar_gradient_to',
         'sidebar_text',
@@ -24,5 +28,3 @@ class AdminThemeSetting extends Model
         'focus_ring',
     ];
 }
-
-

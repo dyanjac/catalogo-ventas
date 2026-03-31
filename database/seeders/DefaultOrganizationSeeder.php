@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Organization;
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Models\AccountingSetting;
+use Modules\AdminTheme\Models\AdminThemeSetting;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
 use Modules\Security\Models\SecurityBranch;
@@ -96,6 +97,11 @@ class DefaultOrganizationSeeder extends Seeder
                 'period_closure_enabled' => false,
                 'auto_post_entries' => false,
             ]
+        );
+
+        AdminThemeSetting::query()->updateOrCreate(
+            ['organization_id' => $organization->id],
+            array_merge(['organization_id' => $organization->id], config('admintheme.defaults', []))
         );
     }
 }

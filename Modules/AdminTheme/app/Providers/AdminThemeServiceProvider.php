@@ -30,8 +30,12 @@ class AdminThemeServiceProvider extends ServiceProvider
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
 
-        View::composer(['layouts.admin', 'layouts.auth'], function ($view): void {
+        View::composer(['layouts.admin'], function ($view): void {
             $view->with('adminPalette', $this->app->make(AdminThemePaletteService::class)->getPalette());
+        });
+
+        View::composer(['layouts.auth'], function ($view): void {
+            $view->with('adminPalette', $this->app->make(AdminThemePaletteService::class)->getAuthPalette());
         });
     }
 
@@ -96,7 +100,6 @@ class AdminThemeServiceProvider extends ServiceProvider
                     $config_key = str_replace([DIRECTORY_SEPARATOR, '.php'], ['.', ''], $config);
                     $segments = explode('.', $this->nameLower.'.'.$config_key);
 
-                    // Remove duplicated adjacent segments
                     $normalized = [];
                     foreach ($segments as $segment) {
                         if (end($normalized) !== $segment) {
@@ -113,9 +116,6 @@ class AdminThemeServiceProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Merge config from the given path recursively.
-     */
     protected function merge_config_from(string $path, string $key): void
     {
         $existing = config($key, []);
@@ -124,9 +124,6 @@ class AdminThemeServiceProvider extends ServiceProvider
         config([$key => array_replace_recursive($existing, $module_config)]);
     }
 
-    /**
-     * Register views.
-     */
     public function registerViews(): void
     {
         $viewPath = resource_path('views/modules/'.$this->nameLower);
@@ -139,9 +136,6 @@ class AdminThemeServiceProvider extends ServiceProvider
         Blade::componentNamespace(config('modules.namespace').'\\' . $this->name . '\\View\\Components', $this->nameLower);
     }
 
-    /**
-     * Get the services provided by the provider.
-     */
     public function provides(): array
     {
         return [];

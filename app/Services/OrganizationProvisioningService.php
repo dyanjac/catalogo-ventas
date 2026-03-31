@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Accounting\Models\AccountingSetting;
+use Modules\AdminTheme\Models\AdminThemeSetting;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
 use Modules\Security\Models\SecurityBranch;
@@ -113,6 +114,8 @@ class OrganizationProvisioningService
                 'period_closure_enabled' => false,
                 'auto_post_entries' => false,
             ]);
+
+            $this->seedDefaultAdminPalette($organization->id);
 
             return [
                 'organization' => $organization,
@@ -436,6 +439,24 @@ class OrganizationProvisioningService
         return $organization->fresh();
     }
 
+    private function seedDefaultAdminPalette(int $organizationId): void
+    {
+        if (! class_exists(AdminThemeSetting::class)) {
+            return;
+        }
+
+        $defaults = config('admintheme.defaults', []);
+
+        if ($defaults === []) {
+            return;
+        }
+
+        AdminThemeSetting::query()->updateOrCreate(
+            ['organization_id' => $organizationId],
+            array_merge(['organization_id' => $organizationId], $defaults)
+        );
+    }
+
     private function resolveBranchCode(string $branchName): string
     {
         $sanitized = Str::upper(Str::slug($branchName, ''));
@@ -450,7 +471,3 @@ class OrganizationProvisioningService
         return $value !== '' ? $value : null;
     }
 }
-
-
-
-

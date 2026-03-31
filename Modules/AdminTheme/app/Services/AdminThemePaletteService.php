@@ -2,18 +2,84 @@
 
 namespace Modules\AdminTheme\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Cache;
 use Modules\AdminTheme\Models\AdminThemeSetting;
 
 class AdminThemePaletteService
 {
-    private const CACHE_KEY = 'admin_theme_palette_v1';
+    public function __construct(
+        private readonly OrganizationContextService $organizationContext
+    ) {}
 
     public function getPalette(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, function () {
-            $defaults = config('admintheme.defaults', []);
-            $setting = AdminThemeSetting::query()->latest('id')->first();
+        return $this->paletteForOrganization($this->organizationContext->currentOrganizationId());
+    }
+
+    public function getAuthPalette(): array
+    {
+        if (auth()->check()) {
+            return $this->getPalette();
+        }
+
+        $explicitOrganization = $this->organizationContext->explicit();
+
+        if (! $explicitOrganization) {
+            return config('admintheme.defaults', []);
+        }
+
+        return $this->paletteForOrganization($explicitOrganization->id);
+    }
+
+    public function updatePalette(array $data): void
+    {
+        $defaults = config('admintheme.defaults', []);
+        $organizationId = $this->organizationContext->currentOrganizationId();
+        $payload = [];
+
+        foreach (array_keys($defaults) as $key) {
+            $payload[$key] = $this->normalizeColor($data[$key] ?? null, $defaults[$key]);
+        }
+
+        if ($organizationId) {
+            $payload['organization_id'] = $organizationId;
+        }
+
+        AdminThemeSetting::query()->updateOrCreate(
+            ['organization_id' => $organizationId],
+            $payload
+        );
+
+        Cache::forget($this->cacheKey($organizationId));
+    }
+
+    public function resetPalette(): void
+    {
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            AdminThemeSetting::query()
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        Cache::forget($this->cacheKey($organizationId));
+    }
+
+    private function paletteForOrganization(?int $organizationId): array
+    {
+        $defaults = config('admintheme.defaults', []);
+
+        if (! $organizationId) {
+            return $defaults;
+        }
+
+        return Cache::rememberForever($this->cacheKey($organizationId), function () use ($defaults, $organizationId) {
+            $setting = AdminThemeSetting::query()
+                ->where('organization_id', $organizationId)
+                ->latest('id')
+                ->first();
 
             if (! $setting) {
                 return $defaults;
@@ -26,17 +92,9 @@ class AdminThemePaletteService
         });
     }
 
-    public function updatePalette(array $data): void
+    private function cacheKey(?int $organizationId): string
     {
-        $defaults = config('admintheme.defaults', []);
-        $payload = [];
-
-        foreach (array_keys($defaults) as $key) {
-            $payload[$key] = $this->normalizeColor($data[$key] ?? null, $defaults[$key]);
-        }
-
-        AdminThemeSetting::query()->updateOrCreate(['id' => 1], $payload);
-        Cache::forget(self::CACHE_KEY);
+        return 'admin_theme_palette_v1:' . ($organizationId ?: 'default');
     }
 
     private function normalizeColor(mixed $value, string $fallback): string
