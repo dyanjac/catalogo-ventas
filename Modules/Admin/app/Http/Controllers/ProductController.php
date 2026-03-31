@@ -20,6 +20,10 @@ use Modules\Security\Services\SecurityScopeService;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private readonly OrganizationContextService $organizationContext
+    ) {}
+
     public function index(): View
     {
         return view('admin.products.index');
@@ -53,6 +57,7 @@ class ProductController extends Controller
 
     public function show(Product $product, SecurityScopeService $scopeService): View
     {
+        abort_unless((int) $product->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
 
         $product->load(['category', 'unitMeasure', 'images', 'mainImage', 'branchStocks.branch']);
@@ -62,6 +67,7 @@ class ProductController extends Controller
 
     public function edit(Product $product, SecurityScopeService $scopeService): View
     {
+        abort_unless((int) $product->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
 
         $product->load(['images', 'mainImage', 'branchStocks.branch']);
@@ -76,6 +82,7 @@ class ProductController extends Controller
 
     public function update(UpdateProductRequest $request, Product $product, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless((int) $product->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessProduct($request->user(), $product, 'catalog'), 403);
 
         $payload = $this->normalizePayload($request->validated(), $product);
@@ -91,6 +98,7 @@ class ProductController extends Controller
 
     public function destroy(Product $product, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless((int) $product->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessProduct(request()->user(), $product, 'catalog'), 403);
 
         $product->delete();

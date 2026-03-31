@@ -25,6 +25,7 @@ class OrderController extends Controller
 
     public function show(Order $order, SecurityScopeService $scopeService): View
     {
+        abort_unless((int) $order->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
 
         $order->load(['user', 'items.product']);
@@ -34,6 +35,7 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless((int) $order->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessOrder($request->user(), $order, 'sales'), 403);
 
         if ($order->organization()->first()?->isSuspended() || $this->organizationContext->isSuspended()) {
@@ -67,6 +69,7 @@ class OrderController extends Controller
 
     public function downloadPdf(Order $order, SecurityScopeService $scopeService)
     {
+        abort_unless((int) $order->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
 
         if ($order->organization()->first()?->isSuspended()) {

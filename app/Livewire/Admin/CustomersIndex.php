@@ -38,6 +38,7 @@ class CustomersIndex extends Component
     public function render(SecurityScopeService $scopeService)
     {
         $query = User::query()
+            ->forCurrentOrganization()
             ->with(['roles' => fn ($query) => $query->orderBy('name')])
             ->when($this->search !== '', function ($query) {
                 $search = trim($this->search);

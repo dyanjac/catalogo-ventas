@@ -25,6 +25,7 @@ class CustomerController extends Controller
 
     public function show(User $customer, SecurityScopeService $scopeService): View
     {
+        abort_unless((int) $customer->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessUser(request()->user(), $customer, 'customers'), 403);
 
         $customer->load([
@@ -37,6 +38,7 @@ class CustomerController extends Controller
 
     public function update(Request $request, User $customer, SecurityScopeService $scopeService): RedirectResponse
     {
+        abort_unless((int) $customer->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessUser($request->user(), $customer, 'customers'), 403);
 
         if ($customer->organization()->first()?->isSuspended() || $this->organizationContext->isSuspended()) {

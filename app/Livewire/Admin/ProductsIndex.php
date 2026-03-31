@@ -83,6 +83,7 @@ class ProductsIndex extends Component
         SecurityBranchContextService $branchContext
     ): void {
         $product = Product::query()
+            ->forCurrentOrganization()
             ->with([
                 'branchStocks.branch',
                 'warehouseStocks.warehouse.branch',
@@ -117,6 +118,7 @@ class ProductsIndex extends Component
         }
 
         $product = Product::query()
+            ->forCurrentOrganization()
             ->with(['branchStocks', 'warehouseStocks'])
             ->findOrFail($this->selectedProductId);
 
@@ -233,6 +235,7 @@ class ProductsIndex extends Component
         $inventory->syncAggregateStock($product->fresh());
 
         $refreshed = Product::query()
+            ->forCurrentOrganization()
             ->with(['branchStocks.branch', 'warehouseStocks.warehouse.branch'])
             ->findOrFail($product->id);
 
@@ -259,6 +262,7 @@ class ProductsIndex extends Component
         $hasWarehouseSchema = $this->hasWarehouseSchema();
 
         $query = Product::query()
+            ->forCurrentOrganization()
             ->with([
                 'category',
                 'unitMeasure',
@@ -295,7 +299,7 @@ class ProductsIndex extends Component
 
         $selectedProduct = $this->selectedProductId
             ? $scopeService->scopeProducts(
-                Product::query()->with(['category', 'branchStocks.branch', 'warehouseStocks.warehouse.branch']),
+                Product::query()->forCurrentOrganization()->with(['category', 'branchStocks.branch', 'warehouseStocks.warehouse.branch']),
                 $actor,
                 'catalog'
             )->find($this->selectedProductId)
@@ -402,4 +406,3 @@ class ProductsIndex extends Component
             && Schema::hasTable('product_warehouse_stocks');
     }
 }
-

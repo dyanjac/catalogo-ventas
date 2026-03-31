@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use App\Services\OrganizationContextService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -89,5 +91,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class);
     }
-}
 
+    public function resolveRouteBindingQuery($query, $value, $field = null): Builder
+    {
+        $field ??= $this->getRouteKeyName();
+        $organizationId = app(OrganizationContextService::class)->currentOrganizationId();
+
+        if ($organizationId) {
+            return $query->where('organization_id', $organizationId)->where($field, $value);
+        }
+
+        return $query->whereKey(0);
+    }
+}

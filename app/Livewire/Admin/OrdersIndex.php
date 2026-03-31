@@ -60,6 +60,7 @@ class OrdersIndex extends Component
     public function render(SecurityScopeService $scopeService)
     {
         $query = Order::query()
+            ->forCurrentOrganization()
             ->with('user')
             ->when($this->search !== '', function ($query) {
                 $search = trim($this->search);
