@@ -22,7 +22,7 @@
 
             <h1 class="auth-screen__title">Crea una empresa nueva sin iniciar sesion</h1>
             <p class="auth-screen__copy">
-                Este flujo crea un tenant nuevo con sucursal principal, administrador inicial y configuracion base de comercio, facturacion y contabilidad.
+                Este flujo crea un tenant nuevo con sucursal principal, administrador inicial, branding base y configuracion inicial de comercio, facturacion y contabilidad.
             </p>
 
             <div class="auth-screen__card-grid">
@@ -35,15 +35,15 @@
                     <div class="auth-screen__mini-value">Correo + password temporal</div>
                 </div>
                 <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Produccion</div>
-                    <div class="auth-screen__mini-value">Activacion separada</div>
+                    <div class="auth-screen__mini-label">Branding</div>
+                    <div class="auth-screen__mini-value">Marca + tagline inicial</div>
                 </div>
             </div>
 
             <div class="auth-screen__company-strip">
                 <div class="auth-screen__company-chip">1. Organizacion y sucursal principal</div>
                 <div class="auth-screen__company-chip">2. Admin inicial con credenciales nuevas</div>
-                <div class="auth-screen__company-chip">3. La contrasena se muestra al finalizar el registro</div>
+                <div class="auth-screen__company-chip">3. Marca, soporte y slogan inicial del tenant</div>
             </div>
         </div>
 
@@ -123,6 +123,23 @@
                     </div>
 
                     <div class="col-md-6 auth-form__field">
+                        <label class="form-label">Nombre de marca</label>
+                        <input type="text" name="brand_name" value="{{ old('brand_name') }}" class="form-control">
+                        <div class="auth-screen__footer-note mt-2">Si lo dejas vacío, usaremos el nombre de la organización.</div>
+                        @error('brand_name')
+                            <div class="auth-form__error">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6 auth-form__field">
+                        <label class="form-label">Tagline institucional</label>
+                        <input type="text" name="tagline" value="{{ old('tagline') }}" class="form-control">
+                        @error('tagline')
+                            <div class="auth-form__error">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6 auth-form__field">
                         <label class="form-label">Email comercial</label>
                         <input type="email" name="contact_email" value="{{ old('contact_email') }}" class="form-control" required>
                         @error('contact_email')
@@ -131,9 +148,25 @@
                     </div>
 
                     <div class="col-md-6 auth-form__field">
+                        <label class="form-label">Email de soporte</label>
+                        <input type="email" name="support_email" value="{{ old('support_email') }}" class="form-control">
+                        @error('support_email')
+                            <div class="auth-form__error">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6 auth-form__field">
                         <label class="form-label">Telefono</label>
                         <input type="text" name="phone" value="{{ old('phone') }}" class="form-control">
                         @error('phone')
+                            <div class="auth-form__error">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6 auth-form__field">
+                        <label class="form-label">Telefono de soporte</label>
+                        <input type="text" name="support_phone" value="{{ old('support_phone') }}" class="form-control">
+                        @error('support_phone')
                             <div class="auth-form__error">{{ $message }}</div>
                         @enderror
                     </div>

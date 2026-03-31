@@ -2,6 +2,7 @@
 
 namespace Modules\Security\Livewire;
 
+use App\Services\OrganizationContextService;
 use Livewire\Component;
 use Modules\Security\Services\SecurityAuditService;
 use Modules\Security\Services\SecurityAuthorizationService;
@@ -19,9 +20,12 @@ class AuthenticationSettingsScreen extends Component
 
     public string $statusTone = 'success';
 
-    public function mount(SecurityAuthSettingsService $settingsService): void
+    public ?string $organizationName = null;
+
+    public function mount(SecurityAuthSettingsService $settingsService, OrganizationContextService $organizationContext): void
     {
         $this->form = $settingsService->getForView();
+        $this->organizationName = $organizationContext->current()?->name;
     }
 
     public function chooseAuthMethod(string $method): void
@@ -93,7 +97,7 @@ class AuthenticationSettingsScreen extends Component
 
         $this->form = $settingsService->update($validated['form']);
         $this->statusTone = 'success';
-        $this->statusMessage = 'Configuracion de autenticacion actualizada correctamente.';
+        $this->statusMessage = 'Configuracion de autenticacion actualizada correctamente para la organizacion actual.';
         $this->dispatch('security-auth-settings-updated');
 
         $audit->log(
@@ -103,6 +107,7 @@ class AuthenticationSettingsScreen extends Component
             message: 'Se actualizo la configuracion de autenticacion del panel.',
             actor: auth()->user(),
             context: [
+                'organization_name' => $this->organizationName,
                 'auth_method' => $this->form['auth_method'] ?? 'internal',
                 'ldap_enabled' => (bool) ($this->form['ldap_enabled'] ?? false),
                 'oauth_provider' => $this->form['oauth_provider'] ?? null,
@@ -152,6 +157,7 @@ class AuthenticationSettingsScreen extends Component
                 message: 'La prueba LDAP respondio correctamente.',
                 actor: auth()->user(),
                 context: [
+                    'organization_name' => $this->organizationName,
                     'identifier' => trim($validated['ldapTestIdentifier']),
                     'host' => $validated['form']['ldap_host'] ?? null,
                 ],
@@ -168,6 +174,7 @@ class AuthenticationSettingsScreen extends Component
                 message: $this->statusMessage,
                 actor: auth()->user(),
                 context: [
+                    'organization_name' => $this->organizationName,
                     'identifier' => trim($validated['ldapTestIdentifier']),
                     'host' => $validated['form']['ldap_host'] ?? null,
                 ],

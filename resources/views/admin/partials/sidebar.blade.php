@@ -14,11 +14,11 @@
     <flux:sidebar.header>
         <a href="{{ route('admin.dashboard') }}" wire:navigate.hover class="admin-brand">
             <span class="admin-brand__logo-wrap">
-                <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}" class="admin-brand__logo">
+                <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['brand_name'] }}" class="admin-brand__logo">
             </span>
             <span class="admin-brand__meta">
-                <span class="admin-brand__title">{{ $commerce['name'] }}</span>
-                <span class="admin-brand__subtitle">{{ $commerce['email'] ?: 'Operaciones comerciales' }}</span>
+                <span class="admin-brand__title">{{ $commerce['brand_name'] }}</span>
+                <span class="admin-brand__subtitle">{{ $commerce['tagline'] ?: ($commerce['support_email'] ?: 'Operaciones comerciales') }}</span>
             </span>
         </a>
     </flux:sidebar.header>
@@ -143,8 +143,3 @@
         </flux:button>
     </div>
 </flux:sidebar>
-
-
-
-
-

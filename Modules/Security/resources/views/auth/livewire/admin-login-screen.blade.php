@@ -6,17 +6,17 @@
             <div class="auth-screen__brand-lockup">
                 @if(!empty($commerce['logo_url']))
                     <div class="auth-screen__brand-logo">
-                        <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] ?? 'Empresa' }}">
+                        <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['brand_name'] ?? 'Empresa' }}">
                     </div>
                 @else
                     <div class="auth-screen__brand-logo auth-screen__brand-logo--fallback">
-                        {{ $resolvedOrganization ? \Illuminate\Support\Str::of($commerce['name'] ?? 'OR')->explode(' ')->filter()->take(2)->map(fn ($segment) => \Illuminate\Support\Str::substr($segment, 0, 1))->implode('') : 'ID' }}
+                        {{ $resolvedOrganization ? \Illuminate\Support\Str::of($commerce['brand_name'] ?? 'OR')->explode(' ')->filter()->take(2)->map(fn ($segment) => \Illuminate\Support\Str::substr($segment, 0, 1))->implode('') : 'ID' }}
                     </div>
                 @endif
 
                 <div>
                     <div class="auth-screen__eyebrow">Acceso administrativo</div>
-                    <div class="auth-screen__brand-name">{{ $commerce['name'] ?? 'Panel administrativo' }}</div>
+                    <div class="auth-screen__brand-name">{{ $commerce['brand_name'] ?? 'Panel administrativo' }}</div>
                     @if($resolvedOrganization)
                         <div class="auth-screen__brand-meta">{{ $resolvedOrganization->code }} · {{ $resolvedOrganization->slug }}</div>
                     @else
@@ -29,7 +29,7 @@
                 {{ $resolvedOrganization ? ($authSettings['login_headline'] ?? 'Ingreso seguro para operacion interna') : 'Selecciona tu organizacion antes de ingresar' }}
             </h1>
             <p class="auth-screen__copy">
-                {{ $resolvedOrganization ? ($authSettings['login_slogan'] ?? 'Este acceso toma la identidad visual configurada en el panel y permanece separado del login del ecommerce.') : 'Si tu correo existe en una sola organización, la resolveremos automáticamente. Si existe en varias, podrás elegir la correcta antes de validar contraseña, LDAP u otros proveedores.' }}
+                {{ $resolvedOrganization ? ($authSettings['login_slogan'] ?? ($commerce['tagline'] ?: 'Este acceso toma la identidad visual configurada en el panel y permanece separado del login del ecommerce.')) : 'Si tu correo existe en una sola organización, la resolveremos automáticamente. Si existe en varias, podrás elegir la correcta antes de validar contraseña, LDAP u otros proveedores.' }}
             </p>
 
             <div class="auth-screen__card-grid">
@@ -50,8 +50,13 @@
             </div>
 
             <div class="auth-screen__company-strip">
-                @if($resolvedOrganization && !empty($commerce['phone']))
+                @if($resolvedOrganization && !empty($commerce['support_phone']))
+                    <div class="auth-screen__company-chip">Soporte: {{ $commerce['support_phone'] }}</div>
+                @elseif($resolvedOrganization && !empty($commerce['phone']))
                     <div class="auth-screen__company-chip">Tel: {{ $commerce['phone'] }}</div>
+                @endif
+                @if($resolvedOrganization && !empty($commerce['support_email']))
+                    <div class="auth-screen__company-chip">Email: {{ $commerce['support_email'] }}</div>
                 @endif
                 @if($resolvedOrganization && !empty($commerce['tax_id']))
                     <div class="auth-screen__company-chip">RUC: {{ $commerce['tax_id'] }}</div>
@@ -66,7 +71,7 @@
             <div class="auth-screen__form-header">
                 <div>
                     <div class="auth-screen__kicker">Iniciar sesion</div>
-                    <h2 class="auth-screen__form-title">{{ $resolvedOrganization ? ($commerce['name'] ?? 'Panel administrativo') : 'Identificar organizacion' }}</h2>
+                    <h2 class="auth-screen__form-title">{{ $resolvedOrganization ? ($commerce['brand_name'] ?? 'Panel administrativo') : 'Identificar organizacion' }}</h2>
                 </div>
 
                 <flux:badge color="zinc">-V.1.1-</flux:badge>

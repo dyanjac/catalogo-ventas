@@ -2,13 +2,17 @@
 
 namespace Modules\Security\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 
 class SecurityAuthSetting extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'security_auth_settings';
 
     protected $fillable = [
+        'organization_id',
         'session_lifetime_hours',
         'auth_method',
         'password_min_length',

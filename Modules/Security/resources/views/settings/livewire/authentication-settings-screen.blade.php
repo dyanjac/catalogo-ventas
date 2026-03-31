@@ -14,6 +14,11 @@
         </div>
     </x-admin.page-header>
 
+    <div class="security-settings-alert" data-tone="info">
+        Estas configurando el branding y los providers de autenticacion para la organizacion actual:
+        <strong>{{ $organizationName ?: 'Sin contexto organizacional' }}</strong>
+    </div>
+
     @if($statusMessage)
         <div class="security-settings-alert" data-tone="{{ $statusTone }}">
             {{ $statusMessage }}
@@ -27,7 +32,7 @@
                     <div class="security-card__eyebrow">Configuration</div>
                     <h3 class="security-card__title">Parametros base del acceso</h3>
                 </div>
-                <flux:badge color="sky">Security module</flux:badge>
+                <flux:badge color="sky">Tenant actual</flux:badge>
             </div>
 
             <div class="security-form-grid security-form-grid--2">

@@ -2,11 +2,17 @@
 
 namespace Modules\Security\Services;
 
+use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Schema;
 use Modules\Security\Models\SecurityAuthSetting;
 
 class SecurityAuthSettingsService
 {
+    public function __construct(
+        private readonly OrganizationContextService $organizationContext
+    ) {
+    }
+
     public function defaults(): array
     {
         return config('security.auth', []);
@@ -20,7 +26,7 @@ class SecurityAuthSettingsService
             return $defaults;
         }
 
-        $setting = SecurityAuthSetting::query()->first();
+        $setting = $this->currentSetting();
 
         if (! $setting) {
             return $defaults;
@@ -45,11 +51,37 @@ class SecurityAuthSettingsService
             return array_merge($defaults, $payload);
         }
 
-        $setting = SecurityAuthSetting::query()->firstOrNew(['id' => 1]);
-        $setting->fill($payload);
-        $setting->save();
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            $payload['organization_id'] = $organizationId;
+        }
+
+        $setting = SecurityAuthSetting::query()->updateOrCreate(
+            ['organization_id' => $organizationId],
+            $payload
+        );
 
         return array_merge($defaults, $setting->only(array_keys($defaults)));
+    }
+
+    private function currentSetting(): ?SecurityAuthSetting
+    {
+        $query = SecurityAuthSetting::query();
+
+        if (! Schema::hasColumn('security_auth_settings', 'organization_id')) {
+            return $query->first();
+        }
+
+        $organizationId = $this->organizationContext->currentOrganizationId();
+
+        if ($organizationId) {
+            return $query->where('organization_id', $organizationId)->first()
+                ?? SecurityAuthSetting::query()->whereNull('organization_id')->first()
+                ?? SecurityAuthSetting::query()->first();
+        }
+
+        return $query->whereNull('organization_id')->first() ?? $query->first();
     }
 
     private function normalizeValue(string $key, mixed $value): mixed

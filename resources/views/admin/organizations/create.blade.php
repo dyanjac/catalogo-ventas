@@ -13,7 +13,7 @@
 
         <x-admin.form-card :action="route('admin.organizations.store')" submit-label="Crear organización demo" :cancel-href="route('admin.organizations.index')">
             <div class="alert alert-warning border-0">
-                <strong>Provisionamiento rápido:</strong> esta acción crea la organización, la sucursal principal, el usuario administrador inicial y los settings base en entorno <strong>DEMO</strong>.
+                <strong>Provisionamiento rápido:</strong> esta acción crea la organización, la sucursal principal, el usuario administrador inicial, el branding base y los settings operativos en entorno <strong>DEMO</strong>.
             </div>
 
             <div class="row g-4">
@@ -38,6 +38,17 @@
 
                     <div class="row g-3 mt-0">
                         <div class="col-md-6">
+                            <label class="form-label">Nombre de marca</label>
+                            <input type="text" name="brand_name" value="{{ old('brand_name') }}" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tagline institucional</label>
+                            <input type="text" name="tagline" value="{{ old('tagline') }}" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        <div class="col-md-6">
                             <label class="form-label">RUC / Tax ID</label>
                             <input type="text" name="tax_id" value="{{ old('tax_id') }}" class="form-control">
                         </div>
@@ -49,8 +60,19 @@
 
                     <div class="row g-3 mt-0">
                         <div class="col-md-6">
+                            <label class="form-label">Email de soporte</label>
+                            <input type="email" name="support_email" value="{{ old('support_email') }}" class="form-control">
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Teléfono</label>
                             <input type="text" name="phone" value="{{ old('phone') }}" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono de soporte</label>
+                            <input type="text" name="support_phone" value="{{ old('support_phone') }}" class="form-control">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Ciudad</label>
@@ -92,7 +114,7 @@
                         <ul class="mb-0 ps-3">
                             <li>Entorno inicial fijo en <strong>DEMO</strong>.</li>
                             <li>Contraseña del admin generada automáticamente.</li>
-                            <li>Comercio, facturación y contabilidad quedan con settings base.</li>
+                            <li>Marca, tagline y soporte quedan sembrados desde el inicio.</li>
                             <li>La activación a <strong>PRODUCCIÓN</strong> será una fase separada.</li>
                         </ul>
                     </div>

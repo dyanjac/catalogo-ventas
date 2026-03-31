@@ -14,20 +14,34 @@
                     method="PUT"
                     enctype="multipart/form-data"
                     submit-label="Guardar configuracion"
-                    title="Datos principales del comercio"
+                    title="Identidad institucional del tenant"
                 >
                         <div class="row g-3">
-                            <div class="col-md-8">
-                                <label class="form-label">Nombre de la empresa o compania</label>
+                            <div class="col-md-6">
+                                <label class="form-label">Nombre de marca</label>
+                                <input type="text" name="brand_name" class="form-control" value="{{ old('brand_name', $setting->brand_name) }}">
+                                <small class="text-muted">Se usa en login admin, sidebar, topbar y vistas institucionales.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Razon social / nombre legal</label>
                                 <input type="text" name="company_name" class="form-control" value="{{ old('company_name', $setting->company_name) }}" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Tagline institucional</label>
+                                <input type="text" name="tagline" class="form-control" value="{{ old('tagline', $setting->tagline) }}">
+                                <small class="text-muted">Mensaje corto para login admin y cabeceras del tenant.</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">RUC o identificador</label>
                                 <input type="text" name="tax_id" class="form-control" value="{{ old('tax_id', $setting->tax_id) }}">
                             </div>
-                            <div class="col-md-8">
-                                <label class="form-label">Correo</label>
+                            <div class="col-md-4">
+                                <label class="form-label">Correo principal</label>
                                 <input type="email" name="email" class="form-control" value="{{ old('email', $setting->email) }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Correo de soporte</label>
+                                <input type="email" name="support_email" class="form-control" value="{{ old('support_email', $setting->support_email) }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Telefono</label>
@@ -36,6 +50,10 @@
                             <div class="col-md-4">
                                 <label class="form-label">Celular</label>
                                 <input type="text" name="mobile" class="form-control" value="{{ old('mobile', $setting->mobile) }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Telefono de soporte</label>
+                                <input type="text" name="support_phone" class="form-control" value="{{ old('support_phone', $setting->support_phone) }}">
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label">Direccion</label>
@@ -54,18 +72,20 @@
                 <x-admin.info-card title="Vista previa">
                         <div class="text-center mb-3">
                             @if($setting->logo_url)
-                                <img src="{{ $setting->logo_url }}" alt="{{ $setting->company_name }}" class="img-fluid rounded border p-2 bg-white" style="max-height: 180px; object-fit: contain;">
+                                <img src="{{ $setting->logo_url }}" alt="{{ $setting->brand_name ?: $setting->company_name }}" class="img-fluid rounded border p-2 bg-white" style="max-height: 180px; object-fit: contain;">
                             @else
                                 <div class="border rounded p-4 text-muted">Sin logo cargado</div>
                             @endif
                         </div>
-                        <h4 class="mb-1">{{ $setting->company_name }}</h4>
-                        <div class="text-muted mb-2">{{ $setting->email ?: 'Sin correo' }}</div>
+                        <h4 class="mb-1">{{ $setting->brand_name ?: $setting->company_name }}</h4>
+                        <div class="text-muted mb-1">{{ $setting->tagline ?: 'Sin tagline institucional' }}</div>
+                        <div class="text-muted mb-2">{{ $setting->support_email ?: $setting->email ?: 'Sin correo' }}</div>
                         <x-admin.detail-grid
                             :items="[
+                                ['label' => 'Razon social', 'value' => $setting->company_name ?: '-', 'class' => 'col-12'],
                                 ['label' => 'RUC/ID', 'value' => $setting->tax_id ?: '-', 'class' => 'col-12'],
                                 ['label' => 'Telefono', 'value' => $setting->phone ?: '-', 'class' => 'col-12'],
-                                ['label' => 'Celular', 'value' => $setting->mobile ?: '-', 'class' => 'col-12'],
+                                ['label' => 'Soporte', 'value' => $setting->support_phone ?: $setting->mobile ?: '-', 'class' => 'col-12'],
                                 ['label' => 'Direccion', 'value' => $setting->address ?: '-', 'class' => 'col-12'],
                             ]"
                             columns="col-12"
@@ -77,12 +97,16 @@
                             <form method="POST" action="{{ route('admin.settings.update') }}">
                                 @csrf
                                 @method('PUT')
+                                <input type="hidden" name="brand_name" value="{{ $setting->brand_name }}">
                                 <input type="hidden" name="company_name" value="{{ $setting->company_name }}">
+                                <input type="hidden" name="tagline" value="{{ $setting->tagline }}">
                                 <input type="hidden" name="tax_id" value="{{ $setting->tax_id }}">
                                 <input type="hidden" name="address" value="{{ $setting->address }}">
                                 <input type="hidden" name="phone" value="{{ $setting->phone }}">
                                 <input type="hidden" name="mobile" value="{{ $setting->mobile }}">
+                                <input type="hidden" name="support_phone" value="{{ $setting->support_phone }}">
                                 <input type="hidden" name="email" value="{{ $setting->email }}">
+                                <input type="hidden" name="support_email" value="{{ $setting->support_email }}">
                                 <input type="hidden" name="remove_logo" value="1">
                                 <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar logo</button>
                             </form>

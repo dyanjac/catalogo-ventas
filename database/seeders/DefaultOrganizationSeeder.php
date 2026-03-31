@@ -8,6 +8,7 @@ use Modules\Accounting\Models\AccountingSetting;
 use Modules\AdminTheme\Models\AdminThemeSetting;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Security\Models\SecurityAuthSetting;
 use Modules\Security\Models\SecurityBranch;
 
 class DefaultOrganizationSeeder extends Seeder
@@ -56,15 +57,25 @@ class DefaultOrganizationSeeder extends Seeder
             ->where('is_default', true)
             ->update(['is_default' => false]);
 
+        $brandName = (string) config('commerce.brand_name', $organization->name);
+        $tagline = (string) config('commerce.tagline', 'Panel administrativo de la organizacion base');
+        $email = (string) config('commerce.email', '');
+        $phone = (string) config('commerce.phone', '');
+        $mobile = (string) config('commerce.mobile', '');
+
         CommerceSetting::query()->updateOrCreate(
             ['organization_id' => $organization->id],
             [
+                'brand_name' => $brandName,
                 'company_name' => $organization->name,
+                'tagline' => $tagline,
                 'tax_id' => $organization->tax_id,
                 'address' => (string) config('commerce.address', ''),
-                'phone' => (string) config('commerce.phone', ''),
-                'mobile' => (string) config('commerce.mobile', ''),
-                'email' => (string) config('commerce.email', ''),
+                'phone' => $phone,
+                'mobile' => $mobile,
+                'support_phone' => (string) config('commerce.support_phone', $phone !== '' ? $phone : $mobile),
+                'email' => $email,
+                'support_email' => (string) config('commerce.support_email', $email),
             ]
         );
 
@@ -102,6 +113,15 @@ class DefaultOrganizationSeeder extends Seeder
         AdminThemeSetting::query()->updateOrCreate(
             ['organization_id' => $organization->id],
             array_merge(['organization_id' => $organization->id], config('admintheme.defaults', []))
+        );
+
+        SecurityAuthSetting::query()->updateOrCreate(
+            ['organization_id' => $organization->id],
+            [
+                'organization_id' => $organization->id,
+                'login_headline' => (string) config('security.auth.login_headline', 'Ingreso seguro para operacion interna'),
+                'login_slogan' => $tagline,
+            ]
         );
     }
 }

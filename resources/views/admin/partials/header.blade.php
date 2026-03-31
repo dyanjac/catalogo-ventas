@@ -32,11 +32,11 @@
 
             <div class="admin-topbar__brand">
                 <div class="admin-topbar__brand-mark">
-                    <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['name'] }}">
+                    <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['brand_name'] }}">
                 </div>
                 <div class="admin-topbar__title">
                     <div class="admin-topbar__eyebrow">
-                        <span class="admin-topbar__eyebrow-badge">Monolito modular</span>
+                        <span class="admin-topbar__eyebrow-badge">{{ $commerce['brand_name'] }}</span>
                         @if($isDemo)
                             <span class="admin-topbar__eyebrow-badge admin-topbar__eyebrow-badge--demo">
                                 Entorno {{ $environment }}
@@ -47,11 +47,10 @@
                     <div>
                         <h1 class="admin-topbar__heading">{{ $pageTitle }}</h1>
                         <p class="admin-topbar__subtitle">
-                            {{ $commerce['name'] }}
+                            {{ $commerce['tagline'] ?: $commerce['legal_name'] }}
                             @if($orgName)
                                 · {{ $orgName }}
                             @endif
-                            · Panel administrativo centralizado con módulos desacoplados.
                         </p>
                     </div>
                 </div>
@@ -59,7 +58,17 @@
         </div>
 
         <div class="admin-topbar__actions">
-            @if($commerce['mobile_digits'])
+            @if($commerce['support_phone_digits'])
+                <flux:button
+                    href="tel:{{ $commerce['support_phone_digits'] }}"
+                    variant="outline"
+                    icon="phone"
+                    size="sm"
+                    class="d-none d-xl-inline-flex"
+                >
+                    {{ $commerce['support_phone'] }}
+                </flux:button>
+            @elseif($commerce['mobile_digits'])
                 <flux:button
                     href="{{ $commerce['whatsapp_url'] }}?text=Hola%2C%20necesito%20apoyo%20comercial."
                     target="_blank"
@@ -124,7 +133,3 @@
         </div>
     @endif
 </header>
-
-
-
-

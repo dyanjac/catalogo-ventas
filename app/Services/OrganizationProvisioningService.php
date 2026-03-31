@@ -10,6 +10,7 @@ use Modules\Accounting\Models\AccountingSetting;
 use Modules\AdminTheme\Models\AdminThemeSetting;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Security\Models\SecurityAuthSetting;
 use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
 use RuntimeException;
@@ -23,9 +24,16 @@ class OrganizationProvisioningService
     public function provisionDemoOrganization(array $data): array
     {
         return DB::transaction(function () use ($data): array {
+            $organizationName = trim((string) $data['organization_name']);
+            $brandName = $this->nullableString($data['brand_name'] ?? null) ?? $organizationName;
+            $contactEmail = Str::lower(trim((string) $data['contact_email']));
+            $supportEmail = $this->nullableString($data['support_email'] ?? null) ?? $contactEmail;
+            $supportPhone = $this->nullableString($data['support_phone'] ?? null) ?? $this->nullableString($data['phone'] ?? null);
+            $tagline = $this->nullableString($data['tagline'] ?? null) ?? ('Panel administrativo de '.$brandName);
+
             $organization = Organization::query()->create([
                 'code' => Str::upper(trim((string) $data['organization_code'])),
-                'name' => trim((string) $data['organization_name']),
+                'name' => $organizationName,
                 'slug' => Str::slug((string) $data['organization_slug']),
                 'tax_id' => $this->nullableString($data['tax_id'] ?? null),
                 'status' => 'active',
@@ -80,12 +88,16 @@ class OrganizationProvisioningService
 
             CommerceSetting::query()->create([
                 'organization_id' => $organization->id,
+                'brand_name' => $brandName,
                 'company_name' => $organization->name,
+                'tagline' => $tagline,
                 'tax_id' => $organization->tax_id,
                 'address' => $this->nullableString($data['address'] ?? null),
                 'phone' => $this->nullableString($data['phone'] ?? null),
                 'mobile' => $this->nullableString($data['phone'] ?? null),
-                'email' => Str::lower(trim((string) $data['contact_email'])),
+                'support_phone' => $supportPhone,
+                'email' => $contactEmail,
+                'support_email' => $supportEmail,
             ]);
 
             BillingSetting::query()->create([
@@ -116,6 +128,7 @@ class OrganizationProvisioningService
             ]);
 
             $this->seedDefaultAdminPalette($organization->id);
+            $this->seedDefaultSecurityAuthBranding($organization->id, $brandName, $tagline);
 
             return [
                 'organization' => $organization,
@@ -139,25 +152,34 @@ class OrganizationProvisioningService
                 'tax_id' => $this->nullableString($data['tax_id'] ?? null),
             ])->save();
 
+            $brandName = $this->nullableString($data['brand_name'] ?? null) ?? trim((string) ($data['company_name'] ?? $data['organization_name']));
+            $tagline = $this->nullableString($data['tagline'] ?? null) ?? ('Panel administrativo de '.$brandName);
+            $contactEmail = Str::lower(trim((string) $data['contact_email']));
+            $supportEmail = $this->nullableString($data['support_email'] ?? null) ?? $contactEmail;
+            $supportPhone = $this->nullableString($data['support_phone'] ?? null) ?? $this->nullableString($data['phone'] ?? null) ?? $this->nullableString($data['mobile'] ?? null);
+
             CommerceSetting::query()->updateOrCreate(
                 ['organization_id' => $organization->id],
                 [
+                    'brand_name' => $brandName,
                     'company_name' => trim((string) ($data['company_name'] ?? $data['organization_name'])),
+                    'tagline' => $tagline,
                     'tax_id' => $this->nullableString($data['tax_id'] ?? null),
                     'address' => $this->nullableString($data['address'] ?? null),
                     'phone' => $this->nullableString($data['phone'] ?? null),
                     'mobile' => $this->nullableString($data['mobile'] ?? null),
-                    'email' => Str::lower(trim((string) $data['contact_email'])),
+                    'support_phone' => $supportPhone,
+                    'email' => $contactEmail,
+                    'support_email' => $supportEmail,
                 ],
             );
+
+            $this->seedDefaultSecurityAuthBranding($organization->id, $brandName, $tagline);
 
             return $organization->fresh();
         });
     }
 
-    /**
-     * @param array<string,mixed> $data
-     */
     public function updatePrimaryBranch(Organization $organization, array $data): SecurityBranch
     {
         return DB::transaction(function () use ($organization, $data): SecurityBranch {
@@ -211,9 +233,6 @@ class OrganizationProvisioningService
         });
     }
 
-    /**
-     * @param array<string,mixed> $data
-     */
     public function updateInitialAdmin(Organization $organization, array $data): User
     {
         return DB::transaction(function () use ($organization, $data): User {
@@ -270,9 +289,6 @@ class OrganizationProvisioningService
         });
     }
 
-    /**
-     * @return array{admin:User,password:string}
-     */
     public function recoverInitialAdmin(Organization $organization): array
     {
         return DB::transaction(function () use ($organization): array {
@@ -351,9 +367,6 @@ class OrganizationProvisioningService
         return $organization->fresh();
     }
 
-    /**
-     * @return array<int,array{ok:bool,label:string,message:string}>
-     */
     public function productionReadinessChecks(Organization $organization): array
     {
         $organization->loadMissing(['branches', 'users']);
@@ -454,6 +467,28 @@ class OrganizationProvisioningService
         AdminThemeSetting::query()->updateOrCreate(
             ['organization_id' => $organizationId],
             array_merge(['organization_id' => $organizationId], $defaults)
+        );
+    }
+
+    private function seedDefaultSecurityAuthBranding(int $organizationId, string $brandName, string $tagline): void
+    {
+        if (! class_exists(SecurityAuthSetting::class)) {
+            return;
+        }
+
+        $defaults = config('security.auth', []);
+
+        if ($defaults === []) {
+            return;
+        }
+
+        SecurityAuthSetting::query()->updateOrCreate(
+            ['organization_id' => $organizationId],
+            [
+                'organization_id' => $organizationId,
+                'login_headline' => $defaults['login_headline'] ?? ('Ingreso seguro a '.$brandName),
+                'login_slogan' => $tagline,
+            ]
         );
     }
 

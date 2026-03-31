@@ -31,12 +31,16 @@ class CommerceSettingController extends Controller
         $setting = $this->setting();
 
         $data = $request->validate([
+            'brand_name' => ['nullable', 'string', 'max:160'],
             'company_name' => ['required', 'string', 'max:160'],
+            'tagline' => ['nullable', 'string', 'max:255'],
             'tax_id' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
             'mobile' => ['nullable', 'string', 'max:30'],
+            'support_phone' => ['nullable', 'string', 'max:30'],
             'email' => ['required', 'email', 'max:255'],
+            'support_email' => ['nullable', 'email', 'max:255'],
             'logo_file' => ['nullable', 'image', 'max:4096'],
             'remove_logo' => ['nullable', 'boolean'],
         ]);

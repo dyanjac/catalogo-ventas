@@ -35,6 +35,7 @@ class CommerceSettingsService
         $fallbackPhone = (string) config('commerce.phone', '');
         $fallbackMobile = (string) config('commerce.mobile', '');
         $fallbackTaxId = (string) config('commerce.tax_id', '');
+        $fallbackTagline = (string) config('commerce.tagline', '');
 
         $setting = null;
 
@@ -42,24 +43,35 @@ class CommerceSettingsService
             $setting = $this->currentSetting();
         }
 
+        $brandName = $setting?->brand_name ?: $setting?->company_name ?: $fallbackName;
+        $legalName = $setting?->company_name ?: $fallbackName;
         $resolvedLogoUrl = $setting?->logo_path
             ? asset('storage/'.$setting->logo_path)
             : $this->resolveLogoUrl($fallbackLogo);
 
         $resolvedPhone = $setting?->phone ?: $fallbackPhone;
         $resolvedMobile = $setting?->mobile ?: $fallbackMobile;
+        $supportPhone = $setting?->support_phone ?: $resolvedPhone ?: $resolvedMobile;
+        $supportEmail = $setting?->support_email ?: $setting?->email ?: $fallbackEmail;
         $mobileDigits = preg_replace('/\D+/', '', $resolvedMobile);
         $phoneDigits = preg_replace('/\D+/', '', $resolvedPhone);
+        $supportPhoneDigits = preg_replace('/\D+/', '', (string) $supportPhone);
 
         return [
-            'name' => $setting?->company_name ?: $fallbackName,
+            'name' => $brandName,
+            'brand_name' => $brandName,
+            'legal_name' => $legalName,
+            'tagline' => $setting?->tagline ?: $fallbackTagline,
             'tax_id' => $setting?->tax_id ?: $fallbackTaxId,
             'address' => $setting?->address ?: $fallbackAddress,
             'phone' => $resolvedPhone,
             'phone_digits' => $phoneDigits,
             'mobile' => $resolvedMobile,
             'mobile_digits' => $mobileDigits,
+            'support_phone' => $supportPhone,
+            'support_phone_digits' => $supportPhoneDigits,
             'email' => $setting?->email ?: $fallbackEmail,
+            'support_email' => $supportEmail,
             'logo_url' => $resolvedLogoUrl,
             'whatsapp_url' => $mobileDigits !== '' ? 'https://wa.me/'.$mobileDigits : null,
         ];
