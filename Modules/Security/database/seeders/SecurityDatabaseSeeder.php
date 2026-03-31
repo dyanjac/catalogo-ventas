@@ -25,8 +25,15 @@ class SecurityDatabaseSeeder extends Seeder
 
     private function seedBranches(): void
     {
+        $organization = Organization::query()->where('is_default', true)->first()
+            ?? Organization::query()->orderBy('id')->first();
+
+        if (! $organization) {
+            return;
+        }
+
         SecurityBranch::query()->updateOrCreate(
-            ['code' => 'MAIN'],
+            ['organization_id' => $organization->id, 'code' => 'MAIN'],
             [
                 'name' => 'Sucursal principal',
                 'city' => null,
@@ -307,6 +314,8 @@ class SecurityDatabaseSeeder extends Seeder
             });
     }
 }
+
+
 
 
 

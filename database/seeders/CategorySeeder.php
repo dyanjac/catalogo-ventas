@@ -2,19 +2,37 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
-use App\Models\Category;
+use Illuminate\Support\Str;
+use Modules\Catalog\Entities\Category;
 
 class CategorySeeder extends Seeder
 {
-    public function run(): void {
+    public function run(): void
+    {
+        $organization = Organization::query()->where('is_default', true)->first()
+            ?? Organization::query()->orderBy('id')->first();
+
+        if (! $organization) {
+            return;
+        }
+
         foreach ([
-            ['name'=>'Electrónica','slug'=>'electronica'],
-            ['name'=>'Hogar','slug'=>'hogar'],
-            ['name'=>'Ropa','slug'=>'ropa'],
-        ] as $c) {
-            Category::firstOrCreate(['slug'=>$c['slug']], $c);
+            ['name' => 'Electronica', 'slug' => 'electronica'],
+            ['name' => 'Hogar', 'slug' => 'hogar'],
+            ['name' => 'Ropa', 'slug' => 'ropa'],
+        ] as $category) {
+            Category::query()->updateOrCreate(
+                [
+                    'organization_id' => $organization->id,
+                    'slug' => Str::slug($category['slug']),
+                ],
+                [
+                    'name' => $category['name'],
+                    'description' => null,
+                ]
+            );
         }
     }
 }
