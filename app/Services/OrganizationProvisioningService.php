@@ -31,7 +31,7 @@ class OrganizationProvisioningService
                 'environment' => 'demo',
                 'is_default' => false,
                 'settings_json' => [
-                    'provisioned_via' => 'admin_quick_onboarding',
+                    'provisioned_via' => (string) ($data['provisioned_via'] ?? 'admin_quick_onboarding'),
                     'provisioned_at' => now()->toDateTimeString(),
                 ],
             ]);
@@ -73,7 +73,7 @@ class OrganizationProvisioningService
                 $superAdminRole->id => [
                     'scope' => 'all',
                     'is_active' => true,
-                    'context' => ['source' => 'organization_provisioning'],
+                    'context' => json_encode(['source' => 'organization_provisioning']),
                 ],
             ]);
 
@@ -101,8 +101,8 @@ class OrganizationProvisioningService
                 'receipt_series' => 'B001',
                 'credit_note_series' => 'FC01',
                 'debit_note_series' => 'FD01',
-                'default_invoice_operation_code' => '0101',
-                'default_receipt_operation_code' => '0101',
+                'default_invoice_operation_code' => '01',
+                'default_receipt_operation_code' => '01',
             ]);
 
             AccountingSetting::query()->create([
@@ -259,7 +259,7 @@ class OrganizationProvisioningService
                 $superAdminRole->id => [
                     'scope' => 'all',
                     'is_active' => true,
-                    'context' => ['source' => 'organization_admin_maintenance'],
+                    'context' => json_encode(['source' => 'organization_admin_maintenance']),
                 ],
             ]);
 
@@ -311,7 +311,7 @@ class OrganizationProvisioningService
                 $superAdminRole->id => [
                     'scope' => 'all',
                     'is_active' => true,
-                    'context' => ['source' => 'organization_admin_recovery'],
+                    'context' => json_encode(['source' => 'organization_admin_recovery']),
                 ],
             ]);
 
@@ -450,3 +450,7 @@ class OrganizationProvisioningService
         return $value !== '' ? $value : null;
     }
 }
+
+
+
+

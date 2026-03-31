@@ -307,7 +307,7 @@ class LdapDirectoryService
                 $role->id => [
                     'scope' => 'all',
                     'is_active' => true,
-                    'context' => ['source' => 'ldap'],
+                    'context' => json_encode(['source' => 'ldap']),
                 ],
             ])->all()
         );
@@ -541,3 +541,4 @@ class LdapDirectoryService
         return trim((string) $entry[$attribute][0]);
     }
 }
+

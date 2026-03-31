@@ -46,3 +46,4 @@ class SecurityRole extends Model
             ->withTimestamps();
     }
 }
+

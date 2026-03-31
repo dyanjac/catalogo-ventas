@@ -25,6 +25,16 @@
                                         <div>3. Seguridad empresarial: modulo Security</div>
                                     </div>
                                 </div>
+
+                                <div class="rounded-4 border border-primary-subtle bg-primary-subtle bg-opacity-25 p-4 mt-4">
+                                    <div class="fw-semibold mb-2">Alta SaaS sin login previo</div>
+                                    <p class="text-muted mb-3">
+                                        Si todavia no tienes empresa creada en la plataforma, puedes registrar una organizacion nueva en modo DEMO y recibir el acceso administrativo inicial.
+                                    </p>
+                                    <a href="{{ route('saas.register.create') }}" class="btn btn-outline-primary rounded-pill px-4">
+                                        Crear nueva organizacion
+                                    </a>
+                                </div>
                             </div>
                         </div>
 
@@ -72,3 +82,4 @@
         </div>
     </section>
 @endsection
+
