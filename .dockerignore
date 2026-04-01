@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vscode
+node_modules
+vendor
+.env
+.phpunit.result.cache
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*.php
+tests
+docs
+chat
