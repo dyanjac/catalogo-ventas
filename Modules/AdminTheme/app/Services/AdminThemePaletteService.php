@@ -4,6 +4,7 @@ namespace Modules\AdminTheme\Services;
 
 use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Modules\AdminTheme\Models\AdminThemeSetting;
 
 class AdminThemePaletteService
@@ -42,14 +43,21 @@ class AdminThemePaletteService
             $payload[$key] = $this->normalizeColor($data[$key] ?? null, $defaults[$key]);
         }
 
-        if ($organizationId) {
+        if ($organizationId && $this->supportsOrganizationScope()) {
             $payload['organization_id'] = $organizationId;
         }
 
-        AdminThemeSetting::query()->updateOrCreate(
-            ['organization_id' => $organizationId],
-            $payload
-        );
+        if ($this->supportsOrganizationScope()) {
+            AdminThemeSetting::query()->updateOrCreate(
+                ['organization_id' => $organizationId],
+                $payload
+            );
+        } else {
+            AdminThemeSetting::query()->updateOrCreate(
+                ['id' => 1],
+                $payload
+            );
+        }
 
         Cache::forget($this->cacheKey($organizationId));
     }
@@ -58,9 +66,13 @@ class AdminThemePaletteService
     {
         $organizationId = $this->organizationContext->currentOrganizationId();
 
-        if ($organizationId) {
+        if ($organizationId && $this->supportsOrganizationScope()) {
             AdminThemeSetting::query()
                 ->where('organization_id', $organizationId)
+                ->delete();
+        } else {
+            AdminThemeSetting::query()
+                ->whereKey(1)
                 ->delete();
         }
 
@@ -76,10 +88,12 @@ class AdminThemePaletteService
         }
 
         return Cache::rememberForever($this->cacheKey($organizationId), function () use ($defaults, $organizationId) {
-            $setting = AdminThemeSetting::query()
-                ->where('organization_id', $organizationId)
-                ->latest('id')
-                ->first();
+            $setting = $this->supportsOrganizationScope()
+                ? AdminThemeSetting::query()
+                    ->where('organization_id', $organizationId)
+                    ->latest('id')
+                    ->first()
+                : AdminThemeSetting::query()->latest('id')->first();
 
             if (! $setting) {
                 return $defaults;
@@ -95,6 +109,13 @@ class AdminThemePaletteService
     private function cacheKey(?int $organizationId): string
     {
         return 'admin_theme_palette_v1:' . ($organizationId ?: 'default');
+    }
+
+    private function supportsOrganizationScope(): bool
+    {
+        static $supportsOrganizationScope;
+
+        return $supportsOrganizationScope ??= Schema::hasColumn('admin_theme_settings', 'organization_id');
     }
 
     private function normalizeColor(mixed $value, string $fallback): string
