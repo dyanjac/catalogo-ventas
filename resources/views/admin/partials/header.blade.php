@@ -49,7 +49,7 @@
                         <p class="admin-topbar__subtitle">
                             {{ $commerce['tagline'] ?: $commerce['legal_name'] }}
                             @if($orgName)
-                                · {{ $orgName }}
+                                &middot; {{ $orgName }}
                             @endif
                         </p>
                     </div>
@@ -95,15 +95,15 @@
                 Ver tienda
             </flux:button>
 
-            <flux:dropdown position="bottom" align="end">
+            <flux:dropdown position="bottom" align="end" class="admin-user-menu">
                 <flux:profile
                     :name="$user?->name"
                     :initials="$initials !== '' ? $initials : 'AD'"
                     circle
                 />
 
-                <flux:menu>
-                    <flux:menu.item icon="user-circle">
+                <flux:menu class="admin-user-menu__panel">
+                    <flux:menu.item icon="user-circle" class="admin-user-menu__identity">
                         {{ $user?->email }}
                     </flux:menu.item>
 
@@ -129,7 +129,7 @@
     @if($isDemo)
         <div class="admin-topbar__demo-banner">
             <strong>ENTORNO DEMO</strong>
-            <span>Estás operando sobre datos de demostración{{ $orgName ? ' de '.$orgName : '' }}.</span>
+            <span>Estas operando sobre datos de demostracion{{ $orgName ? ' de ' . $orgName : '' }}.</span>
         </div>
     @endif
 </header>

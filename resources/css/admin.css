@@ -810,6 +810,74 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
     justify-content: flex-end;
 }
 
+.admin-user-menu [data-flux-profile] {
+    padding: 0.35rem 0.45rem;
+    border-radius: 999px;
+    background: var(--admin-user-menu-trigger-bg);
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 72%, white);
+    color: var(--admin-user-menu-trigger-text) !important;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--admin-topbar-text) 8%, transparent);
+}
+
+.admin-user-menu [data-flux-profile]:hover,
+.admin-user-menu [data-flux-profile]:focus-visible {
+    background: color-mix(in srgb, var(--admin-user-menu-trigger-bg) 82%, var(--admin-user-menu-dropdown-hover-bg));
+    color: var(--admin-user-menu-trigger-text) !important;
+}
+
+.admin-user-menu [data-flux-profile] span,
+.admin-user-menu [data-flux-profile] svg,
+.admin-user-menu [data-flux-profile] [data-flux-icon] {
+    color: inherit !important;
+}
+
+.admin-user-menu [data-flux-avatar] {
+    background: var(--admin-active-link-bg) !important;
+    color: var(--admin-active-link-text) !important;
+}
+
+.admin-user-menu [data-flux-avatar]::after {
+    inset-ring-color: transparent;
+}
+
+.admin-user-menu [data-flux-menu] {
+    min-width: 16rem;
+    padding: 0.45rem;
+    border-radius: 1rem;
+    background: var(--admin-user-menu-dropdown-bg);
+    border: 1px solid color-mix(in srgb, var(--admin-card-border) 72%, white);
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--admin-topbar-text) 14%, transparent);
+    backdrop-filter: blur(14px);
+}
+
+.admin-user-menu [data-flux-menu-item] {
+    border-radius: 0.8rem;
+    color: var(--admin-user-menu-dropdown-text) !important;
+}
+
+.admin-user-menu [data-flux-menu-item] [data-content],
+.admin-user-menu [data-flux-menu-item] [data-flux-icon],
+.admin-user-menu [data-flux-menu-item] svg {
+    color: inherit !important;
+}
+
+.admin-user-menu [data-flux-menu-item]:hover,
+.admin-user-menu [data-flux-menu-item]:focus-visible {
+    background: var(--admin-user-menu-dropdown-hover-bg) !important;
+    color: var(--admin-user-menu-dropdown-hover-text) !important;
+}
+
+.admin-user-menu__identity,
+.admin-user-menu__identity [data-content],
+.admin-user-menu__identity [data-flux-icon] {
+    color: color-mix(in srgb, var(--admin-user-menu-dropdown-text) 78%, #475569) !important;
+    font-weight: 700;
+}
+
+.admin-user-menu [data-flux-menu-separator] {
+    border-color: color-mix(in srgb, var(--admin-card-border) 72%, white) !important;
+}
+
 .admin-topbar__title {
     display: flex;
     flex-direction: column;

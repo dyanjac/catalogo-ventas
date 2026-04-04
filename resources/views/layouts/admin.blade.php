@@ -23,6 +23,12 @@
             --admin-sidebar-group-bg: {{ $palette['sidebar_group_bg'] ?? ($palette['active_link_bg'] ?? '#d4a64a') }};
             --admin-topbar-bg: {{ $palette['topbar_bg'] ?? '#ffffff' }};
             --admin-topbar-text: {{ $palette['topbar_text'] ?? '#1f2d3d' }};
+            --admin-user-menu-trigger-bg: {{ $palette['user_menu_trigger_bg'] ?? ($palette['topbar_bg'] ?? '#ffffff') }};
+            --admin-user-menu-trigger-text: {{ $palette['user_menu_trigger_text'] ?? ($palette['topbar_text'] ?? '#1f2d3d') }};
+            --admin-user-menu-dropdown-bg: {{ $palette['user_menu_dropdown_bg'] ?? ($palette['topbar_bg'] ?? '#ffffff') }};
+            --admin-user-menu-dropdown-text: {{ $palette['user_menu_dropdown_text'] ?? ($palette['topbar_text'] ?? '#1f2d3d') }};
+            --admin-user-menu-dropdown-hover-bg: {{ $palette['user_menu_dropdown_hover_bg'] ?? ($palette['active_link_bg'] ?? '#d4a64a') }};
+            --admin-user-menu-dropdown-hover-text: {{ $palette['user_menu_dropdown_hover_text'] ?? ($palette['active_link_text'] ?? '#1f2d3d') }};
             --admin-primary-button: {{ $palette['primary_button'] ?? '#6c7f3e' }};
             --admin-primary-button-hover: {{ $palette['primary_button_hover'] ?? '#5d6e35' }};
             --admin-active-link-bg: {{ $palette['active_link_bg'] ?? '#d4a64a' }};

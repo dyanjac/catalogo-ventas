@@ -19,13 +19,13 @@
                 <p class="mb-4 d-flex gap-2 flex-wrap">
                     <span class="badge badge-light px-3 py-2">Organizacion: {{ $organization?->name ?? 'Sin contexto organizacional' }}</span>
                     @if($isSuspended)
-                        <span class="badge badge-danger px-3 py-2">Tenant suspendido · solo lectura</span>
+                        <span class="badge badge-danger px-3 py-2">Tenant suspendido - solo lectura</span>
                     @endif
                 </p>
 
                 @if($isSuspended)
                     <div class="alert alert-warning rounded-4 mb-4">
-                        La organización actual está suspendida. Puedes revisar la paleta aplicada, pero no modificarla ni restablecerla hasta reactivar el tenant.
+                        La organizacion actual esta suspendida. Puedes revisar la paleta aplicada, pero no modificarla ni restablecerla hasta reactivar el tenant.
                     </div>
                 @endif
 
@@ -43,6 +43,12 @@
                                 'sidebar_group_bg' => 'Sidebar fondo grupos',
                                 'topbar_bg' => 'Topbar fondo',
                                 'topbar_text' => 'Topbar texto',
+                                'user_menu_trigger_bg' => 'Perfil visible fondo',
+                                'user_menu_trigger_text' => 'Perfil visible texto',
+                                'user_menu_dropdown_bg' => 'Dropdown usuario fondo',
+                                'user_menu_dropdown_text' => 'Dropdown usuario texto',
+                                'user_menu_dropdown_hover_bg' => 'Dropdown usuario hover fondo',
+                                'user_menu_dropdown_hover_text' => 'Dropdown usuario hover texto',
                                 'primary_button' => 'Boton primario',
                                 'primary_button_hover' => 'Boton primario hover',
                                 'active_link_bg' => 'Link activo fondo',
