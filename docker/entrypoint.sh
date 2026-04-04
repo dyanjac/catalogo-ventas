@@ -41,4 +41,11 @@ if [ "${RUN_SEEDERS:-false}" = "true" ]; then
     php artisan db:seed --force
 fi
 
+# Some artisan commands run as root during container startup and can recreate
+# cache directories with root ownership. Reset ownership right before Apache
+# takes over so web requests can keep writing cache/session/view files.
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R ug+rwx storage bootstrap/cache
+
 exec "$@"
+
