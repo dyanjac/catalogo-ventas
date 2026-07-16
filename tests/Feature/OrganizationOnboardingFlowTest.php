@@ -79,6 +79,11 @@ class OrganizationOnboardingFlowTest extends TestCase
             'default_currency' => 'PEN',
         ]);
 
+        $this->assertDatabaseHas('organization_plan_subscriptions', [
+            'organization_id' => $organization->id,
+            'status' => 'active',
+        ]);
+
         $productionResponse = $this->actingAs($actor)->put(route('admin.organizations.activate-production', $organization));
 
         $productionResponse->assertRedirect(route('admin.organizations.show', $organization));
@@ -164,7 +169,7 @@ class OrganizationOnboardingFlowTest extends TestCase
             $this->superAdminRole->id => [
                 'scope' => 'all',
                 'is_active' => true,
-                'context' => ['source' => 'tests'],
+                'context' => json_encode(['source' => 'tests']),
             ],
         ]);
 

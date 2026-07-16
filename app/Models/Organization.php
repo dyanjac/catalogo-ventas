@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Commerce\Entities\OrganizationEntitlement;
+use Modules\Commerce\Entities\OrganizationPlanSubscription;
 use Modules\Orders\Entities\Order;
 use Modules\Security\Models\SecurityBranch;
 
@@ -63,5 +65,15 @@ class Organization extends Model
     public function billingSettings(): HasMany
     {
         return $this->hasMany(BillingSetting::class);
+    }
+
+    public function planSubscriptions(): HasMany
+    {
+        return $this->hasMany(OrganizationPlanSubscription::class);
+    }
+
+    public function entitlements(): HasMany
+    {
+        return $this->hasMany(OrganizationEntitlement::class);
     }
 }

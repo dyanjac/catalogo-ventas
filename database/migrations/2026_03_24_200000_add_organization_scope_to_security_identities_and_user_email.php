@@ -16,12 +16,23 @@ return new class extends Migration
                 }
             });
 
-            DB::table('security_user_identities as identities')
-                ->join('users', 'users.id', '=', 'identities.user_id')
-                ->whereNull('identities.organization_id')
-                ->update([
-                    'identities.organization_id' => DB::raw('users.organization_id'),
-                ]);
+            DB::table('security_user_identities')
+                ->whereNull('organization_id')
+                ->chunkById(200, function ($identities): void {
+                    $userOrganizations = DB::table('users')
+                        ->whereIn('id', $identities->pluck('user_id')->filter()->all())
+                        ->pluck('organization_id', 'id');
+
+                    foreach ($identities as $identity) {
+                        $organizationId = $userOrganizations->get($identity->user_id);
+
+                        if ($organizationId !== null) {
+                            DB::table('security_user_identities')
+                                ->where('id', $identity->id)
+                                ->update(['organization_id' => $organizationId]);
+                        }
+                    }
+                });
 
             Schema::table('security_user_identities', function (Blueprint $table): void {
                 $table->dropUnique('security_identity_provider_identifier_unique');

@@ -5,6 +5,8 @@ namespace App\Http\Requests;
 use App\Services\OrganizationContextService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Catalog\Enums\ProductAccountingTreatment;
+use Modules\Catalog\Enums\ProductType;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -18,6 +20,15 @@ class UpdateProductRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $product = $this->route('product');
+        $accountingTreatment = $this->normalizeText($this->input('accounting_treatment'));
+        if ($accountingTreatment === null && $this->has('requires_accounting_entry')) {
+            $accountingTreatment = ProductAccountingTreatment::fromLegacyFlag(
+                $this->boolean('requires_accounting_entry')
+            )->value;
+        }
+        $accountingTreatment ??= $product?->accounting_treatment?->value ?? ProductAccountingTreatment::Inherit->value;
+
         $this->merge([
             'name' => $this->normalizeText($this->input('name')),
             'sku' => $this->normalizeText($this->input('sku')),
@@ -30,8 +41,12 @@ class UpdateProductRequest extends FormRequest
             'account_cogs' => $this->normalizeText($this->input('account_cogs')),
             'account_tax' => $this->normalizeText($this->input('account_tax')),
             'tax_affectation' => $this->normalizeText($this->input('tax_affectation')),
+            'product_type' => $this->normalizeText($this->input('product_type'))
+                ?? $product?->product_type?->value
+                ?? ProductType::PhysicalGood->value,
+            'accounting_treatment' => $accountingTreatment,
             'uses_series' => $this->boolean('uses_series'),
-            'requires_accounting_entry' => $this->boolean('requires_accounting_entry'),
+            'requires_accounting_entry' => ProductAccountingTreatment::tryFrom($accountingTreatment)?->requiresLegacyAccountingEntry() ?? false,
             'is_active' => $this->boolean('is_active'),
         ]);
     }
@@ -65,6 +80,8 @@ class UpdateProductRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:220', Rule::unique('products', 'slug')->where('organization_id', $organizationId)->ignore($product?->id)],
             'description' => ['nullable', 'string'],
             'tax_affectation' => ['required', Rule::in(['Gravado', 'Exonerado', 'Inafecto'])],
+            'product_type' => ['required', Rule::enum(ProductType::class)],
+            'accounting_treatment' => ['required', Rule::enum(ProductAccountingTreatment::class)],
             'uses_series' => ['nullable', 'boolean'],
             'account' => ['nullable', 'string', 'max:120'],
             'requires_accounting_entry' => ['nullable', 'boolean'],
@@ -76,8 +93,6 @@ class UpdateProductRequest extends FormRequest
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'wholesale_price' => ['nullable', 'numeric', 'min:0'],
-            'average_price' => ['nullable', 'numeric', 'min:0'],
-            'stock' => ['nullable', 'integer', 'min:0'],
             'min_stock' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
             'image_file' => ['nullable', 'image', 'max:4096'],

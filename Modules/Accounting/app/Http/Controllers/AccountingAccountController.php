@@ -3,6 +3,7 @@
 namespace Modules\Accounting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Product;
 use App\Services\OrganizationContextService;
 use Illuminate\Http\RedirectResponse;
@@ -12,6 +13,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Accounting\Models\AccountingAccount;
+use Modules\Accounting\Models\AccountingSetting;
 use Modules\Accounting\Services\AccountingAuditService;
 
 class AccountingAccountController extends Controller
@@ -19,8 +21,7 @@ class AccountingAccountController extends Controller
     public function __construct(
         private readonly AccountingAuditService $audit,
         private readonly OrganizationContextService $organizationContext
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {
@@ -183,6 +184,22 @@ class AccountingAccountController extends Controller
                 'account_inventory' => null,
                 'account_cogs' => null,
                 'account_tax' => null,
+            ]);
+
+            Category::query()->forCurrentOrganization()->update([
+                'account_revenue' => null,
+                'account_receivable' => null,
+                'account_inventory' => null,
+                'account_cogs' => null,
+                'account_tax' => null,
+            ]);
+
+            AccountingSetting::query()->forCurrentOrganization()->update([
+                'default_account_revenue' => null,
+                'default_account_receivable' => null,
+                'default_account_inventory' => null,
+                'default_account_cogs' => null,
+                'default_account_tax' => null,
             ]);
 
             $this->audit->log('accounting_setup', 0, 'reset_chart', [

@@ -11,6 +11,7 @@ use Modules\Billing\Models\BillingDocumentFile;
 use Modules\Billing\Models\BillingDocumentResponseHistory;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Services\Xml\BillingXmlGenerator;
+use Modules\Commerce\Services\OrganizationEntitlementService;
 use Throwable;
 
 class ElectronicBillingService
@@ -18,7 +19,8 @@ class ElectronicBillingService
     public function __construct(
         private readonly BillingProviderResolver $resolver,
         private readonly BillingXmlGenerator $xmlGenerator,
-        private readonly OrganizationContextService $organizationContext
+        private readonly OrganizationContextService $organizationContext,
+        private readonly OrganizationEntitlementService $entitlements
     )
     {
     }
@@ -30,6 +32,10 @@ class ElectronicBillingService
     public function issueOrQueue(BillingDocument $document, array $payload): array
     {
         $setting = $this->resolveSetting();
+
+        if ($blocked = $this->guardBillingEntitlement($document)) {
+            return $blocked;
+        }
 
         if ($blocked = $this->guardSuspendedTenant($document, $setting, $payload, 'tenant_suspended_queue_blocked')) {
             return $blocked;
@@ -95,6 +101,10 @@ class ElectronicBillingService
     public function issue(BillingDocument $document, array $payload): array
     {
         $setting = $this->resolveSetting();
+
+        if ($blocked = $this->guardBillingEntitlement($document)) {
+            return $blocked;
+        }
 
         if ($blocked = $this->guardSuspendedTenant($document, $setting, $payload, 'tenant_suspended_issue_blocked')) {
             return $blocked;
@@ -402,6 +412,20 @@ class ElectronicBillingService
         }
 
         return $result;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function guardBillingEntitlement(BillingDocument $document): ?array
+    {
+        if ($this->entitlements->hasCapability('billing.electronic', $document->organization()->first())) {
+            return null;
+        }
+
+        return [
+            'ok' => false,
+            'queued' => false,
+            'message' => 'La organización asociada al comprobante no tiene contratada la facturación electrónica.',
+        ];
     }
 
     private function resolveSetting(): ?BillingSetting

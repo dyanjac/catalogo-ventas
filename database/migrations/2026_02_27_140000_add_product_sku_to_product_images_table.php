@@ -17,12 +17,23 @@ return new class extends Migration
             $table->index('product_sku');
         });
 
-        DB::statement('
-            UPDATE product_images
-            INNER JOIN products ON products.id = product_images.product_id
-            SET product_images.product_sku = products.sku
-            WHERE product_images.product_sku IS NULL
-        ');
+        DB::table('product_images')
+            ->whereNull('product_sku')
+            ->chunkById(200, function ($images): void {
+                $skus = DB::table('products')
+                    ->whereIn('id', $images->pluck('product_id')->filter()->all())
+                    ->pluck('sku', 'id');
+
+                foreach ($images as $image) {
+                    $sku = $skus->get($image->product_id);
+
+                    if ($sku !== null) {
+                        DB::table('product_images')
+                            ->where('id', $image->id)
+                            ->update(['product_sku' => $sku]);
+                    }
+                }
+            });
     }
 
     /**

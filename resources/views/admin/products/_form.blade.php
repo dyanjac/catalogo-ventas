@@ -43,6 +43,27 @@
         </select>
     </div>
 
+    <div class="col-md-4">
+        <label class="form-label">Tipo de producto</label>
+        <select name="product_type" class="form-select" required>
+            @foreach($productTypes as $type)
+                <option value="{{ $type->value }}" @selected(old('product_type', $product->product_type?->value ?? \Modules\Catalog\Enums\ProductType::PhysicalGood->value) === $type->value)>
+                    {{ $type->label() }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Tratamiento contable</label>
+        <select name="accounting_treatment" class="form-select" required>
+            @foreach($accountingTreatments as $treatment)
+                <option value="{{ $treatment->value }}" @selected(old('accounting_treatment', $product->accounting_treatment?->value ?? \Modules\Catalog\Enums\ProductAccountingTreatment::Inherit->value) === $treatment->value)>
+                    {{ $treatment->label() }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
     <div class="col-md-3">
         <label class="form-label">Precio compra</label>
         <input type="number" step="0.01" min="0" name="purchase_price" class="form-control" value="{{ old('purchase_price', $product->purchase_price) }}">
@@ -54,15 +75,6 @@
     <div class="col-md-3">
         <label class="form-label">Precio mayor</label>
         <input type="number" step="0.01" min="0" name="wholesale_price" class="form-control" value="{{ old('wholesale_price', $product->wholesale_price) }}">
-    </div>
-    <div class="col-md-3">
-        <label class="form-label">Precio promedio</label>
-        <input type="number" step="0.01" min="0" name="average_price" class="form-control" value="{{ old('average_price', $product->average_price) }}">
-    </div>
-
-    <div class="col-md-3">
-        <label class="form-label">Stock</label>
-        <input type="number" min="0" name="stock" class="form-control" value="{{ old('stock', $product->stock ?? 0) }}">
     </div>
     <div class="col-md-3">
         <label class="form-label">Stock mínimo</label>
@@ -98,15 +110,16 @@
             <input class="form-check-input" type="checkbox" name="uses_series" id="uses_series" value="1" @checked(old('uses_series', $product->uses_series))>
             <label class="form-check-label" for="uses_series">Usa serie</label>
         </div>
-        <div class="form-check me-4">
-            <input type="hidden" name="requires_accounting_entry" value="0">
-            <input class="form-check-input" type="checkbox" name="requires_accounting_entry" id="requires_accounting_entry" value="1" @checked(old('requires_accounting_entry', $product->requires_accounting_entry ?? true))>
-            <label class="form-check-label" for="requires_accounting_entry">Genera asiento contable</label>
-        </div>
         <div class="form-check">
             <input type="hidden" name="is_active" value="0">
             <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1" @checked(old('is_active', $product->is_active ?? true))>
             <label class="form-check-label" for="is_active">Activo</label>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="alert alert-light border mb-0">
+            El stock y el costo promedio son datos operativos de inventario y no se editan desde el maestro de producto.
         </div>
     </div>
 
@@ -116,4 +129,3 @@
     </div>
 
 </div>
-

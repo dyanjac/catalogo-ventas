@@ -39,10 +39,11 @@
                         ['label' => 'Stock', 'value' => $product->stock],
                         ['label' => 'Stock mínimo', 'value' => $product->min_stock],
                         ['label' => 'Afectación', 'value' => $product->tax_affectation],
+                        ['label' => 'Tipo', 'value' => $product->product_type->label()],
                         ['label' => 'Activo', 'value' => $product->is_active ? 'Sí' : 'No'],
                         ['label' => 'Usa serie', 'value' => $product->uses_series ? 'Sí' : 'No'],
                         ['label' => 'Cuenta', 'value' => $product->account ?? '-'],
-                        ['label' => 'Genera asiento', 'value' => $product->requires_accounting_entry ? 'Sí' : 'No'],
+                        ['label' => 'Tratamiento contable', 'value' => $product->accounting_treatment->label()],
                         ['label' => 'Cuenta ingresos', 'value' => $product->account_revenue ?? '-'],
                         ['label' => 'Cuenta por cobrar', 'value' => $product->account_receivable ?? '-'],
                         ['label' => 'Cuenta inventario', 'value' => $product->account_inventory ?? '-'],
@@ -55,4 +56,3 @@
     </div>
 </div>
 @endsection
-

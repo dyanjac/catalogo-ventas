@@ -10,6 +10,7 @@ use Modules\Accounting\Models\AccountingSetting;
 use Modules\AdminTheme\Models\AdminThemeSetting;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Commerce\Services\OrganizationEntitlementService;
 use Modules\Security\Models\SecurityAuthSetting;
 use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
@@ -17,6 +18,10 @@ use RuntimeException;
 
 class OrganizationProvisioningService
 {
+    public function __construct(private readonly OrganizationEntitlementService $entitlements)
+    {
+    }
+
     /**
      * @param array<string,mixed> $data
      * @return array{organization:Organization,branch:SecurityBranch,admin:User,password:string}
@@ -44,6 +49,8 @@ class OrganizationProvisioningService
                     'provisioned_at' => now()->toDateTimeString(),
                 ],
             ]);
+
+            $this->entitlements->assignDefaultPlan($organization);
 
             $branch = SecurityBranch::query()->create([
                 'organization_id' => $organization->id,

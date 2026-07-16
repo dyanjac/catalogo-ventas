@@ -28,20 +28,47 @@ return new class extends Migration
         $defaultOrganizationId = DB::table('organizations')->orderBy('id')->value('id');
 
         if ($defaultOrganizationId) {
-            DB::table('inventory_transfers as transfers')
-                ->leftJoin('security_branches as source_branch', 'source_branch.id', '=', 'transfers.source_branch_id')
-                ->leftJoin('security_branches as destination_branch', 'destination_branch.id', '=', 'transfers.destination_branch_id')
-                ->whereNull('transfers.organization_id')
-                ->update([
-                    'transfers.organization_id' => DB::raw('COALESCE(source_branch.organization_id, destination_branch.organization_id, '.$defaultOrganizationId.')'),
-                ]);
+            DB::table('inventory_transfers')
+                ->whereNull('organization_id')
+                ->chunkById(200, function ($transfers) use ($defaultOrganizationId): void {
+                    $branchIds = $transfers
+                        ->flatMap(fn (object $transfer): array => [
+                            $transfer->source_branch_id,
+                            $transfer->destination_branch_id,
+                        ])
+                        ->filter()
+                        ->unique()
+                        ->all();
+                    $branchOrganizations = DB::table('security_branches')
+                        ->whereIn('id', $branchIds)
+                        ->pluck('organization_id', 'id');
 
-            DB::table('inventory_transfer_items as items')
-                ->join('inventory_transfers as transfers', 'transfers.id', '=', 'items.transfer_id')
-                ->whereNull('items.organization_id')
-                ->update([
-                    'items.organization_id' => DB::raw('COALESCE(transfers.organization_id, '.$defaultOrganizationId.')'),
-                ]);
+                    foreach ($transfers as $transfer) {
+                        $organizationId = $branchOrganizations->get($transfer->source_branch_id)
+                            ?? $branchOrganizations->get($transfer->destination_branch_id)
+                            ?? $defaultOrganizationId;
+
+                        DB::table('inventory_transfers')
+                            ->where('id', $transfer->id)
+                            ->update(['organization_id' => $organizationId]);
+                    }
+                });
+
+            DB::table('inventory_transfer_items')
+                ->whereNull('organization_id')
+                ->chunkById(200, function ($items) use ($defaultOrganizationId): void {
+                    $transferOrganizations = DB::table('inventory_transfers')
+                        ->whereIn('id', $items->pluck('transfer_id')->filter()->all())
+                        ->pluck('organization_id', 'id');
+
+                    foreach ($items as $item) {
+                        DB::table('inventory_transfer_items')
+                            ->where('id', $item->id)
+                            ->update([
+                                'organization_id' => $transferOrganizations->get($item->transfer_id) ?? $defaultOrganizationId,
+                            ]);
+                    }
+                });
         }
 
         Schema::table('inventory_transfers', function (Blueprint $table): void {

@@ -4,6 +4,7 @@ namespace Modules\Commerce\Providers;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Modules\Commerce\Services\OrganizationEntitlementService;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -26,6 +27,7 @@ class CommerceServiceProvider extends ServiceProvider
 
     public function register(): void
     {
+        $this->app->singleton(OrganizationEntitlementService::class);
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }
@@ -110,4 +112,3 @@ class CommerceServiceProvider extends ServiceProvider
         return $paths;
     }
 }
-

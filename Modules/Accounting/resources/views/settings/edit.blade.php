@@ -42,6 +42,30 @@
                         </div>
                     </div>
 
+                    <div class="col-md-4">
+                        <label class="form-label">Tratamiento contable de productos por defecto</label>
+                        <select name="product_accounting_treatment" class="form-select" required>
+                            @foreach($accountingTreatments as $treatment)
+                                <option value="{{ $treatment->value }}" @selected(old('product_accounting_treatment', $settings->product_accounting_treatment?->value ?? \Modules\Catalog\Enums\ProductAccountingTreatment::PendingConfiguration->value) === $treatment->value)>
+                                    {{ $treatment->label() }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    @foreach([
+                        'default_account_revenue' => 'Cuenta de ingresos por defecto',
+                        'default_account_receivable' => 'Cuenta por cobrar por defecto',
+                        'default_account_inventory' => 'Cuenta de inventario por defecto',
+                        'default_account_cogs' => 'Cuenta de costo de venta por defecto',
+                        'default_account_tax' => 'Cuenta de impuesto por defecto',
+                    ] as $field => $label)
+                        <div class="col-md-4">
+                            <label class="form-label">{{ $label }}</label>
+                            <input type="text" name="{{ $field }}" maxlength="120" class="form-control" value="{{ old($field, $settings->{$field}) }}">
+                        </div>
+                    @endforeach
+
                     <div class="col-12 d-flex gap-2">
                         <button class="btn btn-primary rounded-pill px-4">Guardar configuración</button>
                         <a href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Ver asientos</a>

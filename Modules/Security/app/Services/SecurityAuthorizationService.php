@@ -5,6 +5,7 @@ namespace Modules\Security\Services;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Commerce\Services\OrganizationEntitlementService;
 use Modules\Security\Models\SecurityModule;
 
 class SecurityAuthorizationService
@@ -15,7 +16,9 @@ class SecurityAuthorizationService
 
     protected array $permissionCache = [];
 
-    protected array $navigationModulesCache = [];
+    public function __construct(private readonly OrganizationEntitlementService $entitlements)
+    {
+    }
 
     public function hasRole(?User $user, string $roleCode): bool
     {
@@ -56,26 +59,21 @@ class SecurityAuthorizationService
             return false;
         }
 
-        if ($this->hasRole($user, 'super_admin')) {
-            return true;
+        if (! isset($this->moduleAccessCache[$user->id][$moduleCode])) {
+            $this->moduleAccessCache[$user->id][$moduleCode] = $this->hasRole($user, 'super_admin') || DB::table('security_role_module_access as access')
+                ->join('security_roles as roles', 'roles.id', '=', 'access.role_id')
+                ->join('security_modules as modules', 'modules.id', '=', 'access.module_id')
+                ->join('security_user_roles as user_roles', 'user_roles.role_id', '=', 'roles.id')
+                ->where('user_roles.user_id', $user->id)
+                ->where('user_roles.is_active', true)
+                ->where('roles.is_active', true)
+                ->where('modules.code', $moduleCode)
+                ->whereIn('access.access_level', ['readonly', 'limited', 'full', 'placeholder'])
+                ->exists();
         }
 
-        if (isset($this->moduleAccessCache[$user->id][$moduleCode])) {
-            return $this->moduleAccessCache[$user->id][$moduleCode];
-        }
-
-        $allowed = DB::table('security_role_module_access as access')
-            ->join('security_roles as roles', 'roles.id', '=', 'access.role_id')
-            ->join('security_modules as modules', 'modules.id', '=', 'access.module_id')
-            ->join('security_user_roles as user_roles', 'user_roles.role_id', '=', 'roles.id')
-            ->where('user_roles.user_id', $user->id)
-            ->where('user_roles.is_active', true)
-            ->where('roles.is_active', true)
-            ->where('modules.code', $moduleCode)
-            ->whereIn('access.access_level', ['readonly', 'limited', 'full', 'placeholder'])
-            ->exists();
-
-        return $this->moduleAccessCache[$user->id][$moduleCode] = $allowed;
+        return $this->moduleAccessCache[$user->id][$moduleCode]
+            && $this->entitlements->hasModuleCapability($moduleCode, $user->organization);
     }
 
     public function hasPermission(?User $user, string $permissionCode): bool
@@ -97,18 +95,9 @@ class SecurityAuthorizationService
             return collect();
         }
 
-        if (isset($this->navigationModulesCache[$user->id])) {
-            return $this->navigationModulesCache[$user->id];
-        }
-
-        if ($this->hasRole($user, 'super_admin')) {
-            return $this->navigationModulesCache[$user->id] = SecurityModule::query()
-                ->where('navigation_visible', true)
-                ->orderBy('sort_order')
-                ->get();
-        }
-
-        return $this->navigationModulesCache[$user->id] = SecurityModule::query()
+        $modules = $this->hasRole($user, 'super_admin')
+            ? SecurityModule::query()->where('navigation_visible', true)->orderBy('sort_order')->get()
+            : SecurityModule::query()
             ->select('security_modules.*')
             ->join('security_role_module_access as access', 'access.module_id', '=', 'security_modules.id')
             ->join('security_roles as roles', 'roles.id', '=', 'access.role_id')
@@ -122,6 +111,10 @@ class SecurityAuthorizationService
             ->orderBy('security_modules.sort_order')
             ->distinct()
             ->get();
+
+        return $modules
+            ->filter(fn (SecurityModule $module): bool => $this->entitlements->hasModuleCapability($module->code, $user->organization))
+            ->values();
     }
 
     protected function resolvePermissionMap(User $user): Collection

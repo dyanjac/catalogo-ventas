@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Catalog\Enums\ProductAccountingTreatment;
 
 class CategoryController extends Controller
 {
@@ -20,7 +21,10 @@ class CategoryController extends Controller
 
     public function create(): View
     {
-        return view('admin.categories.create', ['category' => new Category()]);
+        return view('admin.categories.create', [
+            'category' => new Category(['accounting_treatment' => ProductAccountingTreatment::Inherit]),
+            'accountingTreatments' => ProductAccountingTreatment::cases(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,7 +39,10 @@ class CategoryController extends Controller
     {
         abort_unless($this->belongsToCurrentOrganization($category), 404);
 
-        return view('admin.categories.edit', compact('category'));
+        return view('admin.categories.edit', [
+            'category' => $category,
+            'accountingTreatments' => ProductAccountingTreatment::cases(),
+        ]);
     }
 
     public function update(Request $request, Category $category): RedirectResponse
@@ -65,9 +72,21 @@ class CategoryController extends Controller
             'name' => ['required', 'string', 'max:120', Rule::unique('categories', 'name')->where('organization_id', $organizationId)->ignore($category?->id)],
             'slug' => ['nullable', 'string', 'max:160', Rule::unique('categories', 'slug')->where('organization_id', $organizationId)->ignore($category?->id)],
             'description' => ['nullable', 'string'],
+            'accounting_treatment' => ['sometimes', Rule::enum(ProductAccountingTreatment::class)],
+            'account_revenue' => ['nullable', 'string', 'max:120'],
+            'account_receivable' => ['nullable', 'string', 'max:120'],
+            'account_inventory' => ['nullable', 'string', 'max:120'],
+            'account_cogs' => ['nullable', 'string', 'max:120'],
+            'account_tax' => ['nullable', 'string', 'max:120'],
         ]);
 
         $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
+
+        foreach (['account_revenue', 'account_receivable', 'account_inventory', 'account_cogs', 'account_tax'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $data[$field] = filled($data[$field]) ? trim((string) $data[$field]) : null;
+            }
+        }
 
         return $data;
     }

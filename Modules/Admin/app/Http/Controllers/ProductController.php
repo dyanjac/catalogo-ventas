@@ -14,8 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Modules\Catalog\Services\ProductInventoryService;
-use Modules\Security\Services\SecurityBranchContextService;
+use Modules\Catalog\Enums\ProductAccountingTreatment;
+use Modules\Catalog\Enums\ProductType;
 use Modules\Security\Services\SecurityScopeService;
 
 class ProductController extends Controller
@@ -34,20 +34,23 @@ class ProductController extends Controller
         return view('admin.products.create', [
             'product' => new Product([
                 'tax_affectation' => 'Gravado',
+                'product_type' => ProductType::PhysicalGood,
+                'accounting_treatment' => ProductAccountingTreatment::Inherit,
                 'requires_accounting_entry' => true,
                 'is_active' => true,
             ]),
             'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(),
             'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(),
             'taxAffectations' => $this->taxAffectations(),
+            'productTypes' => ProductType::cases(),
+            'accountingTreatments' => ProductAccountingTreatment::cases(),
         ]);
     }
 
-    public function store(StoreProductRequest $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext): RedirectResponse
+    public function store(StoreProductRequest $request): RedirectResponse
     {
         $data = $this->normalizePayload($request->validated());
         $product = Product::create($data);
-        $inventory->syncBranchStock($product, $branchContext->currentBranchId($request->user()), (int) ($data['stock'] ?? 0), (int) ($data['min_stock'] ?? 0));
         $this->syncProductImage($product, $request->file('image_file'));
 
         return redirect()
@@ -77,17 +80,18 @@ class ProductController extends Controller
             'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(),
             'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(),
             'taxAffectations' => $this->taxAffectations(),
+            'productTypes' => ProductType::cases(),
+            'accountingTreatments' => ProductAccountingTreatment::cases(),
         ]);
     }
 
-    public function update(UpdateProductRequest $request, Product $product, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, SecurityScopeService $scopeService): RedirectResponse
+    public function update(UpdateProductRequest $request, Product $product, SecurityScopeService $scopeService): RedirectResponse
     {
         abort_unless((int) $product->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessProduct($request->user(), $product, 'catalog'), 403);
 
         $payload = $this->normalizePayload($request->validated(), $product);
         $product->update($payload);
-        $inventory->syncBranchStock($product, $branchContext->currentBranchId($request->user()), (int) ($payload['stock'] ?? 0), (int) ($payload['min_stock'] ?? 0));
         ProductImage::where('product_id', $product->id)->update(['product_sku' => $product->sku]);
         $this->syncProductImage($product, $request->file('image_file'));
 
@@ -119,7 +123,6 @@ class ProductController extends Controller
             'purchase_price',
             'sale_price',
             'wholesale_price',
-            'average_price',
             'account',
             'account_revenue',
             'account_receivable',
@@ -133,10 +136,12 @@ class ProductController extends Controller
             }
         }
 
-        $data['stock'] = isset($data['stock']) && $data['stock'] !== '' ? (int) $data['stock'] : 0;
         $data['min_stock'] = isset($data['min_stock']) && $data['min_stock'] !== '' ? (int) $data['min_stock'] : 0;
         $data['uses_series'] = (bool) ($data['uses_series'] ?? false);
-        $data['requires_accounting_entry'] = (bool) ($data['requires_accounting_entry'] ?? true);
+        $treatment = ProductAccountingTreatment::tryFrom((string) ($data['accounting_treatment'] ?? ''))
+            ?? ProductAccountingTreatment::Inherit;
+        $data['accounting_treatment'] = $treatment->value;
+        $data['requires_accounting_entry'] = $treatment->requiresLegacyAccountingEntry();
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
         $data['tax_affectation'] = $data['tax_affectation'] ?? 'Gravado';
 
@@ -171,7 +176,7 @@ class ProductController extends Controller
     private function generateSku(): string
     {
         do {
-            $sku = 'PRD-' . Str::upper(Str::random(8));
+            $sku = 'PRD-'.Str::upper(Str::random(8));
         } while (Product::query()->forCurrentOrganization()->where('sku', $sku)->exists());
 
         return $sku;

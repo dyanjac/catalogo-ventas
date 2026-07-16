@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Catalog\Enums\ProductAccountingTreatment;
+use Modules\Catalog\Enums\ProductType;
 
 class Product extends Model
 {
@@ -26,9 +28,11 @@ class Product extends Model
         'slug',
         'description',
         'tax_affectation',
+        'product_type',
         'uses_series',
         'account',
         'requires_accounting_entry',
+        'accounting_treatment',
         'account_revenue',
         'account_receivable',
         'account_inventory',
@@ -51,6 +55,8 @@ class Product extends Model
         'wholesale_price' => 'decimal:2',
         'average_price' => 'decimal:2',
         'price' => 'decimal:2',
+        'product_type' => ProductType::class,
+        'accounting_treatment' => ProductAccountingTreatment::class,
         'uses_series' => 'boolean',
         'requires_accounting_entry' => 'boolean',
         'is_active' => 'boolean',
@@ -155,5 +161,10 @@ class Product extends Model
         }
 
         return (int) ($this->min_stock ?? 0);
+    }
+
+    public function tracksInventory(): bool
+    {
+        return ($this->product_type ?? ProductType::PhysicalGood)->tracksInventory();
     }
 }

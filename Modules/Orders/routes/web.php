@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Orders\Http\Controllers\OrderController;
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'tenant.capability:sales.ecommerce'])->group(function () {
     Route::get('/checkout', [OrderController::class, 'showCheckout'])->name('checkout.show');
     Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout.store');
     Route::get('/mis-pedidos', [OrderController::class, 'myOrders'])->name('orders.mine');

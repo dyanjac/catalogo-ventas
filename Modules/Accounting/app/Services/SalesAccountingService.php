@@ -2,7 +2,6 @@
 
 namespace Modules\Accounting\Services;
 
-use App\Services\OrganizationContextService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Modules\Accounting\Models\AccountingAccount;
@@ -10,36 +9,49 @@ use Modules\Accounting\Models\AccountingEntry;
 use Modules\Accounting\Models\AccountingPeriod;
 use Modules\Accounting\Models\AccountingSetting;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Catalog\Enums\ProductAccountingTreatment;
+use Modules\Commerce\Services\OrganizationEntitlementService;
 use Modules\Orders\Entities\Order;
 
 class SalesAccountingService
 {
-    public function __construct(private readonly OrganizationContextService $organizationContext)
-    {
-    }
+    public function __construct(
+        private readonly OrganizationEntitlementService $entitlements,
+        private readonly ProductAccountingConfigurationResolver $productAccounting,
+    ) {}
 
     /**
      * @return array{created:bool,message:string,entry_id:int|null}
      */
     public function postIssuedSale(Order $order, ?BillingDocument $document = null): array
     {
-        if ($this->organizationContext->isSuspended()) {
+        $organization = $order->organization()->first();
+        $organizationId = (int) $order->organization_id;
+
+        if (! $organization || ! $this->entitlements->hasCapability('accounting.general_ledger', $organization)) {
+            return ['created' => false, 'message' => 'La organización no tiene contratada la generación de asientos contables.', 'entry_id' => null];
+        }
+
+        if ($organization->isSuspended()) {
             return ['created' => false, 'message' => 'La organización actual está suspendida y no permite auto-post contable.', 'entry_id' => null];
         }
 
-        $setting = AccountingSetting::query()->forCurrentOrganization()->first();
+        $setting = AccountingSetting::query()->where('organization_id', $organizationId)->first();
         if ($setting && ! $setting->auto_post_entries) {
             return ['created' => false, 'message' => 'Auto-post contable desactivado.', 'entry_id' => null];
         }
 
         $reference = $this->buildReference($order, $document);
-        $existing = AccountingEntry::query()->forCurrentOrganization()->where('reference', $reference)->first();
+        $existing = AccountingEntry::query()
+            ->where('organization_id', $organizationId)
+            ->where('reference', $reference)
+            ->first();
         if ($existing) {
             return ['created' => false, 'message' => 'El asiento ya existe para esta venta.', 'entry_id' => (int) $existing->id];
         }
 
         $order->loadMissing('items.product');
-        $lines = $this->buildLines($order);
+        $lines = $this->buildLines($order, $organizationId);
         if ($lines->isEmpty()) {
             return ['created' => false, 'message' => 'No hay líneas contables configuradas para esta venta.', 'entry_id' => null];
         }
@@ -52,7 +64,7 @@ class SalesAccountingService
 
         $entryDate = now();
         $period = AccountingPeriod::query()
-            ->forCurrentOrganization()
+            ->where('organization_id', $organizationId)
             ->where('year', (int) $entryDate->year)
             ->where('month', (int) $entryDate->month)
             ->first();
@@ -62,6 +74,7 @@ class SalesAccountingService
         }
 
         $entry = AccountingEntry::query()->create([
+            'organization_id' => $organizationId,
             'entry_date' => $entryDate->toDateString(),
             'period_year' => (int) $entryDate->year,
             'period_month' => (int) $entryDate->month,
@@ -69,7 +82,7 @@ class SalesAccountingService
             'voucher_series' => $document?->series,
             'voucher_number' => $document?->number,
             'reference' => $reference,
-            'description' => 'Asiento automático por venta ' . $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
+            'description' => 'Asiento automático por venta '.$order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
             'status' => 'posted',
             'total_debit' => $totalDebit,
             'total_credit' => $totalCredit,
@@ -77,8 +90,9 @@ class SalesAccountingService
             'created_by' => auth()->id(),
         ]);
 
-        $entry->lines()->createMany($lines->map(function (array $line) use ($order) {
+        $entry->lines()->createMany($lines->map(function (array $line) use ($order, $organizationId) {
             return [
+                'organization_id' => $organizationId,
                 'account_code' => $line['account_code'],
                 'account_name' => $line['account_name'],
                 'debit' => $line['debit'],
@@ -95,54 +109,77 @@ class SalesAccountingService
     /**
      * @return Collection<int,array<string,mixed>>
      */
-    private function buildLines(Order $order): Collection
+    private function buildLines(Order $order, int $organizationId): Collection
     {
         $revenueLines = [];
         $taxLines = [];
         $debitTotal = 0.0;
+        $receivableCode = null;
 
         foreach ($order->items as $item) {
             $product = $item->product;
-            if (! $product || ! $product->requires_accounting_entry) {
+            if (! $product) {
                 continue;
             }
+
+            if ((int) $product->organization_id !== $organizationId) {
+                return collect();
+            }
+
+            $configuration = $this->productAccounting->resolve($product);
+            if (in_array($configuration->treatment, [
+                ProductAccountingTreatment::Manual,
+                ProductAccountingTreatment::PendingConfiguration,
+            ], true)) {
+                return collect();
+            }
+
+            if (! $configuration->isAutomatic()) {
+                continue;
+            }
+
+            $receivableCode ??= $configuration->account('receivable');
 
             $lineTax = round((float) $item->tax_amount, 2);
             $lineTotal = round((float) $item->line_total, 2);
             $lineRevenue = round($lineTotal - $lineTax, 2);
 
             if ($lineRevenue > 0) {
-                $account = $this->resolveRevenueAccount($product->account_revenue);
-                if ($account) {
-                    $key = $account->code;
-                    $revenueLines[$key] = $revenueLines[$key] ?? [
-                        'account_code' => $account->code,
-                        'account_name' => $account->name,
-                        'debit' => 0.0,
-                        'credit' => 0.0,
-                        'line_description' => 'Venta de productos',
-                        'product_id' => null,
-                    ];
-                    $revenueLines[$key]['credit'] = round($revenueLines[$key]['credit'] + $lineRevenue, 2);
-                    $debitTotal += $lineRevenue;
+                $account = $this->resolveRevenueAccount($configuration->account('revenue'), $organizationId);
+                if (! $account) {
+                    return collect();
                 }
+
+                $key = $account->code;
+                $revenueLines[$key] = $revenueLines[$key] ?? [
+                    'account_code' => $account->code,
+                    'account_name' => $account->name,
+                    'debit' => 0.0,
+                    'credit' => 0.0,
+                    'line_description' => 'Venta de productos',
+                    'product_id' => null,
+                ];
+                $revenueLines[$key]['credit'] = round($revenueLines[$key]['credit'] + $lineRevenue, 2);
+                $debitTotal += $lineRevenue;
             }
 
             if ($lineTax > 0) {
-                $account = $this->resolveTaxAccount($product->account_tax);
-                if ($account) {
-                    $key = $account->code;
-                    $taxLines[$key] = $taxLines[$key] ?? [
-                        'account_code' => $account->code,
-                        'account_name' => $account->name,
-                        'debit' => 0.0,
-                        'credit' => 0.0,
-                        'line_description' => 'IGV por pagar',
-                        'product_id' => null,
-                    ];
-                    $taxLines[$key]['credit'] = round($taxLines[$key]['credit'] + $lineTax, 2);
-                    $debitTotal += $lineTax;
+                $account = $this->resolveTaxAccount($configuration->account('tax'), $organizationId);
+                if (! $account) {
+                    return collect();
                 }
+
+                $key = $account->code;
+                $taxLines[$key] = $taxLines[$key] ?? [
+                    'account_code' => $account->code,
+                    'account_name' => $account->name,
+                    'debit' => 0.0,
+                    'credit' => 0.0,
+                    'line_description' => 'IGV por pagar',
+                    'product_id' => null,
+                ];
+                $taxLines[$key]['credit'] = round($taxLines[$key]['credit'] + $lineTax, 2);
+                $debitTotal += $lineTax;
             }
         }
 
@@ -150,7 +187,7 @@ class SalesAccountingService
             return collect();
         }
 
-        $receivable = $this->resolveReceivableAccount($order);
+        $receivable = $this->resolveReceivableAccount($receivableCode, $organizationId);
         if (! $receivable) {
             return collect();
         }
@@ -167,57 +204,65 @@ class SalesAccountingService
         return collect([$debitLine, ...array_values($revenueLines), ...array_values($taxLines)]);
     }
 
-    private function resolveRevenueAccount(?string $code): ?AccountingAccount
+    private function resolveRevenueAccount(?string $code, int $organizationId): ?AccountingAccount
     {
-        return $this->findAccountByCode($code)
-            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('is_default_sales', true)->first()
-            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'ingreso')->orderBy('code')->first();
+        if (filled($code)) {
+            return $this->findAccountByCode($code, $organizationId);
+        }
+
+        return AccountingAccount::query()->where('organization_id', $organizationId)->where('is_active', true)->where('is_default_sales', true)->first()
+            ?? AccountingAccount::query()->where('organization_id', $organizationId)->where('is_active', true)->where('type', 'ingreso')->orderBy('code')->first();
     }
 
-    private function resolveTaxAccount(?string $code): ?AccountingAccount
+    private function resolveTaxAccount(?string $code, int $organizationId): ?AccountingAccount
     {
-        return $this->findAccountByCode($code)
-            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('is_default_tax', true)->first()
-            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'pasivo')->orderBy('code')->first();
+        if (filled($code)) {
+            return $this->findAccountByCode($code, $organizationId);
+        }
+
+        return AccountingAccount::query()->where('organization_id', $organizationId)->where('is_active', true)->where('is_default_tax', true)->first()
+            ?? AccountingAccount::query()->where('organization_id', $organizationId)->where('is_active', true)->where('type', 'pasivo')->orderBy('code')->first();
     }
 
-    private function resolveReceivableAccount(Order $order): ?AccountingAccount
+    private function resolveReceivableAccount(?string $code, int $organizationId): ?AccountingAccount
     {
-        $productCode = $order->items
-            ->first(fn ($item) => $item->product?->account_receivable)
-            ?->product
-            ?->account_receivable;
+        if (filled($code)) {
+            return $this->findAccountByCode($code, $organizationId);
+        }
 
         $defaultReceivable = null;
         if (Schema::hasColumn('accounting_accounts', 'is_default_receivable')) {
             $defaultReceivable = AccountingAccount::query()
-                ->forCurrentOrganization()
+                ->where('organization_id', $organizationId)
                 ->where('is_active', true)
                 ->where('is_default_receivable', true)
                 ->first();
         }
 
-        return $this->findAccountByCode($productCode)
-            ?? $defaultReceivable
-            ?? AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('type', 'activo')->orderBy('code')->first();
+        return $defaultReceivable
+            ?? AccountingAccount::query()->where('organization_id', $organizationId)->where('is_active', true)->where('type', 'activo')->orderBy('code')->first();
     }
 
-    private function findAccountByCode(?string $code): ?AccountingAccount
+    private function findAccountByCode(?string $code, int $organizationId): ?AccountingAccount
     {
         $value = trim((string) $code);
         if ($value === '') {
             return null;
         }
 
-        return AccountingAccount::query()->forCurrentOrganization()->where('is_active', true)->where('code', $value)->first();
+        return AccountingAccount::query()
+            ->where('organization_id', $organizationId)
+            ->where('is_active', true)
+            ->where('code', $value)
+            ->first();
     }
 
     private function buildReference(Order $order, ?BillingDocument $document): string
     {
         if ($document) {
-            return 'VENTA-' . strtoupper((string) $document->document_type) . '-' . $document->series . '-' . $document->number;
+            return 'VENTA-'.strtoupper((string) $document->document_type).'-'.$document->series.'-'.$document->number;
         }
 
-        return 'VENTA-ORDER-' . $order->id;
+        return 'VENTA-ORDER-'.$order->id;
     }
 }
