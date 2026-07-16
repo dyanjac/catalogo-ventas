@@ -88,7 +88,7 @@ class InventoryIndex extends Component
 
     public function updatedDocumentType(): void
     {
-        if ($this->documentType === 'outbound') {
+        if (in_array($this->documentType, ['outbound', 'stock_adjustment'], true)) {
             foreach ($this->documentItems as $index => $item) {
                 $this->documentItems[$index]['unit_cost'] = '';
             }
@@ -158,11 +158,10 @@ class InventoryIndex extends Component
             ]);
         }
 
-
         $organizationId = $organizationContext->currentOrganizationId();
 
         $validated = $this->validate([
-            'documentType' => ['required', Rule::in(['inbound', 'outbound'])],
+            'documentType' => ['required', Rule::in(['inbound', 'outbound', 'opening_stock', 'stock_adjustment'])],
             'documentBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
             'documentWarehouseId' => ['required', 'integer', Rule::exists('inventory_warehouses', 'id')->where('organization_id', $organizationId)],
             'documentReason' => ['nullable', 'string', 'max:60'],
@@ -170,7 +169,8 @@ class InventoryIndex extends Component
             'documentNotes' => ['nullable', 'string', 'max:1000'],
             'documentItems' => ['required', 'array', 'min:1'],
             'documentItems.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
-            'documentItems.*.quantity' => ['required', 'integer', 'min:1'],
+            'documentItems.*.quantity' => [Rule::requiredIf($this->documentType !== 'stock_adjustment'), 'nullable', 'integer', 'min:1'],
+            'documentItems.*.target_quantity' => [Rule::requiredIf($this->documentType === 'stock_adjustment'), 'nullable', 'integer', 'min:0'],
             'documentItems.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
             'documentItems.*.notes' => ['nullable', 'string', 'max:255'],
         ]);
@@ -206,8 +206,13 @@ class InventoryIndex extends Component
             ->map(function (array $item) use ($validated): array {
                 return [
                     'product_id' => (int) $item['product_id'],
-                    'quantity' => (int) $item['quantity'],
-                    'unit_cost' => $validated['documentType'] === 'inbound' && $item['unit_cost'] !== '' && $item['unit_cost'] !== null
+                    'quantity' => $validated['documentType'] === 'stock_adjustment'
+                        ? (int) $item['target_quantity']
+                        : (int) $item['quantity'],
+                    'target_quantity' => $validated['documentType'] === 'stock_adjustment'
+                        ? (int) $item['target_quantity']
+                        : null,
+                    'unit_cost' => in_array($validated['documentType'], ['inbound', 'opening_stock'], true) && $item['unit_cost'] !== '' && $item['unit_cost'] !== null
                         ? round((float) $item['unit_cost'], 4)
                         : null,
                     'notes' => $item['notes'] ?? null,
@@ -249,7 +254,6 @@ class InventoryIndex extends Component
         OrganizationContextService $organizationContext,
     ): void {
         abort_unless($authorization->hasPermission(auth()->user(), 'inventory.transfers.create'), 403);
-
 
         $organizationId = $organizationContext->currentOrganizationId();
 
@@ -518,6 +522,7 @@ class InventoryIndex extends Component
         return [
             'product_id' => '',
             'quantity' => '1',
+            'target_quantity' => '',
             'unit_cost' => '',
             'notes' => '',
         ];
@@ -531,5 +536,3 @@ class InventoryIndex extends Component
             && Schema::hasTable('inventory_document_items');
     }
 }
-
-

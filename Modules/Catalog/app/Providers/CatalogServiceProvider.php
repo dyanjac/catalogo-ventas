@@ -4,6 +4,9 @@ namespace Modules\Catalog\Providers;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Modules\Catalog\Console\BackfillInventoryLedgerCommand;
+use Modules\Catalog\Console\ReconcileInventoryLedgerCommand;
+use Modules\Catalog\Console\SetInventoryLedgerRolloutCommand;
 use Modules\Catalog\Repositories\EloquentProductRepository;
 use Modules\Catalog\Repositories\ProductRepositoryInterface;
 use Nwidart\Modules\Traits\PathNamespace;
@@ -47,7 +50,11 @@ class CatalogServiceProvider extends ServiceProvider
      */
     protected function registerCommands(): void
     {
-        // $this->commands([]);
+        $this->commands([
+            BackfillInventoryLedgerCommand::class,
+            ReconcileInventoryLedgerCommand::class,
+            SetInventoryLedgerRolloutCommand::class,
+        ]);
     }
 
     /**
@@ -133,7 +140,7 @@ class CatalogServiceProvider extends ServiceProvider
 
         $this->loadViewsFrom(array_merge($this->getPublishableViewPaths(), [$sourcePath]), $this->nameLower);
 
-        Blade::componentNamespace(config('modules.namespace').'\\' . $this->name . '\\View\\Components', $this->nameLower);
+        Blade::componentNamespace(config('modules.namespace').'\\'.$this->name.'\\View\\Components', $this->nameLower);
     }
 
     /**

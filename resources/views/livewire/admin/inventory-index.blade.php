@@ -147,7 +147,7 @@
                                         </span>
                                     </div>
                                     <div class="mt-2 d-flex flex-wrap gap-2 text-sm text-muted">
-                                        <span>{{ strtoupper(str_replace('_', ' ', $movement->movement_type)) }}</span>
+                                        <span>{{ strtoupper(str_replace('_', ' ', $movement->movement_type->value)) }}</span>
                                         <span>{{ $movement->reason ? strtoupper(str_replace('_', ' ', $movement->reason)) : 'SIN MOTIVO' }}</span>
                                         <span>{{ $movement->stock_before }} -> {{ $movement->stock_after }}</span>
                                         <span>CPU S/ {{ number_format((float) ($movement->unit_cost ?? 0), 4) }}</span>
@@ -176,11 +176,13 @@
                     <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
                         <div>
                             <h4 class="mb-1 text-lg font-semibold text-slate-900">Registrar guia</h4>
-                            <p class="mb-0 text-sm text-muted">Confirma una guia de ingreso o salida y actualiza stock y kardex en una sola transaccion.</p>
+                            <p class="mb-0 text-sm text-muted">Confirma ingresos, salidas, stock inicial o ajustes y genera un movimiento inmutable.</p>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <flux:button type="button" variant="{{ $documentType === 'inbound' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'inbound')">Guia ingreso</flux:button>
                             <flux:button type="button" variant="{{ $documentType === 'outbound' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'outbound')">Guia salida</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'opening_stock' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'opening_stock')">Stock inicial</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'stock_adjustment' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'stock_adjustment')">Ajuste</flux:button>
                         </div>
                     </div>
 
@@ -238,20 +240,25 @@
                                                     @error('documentItems.'.$index.'.product_id') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
                                                 <div>
-                                                    <label class="form-label">Cantidad</label>
-                                                    <input type="number" min="1" wire:model="documentItems.{{ $index }}.quantity" class="form-control">
+                                                    <label class="form-label">{{ $documentType === 'stock_adjustment' ? 'Stock contado' : 'Cantidad' }}</label>
+                                                    @if($documentType === 'stock_adjustment')
+                                                        <input type="number" min="0" wire:model="documentItems.{{ $index }}.target_quantity" class="form-control">
+                                                    @else
+                                                        <input type="number" min="1" wire:model="documentItems.{{ $index }}.quantity" class="form-control">
+                                                    @endif
                                                     @error('documentItems.'.$index.'.quantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
+                                                    @error('documentItems.'.$index.'.target_quantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
                                                 <div>
-                                                    <label class="form-label">{{ $documentType === 'inbound' ? 'Costo unitario' : 'Costo aplicado' }}</label>
+                                                    <label class="form-label">{{ in_array($documentType, ['inbound', 'opening_stock'], true) ? 'Costo unitario' : 'Costo aplicado' }}</label>
                                                     <input
                                                         type="number"
                                                         min="0"
                                                         step="0.0001"
                                                         wire:model="documentItems.{{ $index }}.unit_cost"
                                                         class="form-control"
-                                                        @disabled($documentType === 'outbound')
-                                                        placeholder="{{ $documentType === 'inbound' ? '0.0000' : 'Promedio del almacen' }}"
+                                                        @disabled(in_array($documentType, ['outbound', 'stock_adjustment'], true))
+                                                        placeholder="{{ in_array($documentType, ['inbound', 'opening_stock'], true) ? '0.0000' : 'Promedio del almacen' }}"
                                                     >
                                                     @error('documentItems.'.$index.'.unit_cost') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
@@ -272,7 +279,12 @@
                                 <div class="d-flex justify-content-between gap-3 align-items-center">
                                     <flux:button type="button" variant="outline" icon="plus" wire:click="addDocumentItem">Agregar item</flux:button>
                                     <div class="text-sm text-muted">
-                                        {{ $documentType === 'inbound' ? 'La guia recalculara el costo promedio del almacen con cada ingreso confirmado.' : 'La guia consumira el costo promedio vigente del almacen y bloqueara stock para evitar concurrencia.' }}
+                                        {{ match($documentType) {
+                                            'inbound' => 'El ingreso recalculara el costo promedio del almacen.',
+                                            'outbound' => 'La salida consumira el costo promedio vigente.',
+                                            'opening_stock' => 'El stock inicial solo se admite sin movimientos ledger previos.',
+                                            default => 'El ajuste registrara la diferencia entre el saldo vigente y el conteo fisico.',
+                                        } }}
                                     </div>
                                 </div>
 

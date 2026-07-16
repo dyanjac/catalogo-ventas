@@ -17,15 +17,20 @@ class InventoryDocumentService
     public function __construct(
         private readonly InventoryMovementService $movements,
         private readonly OrganizationContextService $organizationContext,
-    ) {
-    }
+    ) {}
 
     public function createDraft(array $payload): InventoryDocument
     {
         $this->ensureTenantOperational();
+        $organizationId = (int) $this->organizationContext->currentOrganizationId();
+        $requestedOrganizationId = (int) ($payload['organization_id'] ?? $organizationId);
+
+        if ($organizationId < 1 || $requestedOrganizationId !== $organizationId) {
+            throw ValidationException::withMessages(['organization_id' => 'La organizacion del documento no coincide con el contexto activo.']);
+        }
 
         $warehouse = InventoryWarehouse::query()
-            ->forCurrentOrganization()
+            ->where('organization_id', $organizationId)
             ->whereKey($payload['warehouse_id'])
             ->where('branch_id', $payload['branch_id'])
             ->first();
@@ -43,7 +48,7 @@ class InventoryDocumentService
         }
 
         foreach ($payload['items'] ?? [] as $item) {
-            $product = Product::query()->forCurrentOrganization()->find($item['product_id']);
+            $product = Product::query()->where('organization_id', $organizationId)->find($item['product_id']);
 
             if (! $product) {
                 throw ValidationException::withMessages([
@@ -58,13 +63,13 @@ class InventoryDocumentService
             );
         }
 
-        $code = $payload['code'] ?? $this->nextCode((string) $payload['document_type']);
+        $code = $payload['code'] ?? $this->nextCode((string) $payload['document_type'], $organizationId);
 
         $document = InventoryDocument::query()->create([
             'code' => $code,
             'document_type' => $payload['document_type'],
             'status' => $payload['status'] ?? 'draft',
-            'organization_id' => $payload['organization_id'] ?? null,
+            'organization_id' => $organizationId,
             'branch_id' => $payload['branch_id'],
             'warehouse_id' => $payload['warehouse_id'],
             'reason' => $payload['reason'] ?? null,
@@ -77,10 +82,11 @@ class InventoryDocumentService
 
         foreach ($payload['items'] ?? [] as $item) {
             InventoryDocumentItem::query()->create([
-                'organization_id' => $payload['organization_id'] ?? null,
+                'organization_id' => $organizationId,
                 'document_id' => $document->id,
                 'product_id' => $item['product_id'],
                 'quantity' => (int) $item['quantity'],
+                'target_quantity' => isset($item['target_quantity']) ? (int) $item['target_quantity'] : null,
                 'unit_cost' => $item['unit_cost'] ?? null,
                 'line_total' => isset($item['unit_cost']) ? round((int) $item['quantity'] * (float) $item['unit_cost'], 4) : null,
                 'notes' => $item['notes'] ?? null,
@@ -94,22 +100,31 @@ class InventoryDocumentService
     public function confirm(int $documentId, ?int $actorId = null): InventoryDocument
     {
         $this->ensureTenantOperational();
+        $organizationId = (int) $this->organizationContext->currentOrganizationId();
 
-        return DB::transaction(function () use ($documentId, $actorId): InventoryDocument {
+        if ($organizationId < 1) {
+            throw ValidationException::withMessages(['organization_id' => 'La organizacion activa es obligatoria.']);
+        }
+
+        return DB::transaction(function () use ($documentId, $actorId, $organizationId): InventoryDocument {
             $document = InventoryDocument::query()
-                ->forCurrentOrganization()
+                ->where('organization_id', $organizationId)
                 ->with(['items.product', 'warehouse', 'branch'])
                 ->lockForUpdate()
                 ->findOrFail($documentId);
 
             if ($document->status !== 'draft') {
+                if ($document->status === 'confirmed') {
+                    return $document;
+                }
+
                 throw ValidationException::withMessages([
                     'document' => 'Solo se pueden confirmar documentos en borrador.',
                 ]);
             }
 
             $warehouse = InventoryWarehouse::query()
-                ->forCurrentOrganization()
+                ->where('organization_id', $document->organization_id)
                 ->whereKey($document->warehouse_id)
                 ->where('branch_id', $document->branch_id)
                 ->lockForUpdate()
@@ -130,7 +145,7 @@ class InventoryDocumentService
             }
 
             ProductWarehouseStock::query()
-                ->forCurrentOrganization()
+                ->where('organization_id', $document->organization_id)
                 ->where('branch_id', $document->branch_id)
                 ->where('warehouse_id', $warehouse->id)
                 ->whereIn('product_id', $items->pluck('product_id')->all())
@@ -138,7 +153,7 @@ class InventoryDocumentService
                 ->get();
 
             ProductBranchStock::query()
-                ->forCurrentOrganization()
+                ->where('organization_id', $document->organization_id)
                 ->where('branch_id', $document->branch_id)
                 ->whereIn('product_id', $items->pluck('product_id')->all())
                 ->lockForUpdate()
@@ -161,6 +176,7 @@ class InventoryDocumentService
                     'reference_type' => InventoryDocument::class,
                     'reference_id' => $document->id,
                     'reference_code' => $document->code,
+                    'idempotency_key' => 'inventory-document:'.$document->id.':item:'.$item->id.':confirm',
                     'reason' => $document->reason,
                     'notes' => $document->notes,
                     'meta' => [
@@ -189,6 +205,33 @@ class InventoryDocumentService
                             'unit_cost' => $this->resolveOutboundUnitCost($document, $product, $warehouse->id),
                         ])
                     );
+                } elseif ($document->document_type === 'opening_stock') {
+                    $this->movements->recordWarehouseOpeningStock(
+                        $product,
+                        (int) $document->branch_id,
+                        (int) $warehouse->id,
+                        (int) $item->quantity,
+                        array_merge($reference, [
+                            'reason_code' => 'initial_stock',
+                            'unit_cost' => $this->resolveInboundUnitCost($item, $product),
+                        ])
+                    );
+                } elseif ($document->document_type === 'stock_adjustment') {
+                    if ($item->target_quantity === null) {
+                        throw ValidationException::withMessages([
+                            'target_quantity' => 'El ajuste requiere una cantidad objetivo.',
+                        ]);
+                    }
+
+                    $this->movements->recordWarehouseAdjustment(
+                        $product,
+                        (int) $document->branch_id,
+                        (int) $warehouse->id,
+                        (int) $item->target_quantity,
+                        array_merge($reference, [
+                            'reason_code' => 'inventory_count',
+                        ])
+                    );
                 } else {
                     throw ValidationException::withMessages([
                         'document_type' => 'Tipo de documento no soportado para confirmacion.',
@@ -206,15 +249,17 @@ class InventoryDocumentService
         });
     }
 
-    private function nextCode(string $documentType): string
+    private function nextCode(string $documentType, int $organizationId): string
     {
         $prefix = match ($documentType) {
             'inbound' => 'GIN',
             'outbound' => 'GOU',
+            'opening_stock' => 'GOS',
+            'stock_adjustment' => 'GAD',
             default => 'GIV',
         };
 
-        $nextId = (int) (InventoryDocument::query()->forCurrentOrganization()->max('id') ?? 0) + 1;
+        $nextId = (int) (InventoryDocument::query()->where('organization_id', $organizationId)->max('id') ?? 0) + 1;
 
         return $prefix.'-'.str_pad((string) $nextId, 8, '0', STR_PAD_LEFT);
     }
@@ -235,7 +280,7 @@ class InventoryDocumentService
     private function resolveOutboundUnitCost(InventoryDocument $document, Product $product, int $warehouseId): float
     {
         $stock = ProductWarehouseStock::query()
-            ->forCurrentOrganization()
+            ->where('organization_id', $product->organization_id)
             ->where('product_id', $product->id)
             ->where('branch_id', $document->branch_id)
             ->where('warehouse_id', $warehouseId)
@@ -272,7 +317,7 @@ class InventoryDocumentService
         }
 
         $branchStock = ProductBranchStock::query()
-            ->forCurrentOrganization()
+            ->where('organization_id', $product->organization_id)
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->first();
@@ -284,7 +329,7 @@ class InventoryDocumentService
         }
 
         $warehouseStock = ProductWarehouseStock::query()
-            ->forCurrentOrganization()
+            ->where('organization_id', $product->organization_id)
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('warehouse_id', $warehouseId)

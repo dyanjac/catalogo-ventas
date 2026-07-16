@@ -15,6 +15,7 @@ class InventoryDocumentItem extends Model
         'organization_id',
         'product_id',
         'quantity',
+        'target_quantity',
         'unit_cost',
         'line_total',
         'notes',
@@ -23,10 +24,23 @@ class InventoryDocumentItem extends Model
 
     protected $casts = [
         'quantity' => 'integer',
+        'target_quantity' => 'integer',
         'unit_cost' => 'decimal:4',
         'line_total' => 'decimal:4',
         'meta' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        $guard = function (self $item): void {
+            if ($item->document()->where('status', 'confirmed')->exists()) {
+                throw new \LogicException('Los items de un documento confirmado son inmutables.');
+            }
+        };
+
+        static::updating($guard);
+        static::deleting($guard);
+    }
 
     public function document(): BelongsTo
     {

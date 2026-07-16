@@ -94,6 +94,11 @@ class Product extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    public function inventoryBalances(): HasMany
+    {
+        return $this->hasMany(InventoryBalance::class);
+    }
+
     public function inventoryDocumentItems(): HasMany
     {
         return $this->hasMany(InventoryDocumentItem::class);

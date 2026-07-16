@@ -14,8 +14,8 @@ class ProductInventoryService
     public function __construct(
         private readonly SecurityBranchContextService $branchContext,
         private readonly InventoryMovementService $movements,
-    ) {
-    }
+        private readonly InventoryBalanceReadService $balanceReader,
+    ) {}
 
     public function syncBranchStock(Product $product, ?int $branchId, int $stock, int $minStock): void
     {
@@ -31,34 +31,23 @@ class ProductInventoryService
                 'branch_id' => $branchId,
             ],
             [
-                'stock' => max(0, $stock),
+                'stock' => 0,
                 'min_stock' => max(0, $minStock),
                 'is_active' => true,
             ]
         );
 
-        $this->syncAggregateStock($product);
+        $this->movements->recordAdjustment($product, $branchId, max(0, $stock), [
+            'reason_code' => 'manual_adjustment',
+            'reason' => 'legacy_sync_branch_stock',
+        ]);
     }
 
     public function syncAggregateStock(Product $product): void
     {
-        $warehouseTotals = ProductWarehouseStock::query()
-            ->forCurrentOrganization()
+        $totals = ProductBranchStock::query()
+            ->where('organization_id', $product->organization_id)
             ->where('product_id', $product->id)
-            ->where('is_active', true)
-            ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
-            ->first();
-
-        if ($warehouseTotals && ProductWarehouseStock::query()->forCurrentOrganization()->where('product_id', $product->id)->where('is_active', true)->exists()) {
-            $product->forceFill([
-                'stock' => (int) ($warehouseTotals->stock_total ?? 0),
-                'min_stock' => (int) ($warehouseTotals->min_stock_total ?? 0),
-            ])->save();
-
-            return;
-        }
-
-        $totals = $product->branchStocks()
             ->where('is_active', true)
             ->selectRaw('COALESCE(SUM(stock),0) as stock_total, COALESCE(SUM(min_stock),0) as min_stock_total')
             ->first();
@@ -86,6 +75,17 @@ class ProductInventoryService
                 'branch_id' => $branchId,
             ]);
 
+        $unallocated = \Modules\Catalog\Entities\InventoryBalance::query()
+            ->where('organization_id', $product->organization_id)
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->whereNull('warehouse_id')
+            ->value('physical_stock');
+
+        if ($unallocated === null) {
+            $unallocated = (int) ($branchStock->stock ?? 0) - (int) ($totals?->stock_total ?? 0);
+        }
+
         $hasActiveWarehouses = ProductWarehouseStock::query()
             ->forCurrentOrganization()
             ->where('product_id', $product->id)
@@ -94,7 +94,7 @@ class ProductInventoryService
             ->exists();
 
         $branchStock->fill([
-            'stock' => (int) ($totals?->stock_total ?? 0),
+            'stock' => (int) ($totals?->stock_total ?? 0) + max(0, (int) $unallocated),
             'min_stock' => (int) ($totals?->min_stock_total ?? 0),
             'is_active' => $hasActiveWarehouses ? true : (bool) ($branchStock->is_active ?? false),
         ])->save();
@@ -110,6 +110,10 @@ class ProductInventoryService
             return (int) ($product->stock ?? 0);
         }
 
+        if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
+            return $this->balanceReader->branchStock((int) $product->organization_id, (int) $product->id, $branchId);
+        }
+
         if ($product->relationLoaded('branchStocks')) {
             $branchStock = $product->branchStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
@@ -122,6 +126,10 @@ class ProductInventoryService
 
     public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
     {
+        if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
+            return $this->balanceReader->warehouseStock((int) $product->organization_id, (int) $product->id, $branchId, $warehouseId);
+        }
+
         if ($product->relationLoaded('warehouseStocks')) {
             $warehouseStock = $product->warehouseStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (int) $stock->warehouse_id === $warehouseId && (bool) $stock->is_active);
@@ -146,6 +154,10 @@ class ProductInventoryService
             return (int) ($product->min_stock ?? 0);
         }
 
+        if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
+            return $this->balanceReader->branchMinimumStock((int) $product->organization_id, (int) $product->id, $branchId);
+        }
+
         if ($product->relationLoaded('branchStocks')) {
             $branchStock = $product->branchStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
@@ -157,7 +169,7 @@ class ProductInventoryService
     }
 
     /**
-     * @param array<int,int> $productIds
+     * @param  array<int,int>  $productIds
      * @return EloquentCollection<int,ProductBranchStock>
      */
     public function lockBranchStocksForProducts(array $productIds, int $branchId): EloquentCollection

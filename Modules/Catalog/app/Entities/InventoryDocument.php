@@ -38,6 +38,20 @@ class InventoryDocument extends Model
         'meta' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(function (self $document): void {
+            if ($document->getOriginal('status') === 'confirmed') {
+                throw new \LogicException('Un documento de inventario confirmado es inmutable.');
+            }
+        });
+        static::deleting(function (self $document): void {
+            if ($document->status === 'confirmed') {
+                throw new \LogicException('Un documento de inventario confirmado no se puede eliminar.');
+            }
+        });
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(SecurityBranch::class, 'branch_id');
