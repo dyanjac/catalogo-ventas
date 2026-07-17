@@ -15,6 +15,7 @@ use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
 use Modules\Catalog\Entities\ProductWarehouseStock;
 use Modules\Orders\Entities\Order;
+use Modules\Transport\Models\TransportGuide;
 
 class SecurityScopeService
 {
@@ -213,6 +214,11 @@ class SecurityScopeService
         return $query;
     }
 
+    public function scopeTransportGuides(Builder $query, ?User $actor, string $moduleCode = 'transport'): Builder
+    {
+        return $this->applyInventoryBranchScope($query, $actor, $moduleCode);
+    }
+
     public function canAccessUser(?User $actor, User $target, string $moduleCode = 'customers'): bool
     {
         return $this->scopeUsers(User::query(), $actor, $moduleCode)->whereKey($target->id)->exists();
@@ -258,9 +264,14 @@ class SecurityScopeService
         return $this->scopeInventoryTransfers(InventoryTransfer::query(), $actor, $moduleCode)->whereKey($transfer->id)->exists();
     }
 
+    public function canAccessTransportGuide(?User $actor, TransportGuide $guide, string $moduleCode = 'transport'): bool
+    {
+        return $this->scopeTransportGuides(TransportGuide::query(), $actor, $moduleCode)->whereKey($guide->id)->exists();
+    }
+
     public function branchModeIsDegraded(string $moduleCode): bool
     {
-        return ! in_array($moduleCode, ['customers', 'sales', 'billing', 'catalog', 'inventory'], true);
+        return ! in_array($moduleCode, ['customers', 'sales', 'billing', 'catalog', 'inventory', 'transport'], true);
     }
 
     private function applyInventoryBranchScope(Builder $query, ?User $actor, string $moduleCode): Builder

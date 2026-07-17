@@ -1,0 +1,11 @@
+{
+    "name": "Transport",
+    "alias": "transport",
+    "description": "Guias de remision electronicas y trazabilidad del traslado",
+    "keywords": ["transport", "gre", "sunat", "logistics"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Transport\\Providers\\TransportServiceProvider"
+    ],
+    "files": []
+}

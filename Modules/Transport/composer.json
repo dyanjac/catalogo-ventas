@@ -1,0 +1,9 @@
+{
+    "name": "nwidart/transport",
+    "description": "Modulo de transporte y guias de remision electronicas",
+    "autoload": {
+        "psr-4": {
+            "Modules\\Transport\\": "app/"
+        }
+    }
+}

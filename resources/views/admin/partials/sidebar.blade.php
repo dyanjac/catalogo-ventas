@@ -75,6 +75,15 @@
             </flux:sidebar.group>
         @endif
 
+        @if($modules->has('transport'))
+            <flux:sidebar.group heading="Transporte y GRE" icon="truck" expandable :expanded="request()->routeIs('admin.transport.*')">
+                <flux:sidebar.item wire:navigate.hover href="{{ route('admin.transport.guides.index') }}" icon="document-text" :data-current="request()->routeIs('admin.transport.guides.*') ? 'true' : null">Guias de remision</flux:sidebar.item>
+                @if($authorization->hasPermission($user, 'transport.settings.configure'))
+                    <flux:sidebar.item wire:navigate.hover href="{{ route('admin.transport.settings.edit') }}" icon="wrench-screwdriver" :data-current="request()->routeIs('admin.transport.settings.*') ? 'true' : null">Config. GRE</flux:sidebar.item>
+                @endif
+            </flux:sidebar.group>
+        @endif
+
         @if($modules->has('catalog'))
             <flux:sidebar.group heading="Catalogo">
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.products.index') }}" icon="cube" :data-current="request()->routeIs('admin.products.*') ? 'true' : null">Productos</flux:sidebar.item>
