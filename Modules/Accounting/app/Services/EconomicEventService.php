@@ -369,6 +369,8 @@ class EconomicEventService
             EconomicEventType::PaymentReceived => $this->buildPaymentLines($event),
             EconomicEventType::CreditNoteIssued => $this->buildCreditNoteLines($event),
             EconomicEventType::InventoryReturned => $this->buildInventoryLines($event, true),
+            EconomicEventType::ServiceAccrued => $this->buildServiceAccrualLines($event),
+            EconomicEventType::SubscriptionDeferred => $this->buildSubscriptionDeferredLines($event),
             EconomicEventType::EntryReversal => $this->buildReversalLines($event),
         };
     }
@@ -405,6 +407,56 @@ class EconomicEventService
         }
 
         return [array_values($lines), $snapshot];
+    }
+
+    /** @return array{array<int,array<string,mixed>>,array<string,mixed>} */
+    private function buildServiceAccrualLines(AccountingEconomicEvent $event): array
+    {
+        $product = $this->product($event, (int) ($event->payload['product_id'] ?? 0));
+        $accounts = (array) ($event->payload['accounts'] ?? []);
+        $amount = round(((int) ($event->payload['amount_minor'] ?? 0)) / 100, 2);
+        if ($amount === 0.0) {
+            throw new DomainException('El devengamiento debe tener un importe distinto de cero.');
+        }
+        $deferred = $this->account($event, 'deferred_revenue', $accounts['deferred_revenue'] ?? null);
+        $revenue = $this->account($event, 'revenue', $accounts['revenue'] ?? null);
+        $lines = [];
+        if ($amount > 0) {
+            $this->addLine($lines, $deferred, $amount, 0, 'LiberaciÃ³n de ingreso diferido', $product->id);
+            $this->addLine($lines, $revenue, 0, $amount, 'Ingreso por suscripciÃ³n devengado', $product->id);
+        } else {
+            $value = abs($amount);
+            $this->addLine($lines, $revenue, $value, 0, 'Ajuste de ingreso por suscripciÃ³n', $product->id);
+            $this->addLine($lines, $deferred, 0, $value, 'ReposiciÃ³n de ingreso diferido', $product->id);
+        }
+
+        return [$lines, [
+            'product_id' => $product->id,
+            'accounts' => $accounts,
+        ]];
+    }
+
+    /** @return array{array<int,array<string,mixed>>,array<string,mixed>} */
+    private function buildSubscriptionDeferredLines(AccountingEconomicEvent $event): array
+    {
+        $invoiceEvent = AccountingEconomicEvent::query()->where('organization_id', $event->organization_id)
+            ->find((int) ($event->payload['invoice_event_id'] ?? 0));
+        if (! $invoiceEvent || $invoiceEvent->status !== EconomicEventStatus::Processed) {
+            throw new DomainException('La factura debe contabilizarse antes de reclasificar su ingreso como diferido.');
+        }
+        $product = $this->product($event, (int) ($event->payload['product_id'] ?? 0));
+        $accounts = (array) ($event->payload['accounts'] ?? []);
+        $amount = round(((int) ($event->payload['amount_minor'] ?? 0)) / 100, 2);
+        if ($amount <= 0) {
+            throw new DomainException('El ingreso a diferir debe ser positivo.');
+        }
+        $revenue = $this->account($event, 'revenue', $accounts['revenue'] ?? null);
+        $deferred = $this->account($event, 'deferred_revenue', $accounts['deferred_revenue'] ?? null);
+        $lines = [];
+        $this->addLine($lines, $revenue, $amount, 0, 'ReclasificaciÃ³n de ingreso anticipado', $product->id);
+        $this->addLine($lines, $deferred, 0, $amount, 'Ingreso diferido por suscripciÃ³n', $product->id);
+
+        return [$lines, ['product_id' => $product->id, 'accounts' => $accounts]];
     }
 
     private function buildInventoryLines(AccountingEconomicEvent $event, bool $return): array
@@ -551,6 +603,9 @@ class EconomicEventService
 
             return $account;
         }
+        if ($role === 'deferred_revenue') {
+            throw new DomainException('La cuenta de ingresos diferidos debe configurarse explÃ­citamente.');
+        }
         $account = match ($role) {
             'revenue' => (clone $query)->where('is_default_sales', true)->first(),
             'receivable' => (clone $query)->where('is_default_receivable', true)->first(),
@@ -558,7 +613,7 @@ class EconomicEventService
             default => null,
         };
         $account ??= (clone $query)->where('type', match ($role) {
-            'revenue' => 'ingreso', 'tax' => 'pasivo', 'cogs' => 'gasto', default => 'activo',
+            'revenue' => 'ingreso', 'tax', 'deferred_revenue' => 'pasivo', 'cogs' => 'gasto', default => 'activo',
         })->orderBy('code')->first();
         if (! $account) {
             throw new DomainException("No existe una cuenta activa para {$role}.");
@@ -569,7 +624,7 @@ class EconomicEventService
 
     private function product(AccountingEconomicEvent $event, int $productId): Product
     {
-        return Product::query()->where('organization_id', $event->organization_id)->findOrFail($productId);
+        return Product::withTrashed()->where('organization_id', $event->organization_id)->findOrFail($productId);
     }
 
     private function addLine(array &$lines, object $account, float $debit, float $credit, string $description, ?int $productId = null): void

@@ -89,6 +89,10 @@
         <input type="text" name="account_revenue" class="form-control" value="{{ old('account_revenue', $product->account_revenue) }}" placeholder="70XXXX">
     </div>
     <div class="col-md-3">
+        <label class="form-label">Cuenta ingresos diferidos</label>
+        <input type="text" name="account_deferred_revenue" class="form-control" value="{{ old('account_deferred_revenue', $product->account_deferred_revenue) }}" placeholder="49XXXX">
+    </div>
+    <div class="col-md-3">
         <label class="form-label">Cuenta por cobrar</label>
         <input type="text" name="account_receivable" class="form-control" value="{{ old('account_receivable', $product->account_receivable) }}" placeholder="12XXXX">
     </div>

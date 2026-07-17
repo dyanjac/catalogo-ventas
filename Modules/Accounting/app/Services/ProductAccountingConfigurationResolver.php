@@ -15,6 +15,7 @@ final class ProductAccountingConfigurationResolver
     /** @var array<string, string> */
     private const PRODUCT_ACCOUNT_FIELDS = [
         'revenue' => 'account_revenue',
+        'deferred_revenue' => 'account_deferred_revenue',
         'receivable' => 'account_receivable',
         'inventory' => 'account_inventory',
         'cogs' => 'account_cogs',
@@ -24,6 +25,7 @@ final class ProductAccountingConfigurationResolver
     /** @var array<string, string> */
     private const COMPANY_ACCOUNT_FIELDS = [
         'revenue' => 'default_account_revenue',
+        'deferred_revenue' => 'default_account_deferred_revenue',
         'receivable' => 'default_account_receivable',
         'inventory' => 'default_account_inventory',
         'cogs' => 'default_account_cogs',

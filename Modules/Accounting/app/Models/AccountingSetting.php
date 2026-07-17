@@ -19,6 +19,7 @@ class AccountingSetting extends Model
         'auto_post_entries',
         'product_accounting_treatment',
         'default_account_revenue',
+        'default_account_deferred_revenue',
         'default_account_receivable',
         'default_account_inventory',
         'default_account_cogs',

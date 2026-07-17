@@ -1,0 +1,9 @@
+{
+    "name": "nwidart/subscriptions",
+    "description": "Modulo de suscripciones comerciales y devengamiento SaaS",
+    "autoload": {
+        "psr-4": {
+            "Modules\\Subscriptions\\": "app/"
+        }
+    }
+}

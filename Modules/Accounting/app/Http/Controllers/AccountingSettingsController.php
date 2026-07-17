@@ -54,6 +54,7 @@ class AccountingSettingsController extends Controller
                 Rule::enum(ProductAccountingTreatment::class)->except(ProductAccountingTreatment::Inherit),
             ],
             'default_account_revenue' => ['nullable', 'string', 'max:120'],
+            'default_account_deferred_revenue' => ['nullable', 'string', 'max:120'],
             'default_account_receivable' => ['nullable', 'string', 'max:120'],
             'default_account_inventory' => ['nullable', 'string', 'max:120'],
             'default_account_cogs' => ['nullable', 'string', 'max:120'],
@@ -64,13 +65,13 @@ class AccountingSettingsController extends Controller
         $organizationId = $this->organizationContext->currentOrganizationId();
         $settings = AccountingSetting::query()->where('organization_id', $organizationId)->first();
 
-        foreach (['default_account_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
+        foreach (['default_account_revenue', 'default_account_deferred_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = filled($data[$field]) ? trim((string) $data[$field]) : null;
             }
         }
 
-        foreach (['default_account_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
+        foreach (['default_account_revenue', 'default_account_deferred_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
             if (filled($data[$field] ?? null)) {
                 $exists = \Modules\Accounting\Models\AccountingAccount::query()
                     ->where('organization_id', $organizationId)
@@ -95,6 +96,7 @@ class AccountingSettingsController extends Controller
                     ?? $settings?->product_accounting_treatment
                     ?? ProductAccountingTreatment::PendingConfiguration,
                 'default_account_revenue' => array_key_exists('default_account_revenue', $data) ? $data['default_account_revenue'] : $settings?->default_account_revenue,
+                'default_account_deferred_revenue' => array_key_exists('default_account_deferred_revenue', $data) ? $data['default_account_deferred_revenue'] : $settings?->default_account_deferred_revenue,
                 'default_account_receivable' => array_key_exists('default_account_receivable', $data) ? $data['default_account_receivable'] : $settings?->default_account_receivable,
                 'default_account_inventory' => array_key_exists('default_account_inventory', $data) ? $data['default_account_inventory'] : $settings?->default_account_inventory,
                 'default_account_cogs' => array_key_exists('default_account_cogs', $data) ? $data['default_account_cogs'] : $settings?->default_account_cogs,

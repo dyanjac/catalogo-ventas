@@ -1,0 +1,11 @@
+{
+    "name": "Subscriptions",
+    "alias": "subscriptions",
+    "description": "Suscripciones comerciales, periodos de servicio y devengamiento",
+    "keywords": ["subscriptions", "saas", "accruals", "renewals"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Subscriptions\\Providers\\SubscriptionsServiceProvider"
+    ],
+    "files": []
+}

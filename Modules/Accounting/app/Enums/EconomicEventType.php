@@ -9,6 +9,8 @@ enum EconomicEventType: string
     case PaymentReceived = 'payment_received';
     case CreditNoteIssued = 'credit_note_issued';
     case InventoryReturned = 'inventory_returned';
+    case ServiceAccrued = 'service_accrued';
+    case SubscriptionDeferred = 'subscription_deferred';
     case EntryReversal = 'entry_reversal';
 
     public function label(): string
@@ -19,6 +21,8 @@ enum EconomicEventType: string
             self::PaymentReceived => 'Cobro recibido',
             self::CreditNoteIssued => 'Nota de crédito emitida',
             self::InventoryReturned => 'Devolución física',
+            self::ServiceAccrued => 'Ingreso por suscripción devengado',
+            self::SubscriptionDeferred => 'Ingreso de suscripción diferido',
             self::EntryReversal => 'Reversión contable',
         };
     }

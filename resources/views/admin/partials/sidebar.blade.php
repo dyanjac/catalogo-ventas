@@ -36,7 +36,7 @@
             </flux:sidebar.item>
         @endif
 
-        @if($modules->has('sales') || $modules->has('pos') || $modules->has('customers'))
+        @if($modules->has('sales') || $modules->has('pos') || $modules->has('customers') || $modules->has('subscriptions'))
             <flux:sidebar.group heading="Gestion comercial">
                 @if($modules->has('pos'))
                     <flux:sidebar.item wire:navigate.hover href="{{ route('admin.sales.pos.index') }}" icon="banknotes" :data-current="request()->routeIs('admin.sales.pos.*') ? 'true' : null">
@@ -51,6 +51,11 @@
                 @if($modules->has('customers'))
                     <flux:sidebar.item wire:navigate.hover href="{{ route('admin.customers.index') }}" icon="users" :data-current="request()->routeIs('admin.customers.*') ? 'true' : null">
                         Clientes
+                    </flux:sidebar.item>
+                @endif
+                @if($modules->has('subscriptions'))
+                    <flux:sidebar.item wire:navigate.hover href="{{ route('admin.subscriptions.index') }}" icon="arrow-path" :data-current="request()->routeIs('admin.subscriptions.*') ? 'true' : null">
+                        Suscripciones
                     </flux:sidebar.item>
                 @endif
             </flux:sidebar.group>

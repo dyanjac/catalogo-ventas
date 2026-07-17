@@ -74,6 +74,7 @@ class CategoryController extends Controller
             'description' => ['nullable', 'string'],
             'accounting_treatment' => ['sometimes', Rule::enum(ProductAccountingTreatment::class)],
             'account_revenue' => ['nullable', 'string', 'max:120'],
+            'account_deferred_revenue' => ['nullable', 'string', 'max:120'],
             'account_receivable' => ['nullable', 'string', 'max:120'],
             'account_inventory' => ['nullable', 'string', 'max:120'],
             'account_cogs' => ['nullable', 'string', 'max:120'],
@@ -82,7 +83,7 @@ class CategoryController extends Controller
 
         $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
 
-        foreach (['account_revenue', 'account_receivable', 'account_inventory', 'account_cogs', 'account_tax'] as $field) {
+        foreach (['account_revenue', 'account_deferred_revenue', 'account_receivable', 'account_inventory', 'account_cogs', 'account_tax'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = filled($data[$field]) ? trim((string) $data[$field]) : null;
             }

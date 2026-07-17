@@ -10,5 +10,6 @@
     "ElectronicDocuments": true,
     "Commerce": true,
     "Security": true,
-    "Transport": true
+    "Transport": true,
+    "Subscriptions": true
 }

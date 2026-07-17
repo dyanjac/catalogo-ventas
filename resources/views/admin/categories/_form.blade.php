@@ -23,6 +23,7 @@
     </div>
     @foreach([
         'account_revenue' => 'Cuenta de ingresos',
+        'account_deferred_revenue' => 'Cuenta de ingresos diferidos',
         'account_receivable' => 'Cuenta por cobrar',
         'account_inventory' => 'Cuenta de inventario',
         'account_cogs' => 'Cuenta de costo de venta',

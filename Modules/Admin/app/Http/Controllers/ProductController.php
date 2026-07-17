@@ -125,6 +125,7 @@ class ProductController extends Controller
             'wholesale_price',
             'account',
             'account_revenue',
+            'account_deferred_revenue',
             'account_receivable',
             'account_inventory',
             'account_cogs',

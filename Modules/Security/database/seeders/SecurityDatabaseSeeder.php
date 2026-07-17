@@ -56,6 +56,7 @@ class SecurityDatabaseSeeder extends Seeder
             ['code' => 'catalog', 'name' => 'Catalogo / productos', 'status' => 'implemented', 'sort_order' => 50],
             ['code' => 'billing', 'name' => 'Facturacion electronica', 'status' => 'implemented', 'sort_order' => 60],
             ['code' => 'accounting', 'name' => 'Contabilidad', 'status' => 'partial', 'sort_order' => 70],
+            ['code' => 'subscriptions', 'name' => 'Suscripciones', 'status' => 'implemented', 'sort_order' => 75],
             ['code' => 'commerce', 'name' => 'Configuracion de comercio', 'status' => 'implemented', 'sort_order' => 80],
             ['code' => 'admin_theme', 'name' => 'Tema / paleta admin', 'status' => 'implemented', 'sort_order' => 90],
             ['code' => 'security', 'name' => 'Seguridad / autenticacion', 'status' => 'partial', 'sort_order' => 100],
@@ -175,6 +176,11 @@ class SecurityDatabaseSeeder extends Seeder
             ['module' => 'accounting', 'resource' => 'events', 'action' => 'process', 'code' => 'accounting.events.process'],
             ['module' => 'accounting', 'resource' => 'events', 'action' => 'reverse', 'code' => 'accounting.events.reverse'],
             ['module' => 'accounting', 'resource' => 'audit', 'action' => 'view', 'code' => 'accounting.audit.view'],
+            ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'view', 'code' => 'subscriptions.contracts.view'],
+            ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'create', 'code' => 'subscriptions.contracts.create'],
+            ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'process', 'code' => 'subscriptions.contracts.process'],
+            ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'cancel', 'code' => 'subscriptions.contracts.cancel'],
+            ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'adjust', 'code' => 'subscriptions.contracts.adjust'],
             ['module' => 'commerce', 'resource' => 'settings', 'action' => 'view', 'code' => 'commerce.settings.view'],
             ['module' => 'commerce', 'resource' => 'settings', 'action' => 'update', 'code' => 'commerce.settings.update'],
             ['module' => 'commerce', 'resource' => 'settings', 'action' => 'configure', 'code' => 'commerce.settings.configure'],
@@ -245,14 +251,14 @@ class SecurityDatabaseSeeder extends Seeder
     private function seedRoleModuleAccess(array $roleMap, array $moduleMap): void
     {
         $matrix = [
-            'super_admin' => ['dashboard' => 'full', 'sales' => 'full', 'pos' => 'full', 'customers' => 'full', 'catalog' => 'full', 'billing' => 'full', 'accounting' => 'full', 'commerce' => 'full', 'admin_theme' => 'full', 'security' => 'full', 'orders_front' => 'full', 'imports' => 'placeholder', 'finance' => 'placeholder', 'crm' => 'placeholder', 'reports' => 'placeholder', 'inventory' => 'placeholder', 'transport' => 'full', 'warranties' => 'placeholder', 'payroll' => 'placeholder'],
+            'super_admin' => ['dashboard' => 'full', 'sales' => 'full', 'pos' => 'full', 'customers' => 'full', 'catalog' => 'full', 'billing' => 'full', 'accounting' => 'full', 'subscriptions' => 'full', 'commerce' => 'full', 'admin_theme' => 'full', 'security' => 'full', 'orders_front' => 'full', 'imports' => 'placeholder', 'finance' => 'placeholder', 'crm' => 'placeholder', 'reports' => 'placeholder', 'inventory' => 'placeholder', 'transport' => 'full', 'warranties' => 'placeholder', 'payroll' => 'placeholder'],
             'security_admin' => ['dashboard' => 'readonly', 'customers' => 'readonly', 'billing' => 'readonly', 'accounting' => 'readonly', 'admin_theme' => 'readonly', 'security' => 'full', 'reports' => 'readonly', 'imports' => 'placeholder', 'finance' => 'placeholder', 'crm' => 'placeholder', 'inventory' => 'placeholder', 'warranties' => 'placeholder', 'payroll' => 'placeholder'],
-            'general_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'pos' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'readonly', 'accounting' => 'readonly', 'commerce' => 'readonly', 'security' => 'readonly', 'orders_front' => 'readonly', 'imports' => 'placeholder', 'finance' => 'placeholder', 'crm' => 'placeholder', 'reports' => 'placeholder', 'inventory' => 'readonly', 'transport' => 'readonly', 'warranties' => 'placeholder', 'payroll' => 'placeholder'],
-            'sales_manager' => ['dashboard' => 'readonly', 'sales' => 'full', 'pos' => 'full', 'customers' => 'full', 'catalog' => 'readonly', 'billing' => 'readonly', 'crm' => 'readonly', 'reports' => 'readonly', 'orders_front' => 'readonly'],
+            'general_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'pos' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'readonly', 'accounting' => 'readonly', 'subscriptions' => 'readonly', 'commerce' => 'readonly', 'security' => 'readonly', 'orders_front' => 'readonly', 'imports' => 'placeholder', 'finance' => 'placeholder', 'crm' => 'placeholder', 'reports' => 'placeholder', 'inventory' => 'readonly', 'transport' => 'readonly', 'warranties' => 'placeholder', 'payroll' => 'placeholder'],
+            'sales_manager' => ['dashboard' => 'readonly', 'sales' => 'full', 'pos' => 'full', 'customers' => 'full', 'catalog' => 'readonly', 'billing' => 'readonly', 'subscriptions' => 'full', 'crm' => 'readonly', 'reports' => 'readonly', 'orders_front' => 'readonly'],
             'sales_cashier' => ['dashboard' => 'readonly', 'sales' => 'limited', 'pos' => 'full', 'customers' => 'limited', 'catalog' => 'readonly', 'billing' => 'limited'],
-            'billing_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'pos' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'full', 'transport' => 'full', 'accounting' => 'readonly', 'orders_front' => 'readonly', 'reports' => 'readonly'],
+            'billing_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'pos' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'full', 'subscriptions' => 'full', 'transport' => 'full', 'accounting' => 'readonly', 'orders_front' => 'readonly', 'reports' => 'readonly'],
             'catalog_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'customers' => 'readonly', 'catalog' => 'full', 'billing' => 'readonly', 'reports' => 'readonly', 'inventory' => 'readonly'],
-            'accounting_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'readonly', 'accounting' => 'full', 'finance' => 'placeholder', 'reports' => 'readonly', 'inventory' => 'readonly'],
+            'accounting_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'readonly', 'accounting' => 'full', 'subscriptions' => 'readonly', 'finance' => 'placeholder', 'reports' => 'readonly', 'inventory' => 'readonly'],
             'warehouse_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'pos' => 'readonly', 'catalog' => 'readonly', 'reports' => 'readonly', 'imports' => 'placeholder', 'inventory' => 'full', 'transport' => 'full', 'warranties' => 'placeholder'],
             'crm_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'customers' => 'full', 'catalog' => 'readonly', 'orders_front' => 'readonly', 'crm' => 'placeholder', 'reports' => 'readonly'],
             'finance_manager' => ['dashboard' => 'readonly', 'sales' => 'readonly', 'customers' => 'readonly', 'catalog' => 'readonly', 'billing' => 'readonly', 'accounting' => 'readonly', 'finance' => 'placeholder', 'reports' => 'readonly'],
@@ -305,6 +311,16 @@ class SecurityDatabaseSeeder extends Seeder
             'accounting.events.process',
             'accounting.events.reverse',
         ]));
+        $matrix['general_manager'][] = 'subscriptions.contracts.view';
+        $matrix['accounting_manager'][] = 'subscriptions.contracts.view';
+        foreach (['sales_manager', 'billing_manager'] as $roleCode) {
+            $matrix[$roleCode] = array_values(array_unique([
+                ...$matrix[$roleCode],
+                'subscriptions.contracts.view', 'subscriptions.contracts.create',
+                'subscriptions.contracts.process', 'subscriptions.contracts.cancel',
+                'subscriptions.contracts.adjust',
+            ]));
+        }
 
         foreach ($matrix as $roleCode => $permissionCodes) {
             $roleMap[$roleCode]->permissions()->sync(

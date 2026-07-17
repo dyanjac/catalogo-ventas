@@ -122,6 +122,14 @@ class AccountingAccountController extends Controller
                 'is_default_tax' => false,
             ],
             [
+                'code' => '496101',
+                'name' => 'Ingresos diferidos por suscripciones',
+                'type' => 'pasivo',
+                'is_default_receivable' => false,
+                'is_default_sales' => false,
+                'is_default_tax' => false,
+            ],
+            [
                 'code' => '401111',
                 'name' => 'IGV por pagar',
                 'type' => 'pasivo',
@@ -189,6 +197,7 @@ class AccountingAccountController extends Controller
                 [
                     'default_account_receivable' => '121201',
                     'default_account_revenue' => '701101',
+                    'default_account_deferred_revenue' => '496101',
                     'default_account_tax' => '401111',
                     'default_account_cash' => '101101',
                     'default_account_inventory' => '201101',
@@ -216,6 +225,7 @@ class AccountingAccountController extends Controller
             Product::query()->forCurrentOrganization()->update([
                 'account' => null,
                 'account_revenue' => null,
+                'account_deferred_revenue' => null,
                 'account_receivable' => null,
                 'account_inventory' => null,
                 'account_cogs' => null,
@@ -224,6 +234,7 @@ class AccountingAccountController extends Controller
 
             Category::query()->forCurrentOrganization()->update([
                 'account_revenue' => null,
+                'account_deferred_revenue' => null,
                 'account_receivable' => null,
                 'account_inventory' => null,
                 'account_cogs' => null,
@@ -232,6 +243,7 @@ class AccountingAccountController extends Controller
 
             AccountingSetting::query()->forCurrentOrganization()->update([
                 'default_account_revenue' => null,
+                'default_account_deferred_revenue' => null,
                 'default_account_receivable' => null,
                 'default_account_inventory' => null,
                 'default_account_cogs' => null,

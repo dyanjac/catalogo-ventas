@@ -55,6 +55,7 @@
 
                     @foreach([
                         'default_account_revenue' => 'Cuenta de ingresos por defecto',
+                        'default_account_deferred_revenue' => 'Cuenta de ingresos diferidos por suscripciones',
                         'default_account_receivable' => 'Cuenta por cobrar por defecto',
                         'default_account_inventory' => 'Cuenta de inventario por defecto',
                         'default_account_cogs' => 'Cuenta de costo de venta por defecto',

@@ -34,6 +34,7 @@ class Product extends Model
         'requires_accounting_entry',
         'accounting_treatment',
         'account_revenue',
+        'account_deferred_revenue',
         'account_receivable',
         'account_inventory',
         'account_cogs',

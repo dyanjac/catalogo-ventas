@@ -12,6 +12,7 @@ return [
             'transport' => 'transport.gre',
             'inventory' => 'inventory.advanced',
             'accounting' => 'accounting.general_ledger',
+            'subscriptions' => 'subscriptions.recurring',
         ],
     ],
 ];

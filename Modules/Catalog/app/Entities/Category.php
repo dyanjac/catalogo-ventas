@@ -21,6 +21,7 @@ class Category extends Model
         'description',
         'accounting_treatment',
         'account_revenue',
+        'account_deferred_revenue',
         'account_receivable',
         'account_inventory',
         'account_cogs',
