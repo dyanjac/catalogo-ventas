@@ -31,7 +31,17 @@ class ElectronicBillingService
      */
     public function issueOrQueue(BillingDocument $document, array $payload): array
     {
-        $setting = $this->resolveSetting();
+        $setting = $this->resolveSetting($document);
+
+        if ($document->status === 'issued') {
+            return ['ok' => true, 'queued' => false, 'already_issued' => true, 'message' => 'El comprobante ya fue emitido.'];
+        }
+        if ($document->status === 'voided') {
+            return ['ok' => false, 'queued' => false, 'message' => 'Un comprobante anulado no puede reemitirse.'];
+        }
+        if ($document->document_type === 'credit_note') {
+            return ['ok' => false, 'queued' => false, 'message' => 'La emision electronica de notas de credito se habilitara en FASE 07; FASE 06 admite registro externo verificable.'];
+        }
 
         if ($blocked = $this->guardBillingEntitlement($document)) {
             return $blocked;
@@ -100,7 +110,17 @@ class ElectronicBillingService
      */
     public function issue(BillingDocument $document, array $payload): array
     {
-        $setting = $this->resolveSetting();
+        $setting = $this->resolveSetting($document);
+
+        if ($document->status === 'issued') {
+            return ['ok' => true, 'already_issued' => true, 'message' => 'El comprobante ya fue emitido.'];
+        }
+        if ($document->status === 'voided') {
+            return ['ok' => false, 'message' => 'Un comprobante anulado no puede reemitirse.'];
+        }
+        if ($document->document_type === 'credit_note') {
+            return ['ok' => false, 'message' => 'La emision electronica de notas de credito se habilitara en FASE 07; FASE 06 admite registro externo verificable.'];
+        }
 
         if ($blocked = $this->guardBillingEntitlement($document)) {
             return $blocked;
@@ -428,7 +448,7 @@ class ElectronicBillingService
         ];
     }
 
-    private function resolveSetting(): ?BillingSetting
+    private function resolveSetting(BillingDocument $document): ?BillingSetting
     {
         $query = BillingSetting::query();
 
@@ -436,14 +456,6 @@ class ElectronicBillingService
             return $query->first();
         }
 
-        $organizationId = $this->organizationContext->currentOrganizationId();
-
-        if ($organizationId) {
-            return $query->where('organization_id', $organizationId)->first()
-                ?? BillingSetting::query()->whereNull('organization_id')->first()
-                ?? BillingSetting::query()->first();
-        }
-
-        return $query->whereNull('organization_id')->first() ?? $query->first();
+        return $query->where('organization_id', $document->organization_id)->first();
     }
 }

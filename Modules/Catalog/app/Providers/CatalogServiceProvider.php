@@ -2,10 +2,13 @@
 
 namespace Modules\Catalog\Providers;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Modules\Catalog\Console\BackfillInventoryLedgerCommand;
+use Modules\Catalog\Console\ExpireInventoryReservationsCommand;
 use Modules\Catalog\Console\ReconcileInventoryLedgerCommand;
+use Modules\Catalog\Console\ReleaseInventoryReservationsCommand;
 use Modules\Catalog\Console\SetInventoryLedgerRolloutCommand;
 use Modules\Catalog\Repositories\EloquentProductRepository;
 use Modules\Catalog\Repositories\ProductRepositoryInterface;
@@ -54,6 +57,8 @@ class CatalogServiceProvider extends ServiceProvider
             BackfillInventoryLedgerCommand::class,
             ReconcileInventoryLedgerCommand::class,
             SetInventoryLedgerRolloutCommand::class,
+            ExpireInventoryReservationsCommand::class,
+            ReleaseInventoryReservationsCommand::class,
         ]);
     }
 
@@ -62,10 +67,12 @@ class CatalogServiceProvider extends ServiceProvider
      */
     protected function registerCommandSchedules(): void
     {
-        // $this->app->booted(function () {
-        //     $schedule = $this->app->make(Schedule::class);
-        //     $schedule->command('inspire')->hourly();
-        // });
+        $this->app->booted(function (): void {
+            $this->app->make(Schedule::class)
+                ->command('inventory:reservations-expire')
+                ->everyMinute()
+                ->withoutOverlapping(5);
+        });
     }
 
     /**

@@ -8,6 +8,8 @@ use App\Models\Product;
 use App\Models\UnitMeasure;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Catalog\Entities\ProductBranchStock;
+use Modules\Security\Models\SecurityBranch;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
@@ -28,6 +30,7 @@ class CheckoutTest extends TestCase
             'sale_price' => 12.50,
             'stock' => 10,
         ]);
+        $branch = $this->assignBranchStock($user, $product, 10);
 
         $response = $this->actingAs($user)
             ->withSession([
@@ -65,20 +68,20 @@ class CheckoutTest extends TestCase
             'series' => 'PED',
             'currency' => 'PEN',
             'payment_method' => 'transfer',
-            'payment_status' => 'paid',
-            'transaction_id' => 'TRX-001',
+            'payment_status' => 'pending',
+            'transaction_id' => null,
         ]);
 
         $order = Order::query()->with('items')->firstOrFail();
 
         $this->assertSame('Cliente Demo', $order->shipping_address['name']);
         $this->assertEquals(25.00, (float) $order->subtotal);
-        $this->assertEquals(2.00, (float) $order->discount);
-        $this->assertEquals(5.00, (float) $order->shipping);
-        $this->assertEquals(4.14, (float) $order->tax);
-        $this->assertEquals(32.14, (float) $order->total);
+        $this->assertEquals(0.00, (float) $order->discount);
+        $this->assertEquals(0.00, (float) $order->shipping);
+        $this->assertEquals(4.50, (float) $order->tax);
+        $this->assertEquals(29.50, (float) $order->total);
         $this->assertCount(1, $order->items);
-        $this->assertEquals(8, $product->fresh()->stock);
+        $this->assertEquals(8, ProductBranchStock::query()->where('branch_id', $branch->id)->where('product_id', $product->id)->value('stock'));
     }
 
     public function test_checkout_fails_when_product_stock_is_insufficient(): void
@@ -91,6 +94,7 @@ class CheckoutTest extends TestCase
             'sale_price' => 18.00,
             'stock' => 1,
         ]);
+        $this->assignBranchStock($user, $product, 1);
 
         $response = $this->from(route('checkout.show'))
             ->actingAs($user)
@@ -134,5 +138,27 @@ class CheckoutTest extends TestCase
             'category_id' => $category->id,
             'unit_measure_id' => $unitMeasure->id,
         ], $attributes));
+    }
+
+    private function assignBranchStock(User $user, Product $product, int $stock): SecurityBranch
+    {
+        $branch = SecurityBranch::query()->create([
+            'organization_id' => $user->organization_id,
+            'code' => 'CHK-'.uniqid(),
+            'name' => 'Checkout',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
+        $user->forceFill(['branch_id' => $branch->id])->save();
+        ProductBranchStock::query()->create([
+            'organization_id' => $user->organization_id,
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+            'stock' => $stock,
+            'min_stock' => 0,
+            'is_active' => true,
+        ]);
+
+        return $branch;
     }
 }

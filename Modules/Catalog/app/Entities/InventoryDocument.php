@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Catalog\Enums\InventoryDocumentStatus;
+use Modules\Catalog\Enums\InventoryDocumentType;
 use Modules\Security\Models\SecurityBranch;
 
 class InventoryDocument extends Model
@@ -15,11 +17,15 @@ class InventoryDocument extends Model
 
     protected $fillable = [
         'code',
+        'idempotency_key',
+        'payload_hash',
         'document_type',
         'status',
         'organization_id',
         'branch_id',
         'warehouse_id',
+        'reservation_id',
+        'reversal_of_id',
         'reason',
         'external_reference',
         'issued_at',
@@ -31,6 +37,8 @@ class InventoryDocument extends Model
     ];
 
     protected $casts = [
+        'document_type' => InventoryDocumentType::class,
+        'status' => InventoryDocumentStatus::class,
         'issued_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'created_by' => 'integer',
@@ -41,12 +49,12 @@ class InventoryDocument extends Model
     protected static function booted(): void
     {
         static::updating(function (self $document): void {
-            if ($document->getOriginal('status') === 'confirmed') {
+            if ($document->getRawOriginal('status') === InventoryDocumentStatus::Confirmed->value) {
                 throw new \LogicException('Un documento de inventario confirmado es inmutable.');
             }
         });
         static::deleting(function (self $document): void {
-            if ($document->status === 'confirmed') {
+            if ($document->status === InventoryDocumentStatus::Confirmed) {
                 throw new \LogicException('Un documento de inventario confirmado no se puede eliminar.');
             }
         });
@@ -75,5 +83,15 @@ class InventoryDocument extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InventoryDocumentItem::class, 'document_id');
+    }
+
+    public function reservation(): BelongsTo
+    {
+        return $this->belongsTo(InventoryReservation::class, 'reservation_id');
+    }
+
+    public function reversalOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reversal_of_id');
     }
 }

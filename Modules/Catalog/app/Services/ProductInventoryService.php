@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
 use Modules\Catalog\Entities\ProductWarehouseStock;
+use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Services\SecurityBranchContextService;
 
 class ProductInventoryService
@@ -104,14 +105,23 @@ class ProductInventoryService
 
     public function availableStock(Product $product, ?int $branchId = null): int
     {
+        $branchWasProvided = $branchId !== null;
         $branchId ??= $this->branchContext->currentBranchId();
-
-        if (! $branchId) {
-            return (int) ($product->stock ?? 0);
+        if (! $branchWasProvided && $branchId && ! SecurityBranch::query()
+            ->where('organization_id', $product->organization_id)
+            ->whereKey($branchId)
+            ->exists()) {
+            $branchId = null;
         }
 
         if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
-            return $this->balanceReader->branchStock((int) $product->organization_id, (int) $product->id, $branchId);
+            return $branchId
+                ? $this->balanceReader->branchAvailableStock((int) $product->organization_id, (int) $product->id, $branchId)
+                : $this->balanceReader->productAvailableStock((int) $product->organization_id, (int) $product->id);
+        }
+
+        if (! $branchId) {
+            return (int) ($product->stock ?? 0);
         }
 
         if ($product->relationLoaded('branchStocks')) {
@@ -127,7 +137,7 @@ class ProductInventoryService
     public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
     {
         if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
-            return $this->balanceReader->warehouseStock((int) $product->organization_id, (int) $product->id, $branchId, $warehouseId);
+            return $this->balanceReader->warehouseAvailableStock((int) $product->organization_id, (int) $product->id, $branchId, $warehouseId);
         }
 
         if ($product->relationLoaded('warehouseStocks')) {
@@ -178,6 +188,7 @@ class ProductInventoryService
             ->forCurrentOrganization()
             ->whereIn('product_id', $productIds)
             ->where('branch_id', $branchId)
+            ->orderBy('product_id')
             ->lockForUpdate()
             ->get()
             ->keyBy('product_id');

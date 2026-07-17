@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\Catalog\Data\InventoryMovementCommand;
+use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryMovement;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
@@ -68,6 +69,30 @@ class InventoryMovementService
     public function recordWarehouseOutbound(Product $product, int $branchId, int $warehouseId, int $quantity, array $context = []): InventoryMovement
     {
         return $this->recordWarehouseMovement($product, $branchId, $warehouseId, abs($quantity) * -1, InventoryMovementType::Outbound, $context);
+    }
+
+    public function recordReservedOutbound(InventoryBalance $balance, int $quantity, array $context = []): InventoryMovement
+    {
+        $product = Product::query()
+            ->where('organization_id', $balance->organization_id)
+            ->findOrFail($balance->product_id);
+        $context['reserved_stock_delta'] = abs($quantity) * -1;
+
+        return $balance->warehouse_id
+            ? $this->recordWarehouseOutbound($product, (int) $balance->branch_id, (int) $balance->warehouse_id, $quantity, $context)
+            : $this->recordOutbound($product, (int) $balance->branch_id, $quantity, $context);
+    }
+
+    public function recordTransitInbound(InventoryBalance $balance, int $quantity, array $context = []): InventoryMovement
+    {
+        $product = Product::query()
+            ->where('organization_id', $balance->organization_id)
+            ->findOrFail($balance->product_id);
+        $context['in_transit_stock_delta'] = abs($quantity) * -1;
+
+        return $balance->warehouse_id
+            ? $this->recordWarehouseInbound($product, (int) $balance->branch_id, (int) $balance->warehouse_id, $quantity, $context)
+            : $this->recordInbound($product, (int) $balance->branch_id, $quantity, $context);
     }
 
     public function recordWarehouseOpeningStock(Product $product, int $branchId, int $warehouseId, int $stock, array $context = []): InventoryMovement
@@ -231,6 +256,8 @@ class InventoryMovementService
             notes: $context['notes'] ?? null,
             meta: $context['meta'] ?? null,
             requireEmptyLedger: $requireEmptyLedger,
+            reservedStockDelta: (int) ($context['reserved_stock_delta'] ?? 0),
+            inTransitStockDelta: (int) ($context['in_transit_stock_delta'] ?? 0),
         );
     }
 

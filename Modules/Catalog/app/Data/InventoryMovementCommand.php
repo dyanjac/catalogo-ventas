@@ -32,5 +32,7 @@ final readonly class InventoryMovementCommand
         public ?string $notes = null,
         public ?array $meta = null,
         public bool $requireEmptyLedger = false,
+        public int $reservedStockDelta = 0,
+        public int $inTransitStockDelta = 0,
     ) {}
 }

@@ -35,6 +35,7 @@
 
                     <form method="POST" action="{{ route('checkout.store') }}" class="d-grid gap-4">
                         @csrf
+                        <input type="hidden" name="idempotency_key" value="{{ session('checkout_idempotency_key') }}">
 
                         <div class="row g-3">
                             <div class="col-md-6">

@@ -3,6 +3,11 @@
 @section('title', 'Gestionar pedido')
 
 @section('content')
+@php
+    $securityAuthorization = app(\Modules\Security\Services\SecurityAuthorizationService::class);
+    $canConfirmDispatch = $securityAuthorization->hasPermission(auth()->user(), 'inventory.dispatches.confirm');
+    $canConfirmReturn = $securityAuthorization->hasPermission(auth()->user(), 'inventory.returns.confirm');
+@endphp
 <div class="py-2">
     <div class="container-fluid">
         <x-admin.page-header
@@ -57,6 +62,43 @@
             </div>
 
             <div class="col-lg-5">
+                @if($order->sales_channel !== 'legacy')
+                    <x-admin.info-card title="Control logistico" class="mb-4">
+                        <x-admin.detail-grid
+                            :items="[
+                                ['label' => 'Canal', 'value' => strtoupper((string) $order->sales_channel), 'class' => 'col-6'],
+                                ['label' => 'Almacen', 'value' => strtoupper((string) $order->warehouse_status?->value), 'class' => 'col-6'],
+                                ['label' => 'Reserva', 'value' => $order->inventory_reservation_id ?: '-', 'class' => 'col-6'],
+                                ['label' => 'Despacho', 'value' => $order->dispatch_document_id ?: '-', 'class' => 'col-6'],
+                            ]"
+                            columns="col-6"
+                        />
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            @if($order->warehouse_status === \Modules\Orders\Enums\OrderWarehouseStatus::Reserved)
+                                <form method="POST" action="{{ route('admin.orders.dispatch.request', $order) }}">@csrf
+                                    <button class="btn btn-outline-primary">Solicitar despacho</button>
+                                </form>
+                            @endif
+                            @if($order->warehouse_status === \Modules\Orders\Enums\OrderWarehouseStatus::ReservationExpired)
+                                <form method="POST" action="{{ route('admin.orders.reservation.renew', $order) }}">@csrf
+                                    <button class="btn btn-outline-primary">Renovar reserva</button>
+                                </form>
+                            @endif
+                            @if($canConfirmDispatch && in_array($order->warehouse_status, [\Modules\Orders\Enums\OrderWarehouseStatus::Reserved, \Modules\Orders\Enums\OrderWarehouseStatus::DispatchRequested], true))
+                                <form method="POST" action="{{ route('admin.orders.dispatch.confirm', $order) }}">@csrf
+                                    <button class="btn btn-primary">Confirmar salida fisica</button>
+                                </form>
+                            @endif
+                            @if($canConfirmReturn && $order->warehouse_status === \Modules\Orders\Enums\OrderWarehouseStatus::ReturnRequested)
+                                <form method="POST" action="{{ route('admin.orders.return.confirm', $order) }}">@csrf
+                                    <input type="hidden" name="credit_note_id" value="{{ data_get($order->returnDocument?->meta, 'credit_note_id') }}">
+                                    <button class="btn btn-primary">Confirmar ingreso por devolucion</button>
+                                </form>
+                            @endif
+                        </div>
+                    </x-admin.info-card>
+                @endif
+
                 <x-admin.form-card
                     :action="route('admin.orders.update', $order)"
                     method="PUT"
@@ -118,4 +160,3 @@
     </div>
 </div>
 @endsection
-

@@ -14,6 +14,8 @@ class InventoryDocumentItem extends Model
         'document_id',
         'organization_id',
         'product_id',
+        'inventory_balance_id',
+        'inventory_movement_id',
         'quantity',
         'target_quantity',
         'unit_cost',
@@ -50,5 +52,15 @@ class InventoryDocumentItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function balance(): BelongsTo
+    {
+        return $this->belongsTo(InventoryBalance::class, 'inventory_balance_id');
+    }
+
+    public function movement(): BelongsTo
+    {
+        return $this->belongsTo(InventoryMovement::class, 'inventory_movement_id');
     }
 }

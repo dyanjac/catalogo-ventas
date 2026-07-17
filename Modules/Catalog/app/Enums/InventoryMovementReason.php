@@ -14,5 +14,9 @@ enum InventoryMovementReason: string
     case ManualAdjustment = 'manual_adjustment';
     case LegacyBaseline = 'legacy_baseline';
     case Reversal = 'reversal';
+    case Dispatch = 'dispatch';
+    case Receipt = 'receipt';
+    case CustomerReturn = 'customer_return';
+    case SupplierReturn = 'supplier_return';
     case Other = 'other';
 }

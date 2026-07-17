@@ -15,10 +15,15 @@ class BillingDocument extends Model
 
     protected $fillable = [
         'order_id',
+        'related_document_id',
+        'idempotency_key',
+        'payload_hash',
         'organization_id',
         'branch_id',
         'provider',
         'document_type',
+        'credit_note_reason_code',
+        'credit_note_reason',
         'series',
         'number',
         'issue_date',
@@ -38,6 +43,7 @@ class BillingDocument extends Model
         'xml_hash',
         'issued_at',
         'voided_at',
+        'return_requested_at',
     ];
 
     protected $casts = [
@@ -49,6 +55,7 @@ class BillingDocument extends Model
         'response_payload' => 'array',
         'issued_at' => 'datetime',
         'voided_at' => 'datetime',
+        'return_requested_at' => 'datetime',
     ];
 
     public function order(): BelongsTo
@@ -59,6 +66,16 @@ class BillingDocument extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(SecurityBranch::class, 'branch_id');
+    }
+
+    public function relatedDocument(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'related_document_id');
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(self::class, 'related_document_id');
     }
 
     public function files(): HasMany

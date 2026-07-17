@@ -110,4 +110,16 @@ Route::middleware(['auth'])->group(function () {
     Route::put('admin/orders/{order}', [AdminOrderController::class, 'update'])
         ->middleware(['security.module:sales', 'security.permission:sales.orders.update'])
         ->name('admin.orders.update');
+    Route::post('admin/orders/{order}/dispatch-request', [AdminOrderController::class, 'requestDispatch'])
+        ->middleware(['security.module:sales', 'security.permission:sales.orders.update'])
+        ->name('admin.orders.dispatch.request');
+    Route::post('admin/orders/{order}/reservation-renew', [AdminOrderController::class, 'renewReservation'])
+        ->middleware(['security.module:sales', 'security.permission:sales.orders.update'])
+        ->name('admin.orders.reservation.renew');
+    Route::post('admin/orders/{order}/dispatch-confirm', [AdminOrderController::class, 'confirmDispatch'])
+        ->middleware(['security.module:inventory', 'security.permission:inventory.dispatches.confirm'])
+        ->name('admin.orders.dispatch.confirm');
+    Route::post('admin/orders/{order}/return-confirm', [AdminOrderController::class, 'confirmReturn'])
+        ->middleware(['security.module:inventory', 'security.permission:inventory.returns.confirm'])
+        ->name('admin.orders.return.confirm');
 });

@@ -37,6 +37,16 @@ class InventoryLedgerService
 
                     $balance = $this->lockOrCreateBalance($command);
 
+                    // Current read: otra transaccion pudo confirmar la misma clave mientras esperabamos el saldo.
+                    $existing = InventoryMovement::query()
+                        ->where('organization_id', $command->organizationId)
+                        ->where('idempotency_key', $command->idempotencyKey)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($existing) {
+                        return $this->validateReplay($existing, $payloadHash);
+                    }
+
                     if ($command->requireEmptyLedger && ! $this->canReceiveOpeningStock($balance)) {
                         throw ValidationException::withMessages([
                             'stock' => 'El stock inicial solo puede registrarse en una ubicacion sin movimientos previos.',
@@ -48,9 +58,13 @@ class InventoryLedgerService
                         ? $command->targetStock - $before
                         : (int) $command->quantityDelta;
                     $after = $before + $quantityDelta;
+                    $reservedAfter = (int) $balance->reserved_stock + $command->reservedStockDelta;
+                    $inTransitAfter = (int) $balance->in_transit_stock + $command->inTransitStockDelta;
 
-                    if ($after < 0) {
-                        throw new RuntimeException('Stock insuficiente para completar el movimiento.');
+                    if ($reservedAfter < 0 || $inTransitAfter < 0 || $after < $reservedAfter) {
+                        throw ValidationException::withMessages([
+                            'stock' => 'El movimiento viola los saldos fisico, reservado o en transito.',
+                        ]);
                     }
 
                     $averageBefore = round((float) $balance->average_cost, 4);
@@ -93,10 +107,14 @@ class InventoryLedgerService
                         'average_cost' => $averageAfter,
                         'last_cost' => $unitCost,
                         'version' => $nextVersion,
+                        'reserved_stock' => $reservedAfter,
+                        'in_transit_stock' => $inTransitAfter,
+                        'reservation_version' => (int) $balance->reservation_version + ($command->reservedStockDelta !== 0 ? 1 : 0),
+                        'transit_version' => (int) $balance->transit_version + ($command->inTransitStockDelta !== 0 ? 1 : 0),
                     ])->save();
 
                     return $movement;
-                }, 5);
+                }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
             } catch (QueryException $exception) {
                 if (! $this->isUniqueViolation($exception)) {
                     throw $exception;
@@ -328,6 +346,8 @@ class InventoryLedgerService
             'reference_type' => $command->referenceType,
             'reference_id' => $command->referenceId,
             'reversal_of_id' => $command->reversalOfId,
+            'reserved_stock_delta' => $command->reservedStockDelta,
+            'in_transit_stock_delta' => $command->inTransitStockDelta,
         ];
 
         ksort($payload);

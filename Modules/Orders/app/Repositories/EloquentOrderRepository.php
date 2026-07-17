@@ -5,6 +5,7 @@ namespace Modules\Orders\Repositories;
 use App\Services\OrganizationContextService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Modules\Orders\Entities\Order;
 
 class EloquentOrderRepository implements OrderRepositoryInterface
@@ -15,14 +16,37 @@ class EloquentOrderRepository implements OrderRepositoryInterface
 
     public function nextOrderNumber(string $series): int
     {
-        return ((int) Order::query()
-            ->when(
-                $this->organizationContext->currentOrganizationId(),
-                fn (Builder $query, int $organizationId) => $query->where('organization_id', $organizationId)
-            )
+        $organizationId = (int) $this->organizationContext->currentOrganizationId();
+        if ($organizationId < 1) {
+            throw new \RuntimeException('La organizacion activa es obligatoria para numerar pedidos.');
+        }
+
+        $initial = ((int) Order::query()
+            ->where('organization_id', $organizationId)
+            ->where('series', $series)
+            ->max('order_number')) + 1;
+
+        DB::table('sales_order_counters')->insertOrIgnore([
+            'organization_id' => $organizationId,
+            'series' => $series,
+            'next_number' => $initial,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $counter = DB::table('sales_order_counters')
+            ->where('organization_id', $organizationId)
             ->where('series', $series)
             ->lockForUpdate()
-            ->max('order_number')) + 1;
+            ->first();
+        $number = (int) ($counter?->next_number ?? $initial);
+
+        DB::table('sales_order_counters')
+            ->where('organization_id', $organizationId)
+            ->where('series', $series)
+            ->update(['next_number' => $number + 1, 'updated_at' => now()]);
+
+        return $number;
     }
 
     public function create(array $data): Order

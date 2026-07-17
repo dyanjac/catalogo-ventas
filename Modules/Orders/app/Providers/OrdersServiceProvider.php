@@ -8,6 +8,8 @@ use Modules\Orders\Contracts\OrderReadServiceInterface;
 use Modules\Orders\Repositories\EloquentOrderRepository;
 use Modules\Orders\Repositories\OrderRepositoryInterface;
 use Modules\Orders\Services\OrderReadService;
+use Modules\Catalog\Entities\InventoryReservation;
+use Modules\Orders\Listeners\SynchronizeExpiredOrderReservation;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -31,6 +33,9 @@ class OrdersServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->name, 'database/migrations'));
+        InventoryReservation::updated(function (InventoryReservation $reservation): void {
+            app(SynchronizeExpiredOrderReservation::class)->handle($reservation);
+        });
     }
 
     /**

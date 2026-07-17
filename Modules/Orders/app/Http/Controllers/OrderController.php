@@ -5,6 +5,7 @@ namespace Modules\Orders\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\OrganizationContextService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Services\OrderCheckoutService;
 use Modules\Orders\Services\OrderQueryService;
@@ -31,6 +32,7 @@ class OrderController extends Controller
 
         $checkoutData = $this->checkoutService->buildCheckoutData($cart);
         session(['cart' => collect($checkoutData['items'])->keyBy('id')->all()]);
+        session()->put('checkout_idempotency_key', session('checkout_idempotency_key') ?: (string) Str::uuid());
 
         if ($checkoutData['has_issues']) {
             return redirect()
@@ -60,42 +62,24 @@ class OrderController extends Controller
             'address' => ['required', 'string', 'max:200'],
             'city' => ['required', 'string', 'max:100'],
             'phone' => ['required', 'string', 'max:30'],
-            'series' => ['nullable', 'string', 'max:4'],
-            'currency' => ['nullable', 'in:PEN,USD'],
-            'shipping' => ['nullable', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'payment_method' => ['nullable', 'in:cash,transfer,card,yape'],
-            'payment_status' => ['nullable', 'in:pending,paid,failed,refunded'],
-            'transaction_id' => ['nullable', 'string', 'max:100'],
+            'idempotency_key' => ['nullable', 'string', 'max:160'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $series = strtoupper(trim((string) $request->input('series', 'PED')));
-        if ($series === '') {
-            $series = 'PED';
-        }
-        $currency = strtoupper(trim((string) $request->input('currency', 'PEN')));
         $paymentMethod = (string) $request->input('payment_method', 'cash');
-        $paymentStatus = (string) $request->input('payment_status', 'pending');
         $result = $this->checkoutService->checkout([
             'user_id' => (int) auth()->id(),
             'name' => (string) $request->input('name'),
             'address' => (string) $request->input('address'),
             'city' => (string) $request->input('city'),
             'phone' => (string) $request->input('phone'),
-            'series' => $series,
-            'currency' => $currency,
-            'shipping' => $request->input('shipping', 0),
-            'discount' => $request->input('discount', 0),
-            'tax_rate' => $request->input('tax_rate', 0.18),
             'payment_method' => $paymentMethod,
-            'payment_status' => $paymentStatus,
-            'transaction_id' => $request->input('transaction_id'),
+            'idempotency_key' => (string) ($request->input('idempotency_key') ?: session('checkout_idempotency_key') ?: Str::uuid()),
             'observations' => $request->input('observations'),
         ], $cart);
 
-        session()->forget('cart');
+        session()->forget(['cart', 'checkout_idempotency_key']);
 
         return redirect()
             ->route('orders.mine')

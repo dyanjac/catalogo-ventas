@@ -5,7 +5,10 @@ namespace Modules\Orders\Services;
 use App\Models\User;
 use App\Services\OrganizationContextService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Services\ProductInventoryService;
@@ -20,6 +23,8 @@ class OrderCheckoutService
         private readonly OrderRepositoryInterface $orders,
         private readonly ProductInventoryService $inventory,
         private readonly OrganizationContextService $organizationContext,
+        private readonly SalesInventoryChannelRolloutService $channelRollouts,
+        private readonly OrderInventoryLifecycleService $inventoryLifecycle,
     ) {
     }
 
@@ -32,22 +37,23 @@ class OrderCheckoutService
     {
         $this->ensureTenantOperational();
 
-        $series = strtoupper(trim((string) ($payload['series'] ?? 'PED')));
-        if ($series === '') {
-            $series = 'PED';
-        }
-
-        $currency = strtoupper(trim((string) ($payload['currency'] ?? 'PEN')));
+        $series = strtoupper((string) config('orders.checkout.series', 'PED'));
+        $currency = strtoupper((string) config('orders.checkout.currency', 'PEN'));
         $paymentMethod = (string) ($payload['payment_method'] ?? 'cash');
-        $paymentStatus = (string) ($payload['payment_status'] ?? 'pending');
-        $shipping = round((float) ($payload['shipping'] ?? 0), 2);
-        $discount = round((float) ($payload['discount'] ?? 0), 2);
-        $taxRate = (float) ($payload['tax_rate'] ?? 0.18);
+        $paymentStatus = 'pending';
+        $shipping = round((float) config('orders.checkout.shipping', 0), 2);
+        $discount = round((float) config('orders.checkout.discount', 0), 2);
+        $taxRate = (float) config('orders.checkout.tax_rate', 0.18);
         $branchId = (int) (($payload['branch_id'] ?? 0)
             ?: User::query()->forCurrentOrganization()->whereKey((int) ($payload['user_id'] ?? 0))->value('branch_id')
             ?: SecurityBranch::query()->forCurrentOrganization()->where('is_default', true)->value('id')
             ?: 0);
         $organizationId = $this->organizationContext->currentOrganizationId();
+        $idempotencyKey = trim((string) ($payload['idempotency_key'] ?? '')) ?: (string) Str::uuid();
+        if (mb_strlen($idempotencyKey) > 160) {
+            throw ValidationException::withMessages(['idempotency_key' => 'La clave idempotente admite hasta 160 caracteres.']);
+        }
+        $integrated = $this->channelRollouts->isActive((int) $organizationId, 'ecommerce');
 
         $checkoutData = $this->buildCheckoutData($cart, true, $branchId);
         $items = $checkoutData['items'];
@@ -56,11 +62,26 @@ class OrderCheckoutService
         $taxableBase = max(0, $subtotal - $discount);
         $tax = round($taxableBase * $taxRate, 2);
         $total = round($taxableBase + $shipping + $tax, 2);
+        $payloadHash = hash('sha256', json_encode(Arr::sortRecursive([
+            'organization_id' => (int) $organizationId,
+            'user_id' => (int) ($payload['user_id'] ?? 0),
+            'branch_id' => $branchId,
+            'items' => collect($items)->map(fn (array $item) => [
+                'id' => (int) $item['id'],
+                'quantity' => (int) $item['quantity'],
+                'price' => (float) $item['price'],
+            ])->sortBy('id')->values()->all(),
+            'currency' => $currency,
+            'payment_method' => $paymentMethod,
+            'shipping_address' => Arr::only($payload, ['name', 'address', 'city', 'phone']),
+            'totals' => compact('subtotal', 'discount', 'shipping', 'tax', 'total'),
+        ]), JSON_THROW_ON_ERROR));
 
         /** @var array{order:Order,order_number:string}|null $result */
         $result = null;
 
-        DB::transaction(function () use (
+        try {
+            DB::transaction(function () use (
             $items,
             $subtotal,
             $shipping,
@@ -74,11 +95,30 @@ class OrderCheckoutService
             $payload,
             $branchId,
             $organizationId,
+            $idempotencyKey,
+            $payloadHash,
+            $integrated,
             &$result
         ): void {
+            $existing = Order::query()
+                ->where('organization_id', $organizationId)
+                ->where('sales_channel', 'ecommerce')
+                ->where('idempotency_key', $idempotencyKey)
+                ->lockForUpdate()
+                ->first();
+            if ($existing) {
+                if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
+                    throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otro checkout.']);
+                }
+                $result = ['order' => $existing, 'order_number' => $this->orderCode($existing)];
+                return;
+            }
+
             $products = $this->lockProductsForCart($items);
-            $branchStocks = $this->inventory->lockBranchStocksForProducts(array_keys($products->all()), $branchId);
-            $this->assertStockForItems($items, $products, $branchStocks);
+            if (! $integrated) {
+                $branchStocks = $this->inventory->lockBranchStocksForProducts(array_keys($products->all()), $branchId);
+                $this->assertStockForItems($items, $products, $branchStocks);
+            }
 
             $nextOrderNumber = $this->orders->nextOrderNumber($series);
             $paidAt = $paymentStatus === 'paid' ? now() : null;
@@ -87,9 +127,13 @@ class OrderCheckoutService
                 'organization_id' => $organizationId,
                 'user_id' => (int) ($payload['user_id'] ?? 0),
                 'branch_id' => $branchId ?: null,
+                'sales_channel' => 'ecommerce',
+                'idempotency_key' => $idempotencyKey,
+                'payload_hash' => $payloadHash,
                 'series' => $series,
                 'order_number' => $nextOrderNumber,
                 'status' => 'confirmed',
+                'warehouse_status' => $integrated ? 'reserved' : 'legacy_completed',
                 'currency' => $currency,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
@@ -123,6 +167,7 @@ class OrderCheckoutService
                 $lineTotal = round($lineTaxable + $lineTax, 2);
 
                 OrderItem::query()->create([
+                    'organization_id' => $organizationId,
                     'order_id' => $order->id,
                     'product_id' => (int) $item['id'],
                     'currency' => $currency,
@@ -133,26 +178,56 @@ class OrderCheckoutService
                     'line_total' => $lineTotal,
                 ]);
 
-                $this->inventory->decrementBranchStock($products->get((string) $item['id']), $branchId, $qty, [
-                    'reason' => 'ecommerce_order',
-                    'performed_by' => (int) ($payload['user_id'] ?? 0) ?: null,
-                    'reference_type' => Order::class,
-                    'reference_id' => $order->id,
-                    'reference_code' => $order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
-                    'meta' => [
-                        'channel' => 'ecommerce',
-                        'payment_method' => $paymentMethod,
-                    ],
-                ]);
+                if (! $integrated && $products->get((string) $item['id'])->tracksInventory()) {
+                    $this->inventory->decrementBranchStock($products->get((string) $item['id']), $branchId, $qty, [
+                        'reason' => 'ecommerce_order',
+                        'performed_by' => (int) ($payload['user_id'] ?? 0) ?: null,
+                        'reference_type' => Order::class,
+                        'reference_id' => $order->id,
+                        'reference_code' => $this->orderCode($order),
+                        'meta' => ['channel' => 'ecommerce', 'payment_method' => $paymentMethod],
+                    ]);
+                }
+            }
+
+            if ($integrated) {
+                $order = $this->inventoryLifecycle->reserve($order, (int) ($payload['user_id'] ?? 0) ?: null);
             }
 
             $result = [
                 'order' => $order,
-                'order_number' => $order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
+                'order_number' => $this->orderCode($order),
             ];
-        });
+            }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
+        } catch (QueryException $exception) {
+            $existing = Order::query()
+                ->where('organization_id', $organizationId)
+                ->where('sales_channel', 'ecommerce')
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if (! $existing || ! $this->isUniqueViolation($exception)) {
+                throw $exception;
+            }
+            if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
+                throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otro checkout.']);
+            }
+            $result = ['order' => $existing, 'order_number' => $this->orderCode($existing)];
+        }
 
         return $result ?? throw new \RuntimeException('No se pudo registrar el pedido.');
+    }
+
+    private function orderCode(Order $order): string
+    {
+        return $order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT);
+    }
+
+    private function isUniqueViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+
+        return in_array($sqlState, ['23000', '23505'], true)
+            || str_contains(strtolower($exception->getMessage()), 'unique constraint');
     }
 
     /**
@@ -182,15 +257,17 @@ class OrderCheckoutService
                 continue;
             }
 
-            $available = $this->inventory->availableStock($product, $branchId);
+            $available = $product->tracksInventory()
+                ? $this->inventory->availableStock($product, $branchId)
+                : $qty;
 
-            if ($requireStock && $available < $qty) {
+            if ($requireStock && $product->tracksInventory() && $available < $qty) {
                 throw ValidationException::withMessages([
                     'cart' => ["El producto {$product->name} solo tiene {$available} unidades disponibles en la sucursal."],
                 ]);
             }
 
-            if (! $requireStock && $available < $qty) {
+            if (! $requireStock && $product->tracksInventory() && $available < $qty) {
                 $hasIssues = true;
             }
 
@@ -238,6 +315,10 @@ class OrderCheckoutService
             $qty = (int) ($item['quantity'] ?? 0);
             $branchStock = $branchStocks->get((int) ($item['id'] ?? 0));
             $available = (int) ($branchStock?->stock ?? 0);
+
+            if ($product && ! $product->tracksInventory()) {
+                continue;
+            }
 
             if (! $product || ! $product->is_active || $available < $qty) {
                 throw ValidationException::withMessages([

@@ -4,11 +4,13 @@ namespace App\Livewire\Admin;
 
 use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Modules\Catalog\Data\InventoryTransferReceiptCommand;
 use Modules\Catalog\Entities\InventoryDocument;
 use Modules\Catalog\Entities\InventoryMovement;
 use Modules\Catalog\Entities\InventoryTransfer;
@@ -50,6 +52,8 @@ class InventoryIndex extends Component
 
     public array $documentItems = [];
 
+    public string $documentIdempotencyKey = '';
+
     public string $transferSourceBranchId = '';
 
     public string $transferDestinationBranchId = '';
@@ -60,6 +64,14 @@ class InventoryIndex extends Component
 
     public string $transferNotes = '';
 
+    public string $transferIdempotencyKey = '';
+
+    /** @var array<int, array<int, string>> */
+    public array $transferReceiptQuantities = [];
+
+    /** @var array<int, string> */
+    public array $transferReceiptIdempotencyKeys = [];
+
     public ?string $flashMessage = null;
 
     public string $flashTone = 'success';
@@ -69,6 +81,8 @@ class InventoryIndex extends Component
         if ($this->documentItems === []) {
             $this->documentItems = [$this->emptyDocumentItem()];
         }
+        $this->documentIdempotencyKey = $this->documentIdempotencyKey ?: (string) Str::uuid();
+        $this->transferIdempotencyKey = $this->transferIdempotencyKey ?: (string) Str::uuid();
     }
 
     public function updatingSearch(): void
@@ -88,7 +102,7 @@ class InventoryIndex extends Component
 
     public function updatedDocumentType(): void
     {
-        if (in_array($this->documentType, ['outbound', 'stock_adjustment'], true)) {
+        if (in_array($this->documentType, ['outbound', 'dispatch', 'supplier_return', 'stock_adjustment'], true)) {
             foreach ($this->documentItems as $index => $item) {
                 $this->documentItems[$index]['unit_cost'] = '';
             }
@@ -129,6 +143,7 @@ class InventoryIndex extends Component
         $this->documentExternalReference = '';
         $this->documentNotes = '';
         $this->documentItems = [$this->emptyDocumentItem()];
+        $this->documentIdempotencyKey = (string) Str::uuid();
     }
 
     public function saveDocument(
@@ -161,7 +176,7 @@ class InventoryIndex extends Component
         $organizationId = $organizationContext->currentOrganizationId();
 
         $validated = $this->validate([
-            'documentType' => ['required', Rule::in(['inbound', 'outbound', 'opening_stock', 'stock_adjustment'])],
+            'documentType' => ['required', Rule::in(['inbound', 'outbound', 'opening_stock', 'stock_adjustment', 'dispatch', 'receipt', 'customer_return', 'supplier_return'])],
             'documentBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
             'documentWarehouseId' => ['required', 'integer', Rule::exists('inventory_warehouses', 'id')->where('organization_id', $organizationId)],
             'documentReason' => ['nullable', 'string', 'max:60'],
@@ -212,7 +227,7 @@ class InventoryIndex extends Component
                     'target_quantity' => $validated['documentType'] === 'stock_adjustment'
                         ? (int) $item['target_quantity']
                         : null,
-                    'unit_cost' => in_array($validated['documentType'], ['inbound', 'opening_stock'], true) && $item['unit_cost'] !== '' && $item['unit_cost'] !== null
+                    'unit_cost' => in_array($validated['documentType'], ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) && $item['unit_cost'] !== '' && $item['unit_cost'] !== null
                         ? round((float) $item['unit_cost'], 4)
                         : null,
                     'notes' => $item['notes'] ?? null,
@@ -222,6 +237,7 @@ class InventoryIndex extends Component
 
         $document = $documents->createDraft([
             'organization_id' => $organizationId,
+            'idempotency_key' => $this->documentIdempotencyKey,
             'document_type' => $validated['documentType'],
             'branch_id' => (int) $validated['documentBranchId'],
             'warehouse_id' => (int) $validated['documentWarehouseId'],
@@ -253,7 +269,11 @@ class InventoryIndex extends Component
         SecurityBranchContextService $branchContext,
         OrganizationContextService $organizationContext,
     ): void {
-        abort_unless($authorization->hasPermission(auth()->user(), 'inventory.transfers.create'), 403);
+        abort_unless(
+            $authorization->hasPermission(auth()->user(), 'inventory.transfers.create')
+                && $authorization->hasPermission(auth()->user(), 'inventory.transfers.dispatch'),
+            403
+        );
 
         $organizationId = $organizationContext->currentOrganizationId();
 
@@ -284,6 +304,7 @@ class InventoryIndex extends Component
             (int) $validated['transferQuantity'],
             [
                 'created_by' => auth()->id(),
+                'idempotency_key' => $this->transferIdempotencyKey,
                 'notes' => $validated['transferNotes'] !== '' ? $validated['transferNotes'] : null,
             ]
         );
@@ -292,8 +313,71 @@ class InventoryIndex extends Component
         $this->transferProductId = '';
         $this->transferQuantity = '1';
         $this->transferNotes = '';
+        $this->transferIdempotencyKey = (string) Str::uuid();
         $this->flashTone = 'success';
-        $this->flashMessage = 'Transferencia registrada: '.$transfer->code;
+        $this->flashMessage = 'Transferencia despachada y en transito: '.$transfer->code;
+    }
+
+    public function receiveTransfer(
+        int $transferId,
+        InventoryTransferService $transfers,
+        SecurityAuthorizationService $authorization,
+        SecurityScopeService $scopeService,
+        SecurityBranchContextService $branchContext,
+        OrganizationContextService $organizationContext,
+    ): void {
+        $actor = auth()->user();
+        abort_unless($authorization->hasPermission($actor, 'inventory.transfers.receive'), 403);
+
+        $organizationId = $organizationContext->currentOrganizationId();
+        $transfer = InventoryTransfer::query()
+            ->where('organization_id', $organizationId)
+            ->with('items')
+            ->findOrFail($transferId);
+
+        if (! $scopeService->canAccessInventoryTransfer($actor, $transfer, 'inventory')) {
+            abort(403);
+        }
+
+        $scopeLevel = $scopeService->scopeLevelForModule($actor, 'inventory');
+        $actorBranchId = $branchContext->currentBranchId($actor);
+        if (in_array($scopeLevel, ['branch', 'own'], true) && (int) $transfer->destination_branch_id !== (int) $actorBranchId) {
+            throw ValidationException::withMessages([
+                "transferReceiptQuantities.{$transferId}" => 'Solo la sucursal destino puede confirmar la recepcion.',
+            ]);
+        }
+
+        $validated = $this->validate([
+            "transferReceiptQuantities.{$transferId}" => ['required', 'array'],
+            "transferReceiptQuantities.{$transferId}.*" => ['nullable', 'integer', 'min:1'],
+        ]);
+        $rawQuantities = $validated['transferReceiptQuantities'][$transferId] ?? [];
+        $quantities = collect($rawQuantities)
+            ->reject(fn ($quantity) => $quantity === null || $quantity === '')
+            ->mapWithKeys(fn ($quantity, $itemId) => [(int) $itemId => (int) $quantity])
+            ->all();
+
+        if ($quantities === []) {
+            throw ValidationException::withMessages([
+                "transferReceiptQuantities.{$transferId}" => 'Indica al menos una cantidad recibida.',
+            ]);
+        }
+
+        $idempotencyKey = $this->transferReceiptIdempotencyKeys[$transferId] ??= (string) Str::uuid();
+        $received = $transfers->receive(new InventoryTransferReceiptCommand(
+            organizationId: $organizationId,
+            transferId: $transferId,
+            idempotencyKey: $idempotencyKey,
+            quantitiesByItemId: $quantities,
+            actorId: auth()->id(),
+        ));
+
+        unset($this->transferReceiptQuantities[$transferId]);
+        unset($this->transferReceiptIdempotencyKeys[$transferId]);
+        $this->flashTone = 'success';
+        $this->flashMessage = $received->status->value === 'received'
+            ? 'Transferencia recibida por completo: '.$received->code
+            : 'Recepcion parcial registrada: '.$received->code;
     }
 
     public function render(
@@ -314,7 +398,10 @@ class InventoryIndex extends Component
         $canViewKardex = $authorization->hasPermission($actor, 'inventory.kardex.view');
         $canViewWarehouses = $authorization->hasPermission($actor, 'inventory.warehouses.view') || $canManageDocuments;
         $canCreateTransfer = $authorization->hasPermission($actor, 'inventory.transfers.create');
-        $canViewTransfers = $authorization->hasPermission($actor, 'inventory.transfers.view') || $canCreateTransfer;
+        $canDispatchTransfer = $authorization->hasPermission($actor, 'inventory.transfers.dispatch');
+        $canReceiveTransfer = $authorization->hasPermission($actor, 'inventory.transfers.receive');
+        $canOperateTransfer = $canCreateTransfer && $canDispatchTransfer;
+        $canViewTransfers = $authorization->hasPermission($actor, 'inventory.transfers.view') || $canOperateTransfer || $canReceiveTransfer;
 
         if ($this->documentItems === []) {
             $this->documentItems = [$this->emptyDocumentItem()];
@@ -423,7 +510,7 @@ class InventoryIndex extends Component
             $documentProducts = $scopeService->scopeProducts(
                 Product::query()
                     ->where('is_active', true)
-                    ->when($this->documentType === 'outbound' && $this->documentWarehouseId !== '', function ($query): void {
+                    ->when(in_array($this->documentType, ['outbound', 'dispatch', 'supplier_return'], true) && $this->documentWarehouseId !== '', function ($query): void {
                         $warehouseId = (int) $this->documentWarehouseId;
                         $query->whereHas('warehouseStocks', function ($stockQuery) use ($warehouseId): void {
                             $stockQuery->where('warehouse_id', $warehouseId)
@@ -479,7 +566,7 @@ class InventoryIndex extends Component
         $recentTransfers = $canViewTransfers
             ? $scopeService->scopeInventoryTransfers(
                 InventoryTransfer::query()
-                    ->with(['sourceBranch', 'destinationBranch', 'items.product', 'creator'])
+                    ->with(['sourceBranch', 'destinationBranch', 'sourceWarehouse', 'destinationWarehouse', 'items.product', 'creator'])
                     ->when($effectiveBranchId, function ($query) use ($effectiveBranchId): void {
                         $query->where(function ($subQuery) use ($effectiveBranchId): void {
                             $subQuery->where('source_branch_id', $effectiveBranchId)
@@ -509,7 +596,9 @@ class InventoryIndex extends Component
             'canViewDocuments' => $canViewDocuments,
             'canViewKardex' => $canViewKardex,
             'canViewWarehouses' => $canViewWarehouses,
-            'canCreateTransfer' => $canCreateTransfer,
+            'canCreateTransfer' => $canOperateTransfer,
+            'canDispatchTransfer' => $canDispatchTransfer,
+            'canReceiveTransfer' => $canReceiveTransfer,
             'canViewTransfers' => $canViewTransfers,
             'scopeLevel' => $scopeLevel,
             'actorBranchId' => $actorBranchId,

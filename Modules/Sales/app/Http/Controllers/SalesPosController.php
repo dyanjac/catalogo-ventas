@@ -7,7 +7,9 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,9 @@ use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Services\ProductInventoryService;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
+use Modules\Orders\Services\OrderInventoryLifecycleService;
+use Modules\Orders\Services\SalesInventoryChannelRolloutService;
+use Modules\Orders\Repositories\OrderRepositoryInterface;
 use Modules\Sales\Services\CustomerDocumentLookupService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Throwable;
@@ -30,6 +35,9 @@ class SalesPosController extends Controller
         private readonly ProductInventoryService $inventory,
         private readonly SecurityBranchContextService $branchContext,
         private readonly OrganizationContextService $organizationContext,
+        private readonly SalesInventoryChannelRolloutService $channelRollouts,
+        private readonly OrderInventoryLifecycleService $inventoryLifecycle,
+        private readonly OrderRepositoryInterface $orders,
     ) {
     }
 
@@ -78,7 +86,8 @@ class SalesPosController extends Controller
             'document_type' => ['required', 'in:order,boleta,factura'],
             'currency' => ['required', 'in:PEN,USD'],
             'payment_method' => ['required', 'in:cash,transfer,card,yape'],
-            'payment_status' => ['required', 'in:pending,paid,failed,refunded'],
+            'payment_status' => ['required', 'in:pending,paid'],
+            'idempotency_key' => ['required', 'string', 'max:160'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'shipping' => ['nullable', 'numeric', 'min:0'],
@@ -115,12 +124,49 @@ class SalesPosController extends Controller
         $discount = round((float) ($data['discount'] ?? 0), 2);
         $shipping = round((float) ($data['shipping'] ?? 0), 2);
         $branchId = (int) ($this->branchContext->currentBranchId($request->user()) ?: 0);
+        $integrated = $this->channelRollouts->isActive((int) $organizationId, 'pos');
+        $idempotencyKey = trim((string) $data['idempotency_key']);
+        $payloadHash = hash('sha256', json_encode(Arr::sortRecursive([
+            'organization_id' => (int) $organizationId,
+            'branch_id' => $branchId,
+            'document_type' => $data['document_type'],
+            'currency' => $data['currency'],
+            'payment_method' => $data['payment_method'],
+            'payment_status' => $data['payment_status'],
+            'customer' => $data['customer'],
+            'items' => collect($data['items'])->map(fn (array $item) => [
+                'product_id' => (int) $item['product_id'],
+                'quantity' => (int) $item['quantity'],
+                'unit_price' => isset($item['unit_price']) ? round((float) $item['unit_price'], 2) : null,
+            ])->sortBy('product_id')->values()->all(),
+            'tax_rate' => $taxRate,
+            'discount' => $discount,
+            'shipping' => $shipping,
+        ]), JSON_THROW_ON_ERROR));
 
         $createdOrder = null;
         $createdBillingDocument = null;
         $payload = [];
+        $replayed = false;
 
-        DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, $data, $taxRate, $discount, $shipping, $branchId, $organizationId): void {
+        try {
+            DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, &$replayed, $data, $taxRate, $discount, $shipping, $branchId, $organizationId, $integrated, $idempotencyKey, $payloadHash): void {
+            $existing = Order::query()
+                ->where('organization_id', $organizationId)
+                ->where('sales_channel', 'pos')
+                ->where('idempotency_key', $idempotencyKey)
+                ->lockForUpdate()
+                ->first();
+            if ($existing) {
+                if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
+                    throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otra venta POS.']);
+                }
+                $createdOrder = $existing;
+                $createdBillingDocument = BillingDocument::query()->where('organization_id', $organizationId)->where('order_id', $existing->id)->first();
+                $replayed = true;
+                return;
+            }
+
             $items = collect($data['items']);
             $products = Product::query()
                 ->forCurrentOrganization()
@@ -138,20 +184,20 @@ class SalesPosController extends Controller
             $total = round($taxableBase + $tax + $shipping, 2);
             $series = $this->resolveOrderSeries($data['document_type']);
 
-            $nextOrderNumber = ((int) Order::query()
-                ->forCurrentOrganization()
-                ->where('series', $series)
-                ->lockForUpdate()
-                ->max('order_number')) + 1;
+            $nextOrderNumber = $this->orders->nextOrderNumber($series);
             $paidAt = $data['payment_status'] === 'paid' ? now() : null;
 
             $createdOrder = Order::query()->create([
                 'organization_id' => $organizationId,
                 'user_id' => (int) auth()->id(),
                 'branch_id' => $branchId ?: null,
+                'sales_channel' => 'pos',
+                'idempotency_key' => $idempotencyKey,
+                'payload_hash' => $payloadHash,
                 'series' => $series,
                 'order_number' => $nextOrderNumber,
                 'status' => 'confirmed',
+                'warehouse_status' => $integrated ? 'reserved' : 'legacy_completed',
                 'currency' => $data['currency'],
                 'subtotal' => $subtotal,
                 'discount' => $discountAmount,
@@ -182,6 +228,7 @@ class SalesPosController extends Controller
                 $lineTotal = round($lineTaxable + $lineTax, 2);
 
                 OrderItem::query()->create([
+                    'organization_id' => $organizationId,
                     'order_id' => $createdOrder->id,
                     'product_id' => $line['product']->id,
                     'currency' => $data['currency'],
@@ -192,17 +239,20 @@ class SalesPosController extends Controller
                     'line_total' => $lineTotal,
                 ]);
 
-                $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity'], [
-                    'reason' => 'pos_sale',
-                    'performed_by' => auth()->id(),
-                    'reference_type' => Order::class,
-                    'reference_id' => $createdOrder->id,
-                    'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
-                    'meta' => [
-                        'channel' => 'pos',
-                        'document_type' => $data['document_type'],
-                    ],
-                ]);
+                if (! $integrated && $line['product']->tracksInventory()) {
+                    $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity'], [
+                        'reason' => 'pos_sale',
+                        'performed_by' => auth()->id(),
+                        'reference_type' => Order::class,
+                        'reference_id' => $createdOrder->id,
+                        'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
+                        'meta' => ['channel' => 'pos', 'document_type' => $data['document_type']],
+                    ]);
+                }
+            }
+
+            if ($integrated) {
+                $createdOrder = $this->inventoryLifecycle->reserve($createdOrder, auth()->id());
             }
 
             if ($data['document_type'] !== 'order') {
@@ -218,6 +268,12 @@ class SalesPosController extends Controller
                 $createdBillingDocument = BillingDocument::query()->create([
                     'organization_id' => $organizationId,
                     'order_id' => $createdOrder->id,
+                    'idempotency_key' => "sales-order:{$createdOrder->id}:billing",
+                    'payload_hash' => hash('sha256', json_encode([
+                        'order_id' => $createdOrder->id,
+                        'document_type' => $data['document_type'],
+                        'total' => $total,
+                    ], JSON_THROW_ON_ERROR)),
                     'branch_id' => $branchId ?: null,
                     'provider' => $billingSetting->provider,
                     'document_type' => $data['document_type'],
@@ -267,7 +323,32 @@ class SalesPosController extends Controller
                     })->values()->all(),
                 ];
             }
-        });
+
+            if ($integrated && $data['document_type'] !== 'order') {
+                $this->inventoryLifecycle->requestDispatch($createdOrder, auth()->id());
+                $createdOrder->refresh();
+            }
+            }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
+        } catch (QueryException $exception) {
+            $existing = Order::query()
+                ->where('organization_id', $organizationId)
+                ->where('sales_channel', 'pos')
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if (! $existing || ! $this->isUniqueViolation($exception)) {
+                throw $exception;
+            }
+            if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
+                throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otra venta POS.']);
+            }
+            $createdOrder = $existing;
+            $createdBillingDocument = BillingDocument::query()->where('organization_id', $organizationId)->where('order_id', $existing->id)->first();
+            $replayed = true;
+        }
+
+        if ($replayed) {
+            return back()->with('success', 'La venta ya habia sido registrada; se devolvio el mismo pedido sin duplicar stock ni comprobante.');
+        }
 
         if ($createdBillingDocument) {
             try {
@@ -304,6 +385,19 @@ class SalesPosController extends Controller
      */
     private function normalizeItems(Collection $items, Collection $products, int $branchId): Collection
     {
+        $items = $items->groupBy(fn (array $item) => (int) $item['product_id'])->map(function (Collection $lines): array {
+            $prices = $lines->pluck('unit_price')->filter(fn ($price) => $price !== null && $price !== '')->map(fn ($price) => round((float) $price, 2))->unique();
+            if ($prices->count() > 1) {
+                throw ValidationException::withMessages(['items' => 'Un producto repetido no puede usar precios unitarios diferentes.']);
+            }
+
+            return [
+                'product_id' => (int) $lines->first()['product_id'],
+                'quantity' => (int) $lines->sum('quantity'),
+                'unit_price' => $prices->first(),
+            ];
+        })->values();
+
         return $items->map(function (array $item) use ($products, $branchId): array {
             $product = $products->get((int) $item['product_id']);
             $quantity = (int) $item['quantity'];
@@ -314,9 +408,11 @@ class SalesPosController extends Controller
                 ]);
             }
 
-            $available = $this->inventory->availableStock($product, $branchId);
+            $available = $product->tracksInventory()
+                ? $this->inventory->availableStock($product, $branchId)
+                : $quantity;
 
-            if ($available < $quantity) {
+            if ($product->tracksInventory() && $available < $quantity) {
                 throw ValidationException::withMessages([
                     'items' => ["Stock insuficiente para {$product->name} en la sucursal. Disponible: {$available}."],
                 ]);
@@ -374,12 +470,17 @@ class SalesPosController extends Controller
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         if ($organizationId) {
-            return BillingSetting::query()->where('organization_id', $organizationId)->first()
-                ?? BillingSetting::query()->whereNull('organization_id')->first()
-                ?? BillingSetting::query()->first();
+            return BillingSetting::query()->where('organization_id', $organizationId)->first();
         }
 
-        return BillingSetting::query()->whereNull('organization_id')->first()
-            ?? BillingSetting::query()->first();
+        return null;
+    }
+
+    private function isUniqueViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+
+        return in_array($sqlState, ['23000', '23505'], true)
+            || str_contains(strtolower($exception->getMessage()), 'unique constraint');
     }
 }

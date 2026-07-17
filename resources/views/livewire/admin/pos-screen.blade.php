@@ -16,6 +16,7 @@
 
     <form action="{{ route('admin.sales.pos.store') }}" method="POST" novalidate>
         @csrf
+        <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
         <input type="hidden" name="document_type" value="{{ $documentType }}">
         <input type="hidden" name="customer[name]" value="{{ $customer['name'] }}">
         <input type="hidden" name="customer[address]" value="{{ $customer['address'] }}">

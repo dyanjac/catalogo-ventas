@@ -3,7 +3,9 @@
 namespace App\Livewire\Admin;
 
 use Livewire\Component;
+use Illuminate\Support\Str;
 use Modules\Catalog\Entities\Product;
+use Modules\Catalog\Services\ProductInventoryService;
 use Modules\Sales\Services\CustomerDocumentLookupService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Modules\Security\Services\SecurityScopeService;
@@ -19,6 +21,8 @@ class PosScreen extends Component
     public string $paymentMethod = 'cash';
 
     public string $paymentStatus = 'pending';
+
+    public string $idempotencyKey = '';
 
     public float $taxRate = 0.18;
 
@@ -50,7 +54,11 @@ class PosScreen extends Component
      */
     public array $productIndex = [];
 
-    public function mount(SecurityScopeService $scopeService, SecurityBranchContextService $branchContext): void
+    public function mount(
+        SecurityScopeService $scopeService,
+        SecurityBranchContextService $branchContext,
+        ProductInventoryService $inventory,
+    ): void
     {
         $actor = auth()->user();
         $branchId = $branchContext->currentBranchId($actor);
@@ -59,12 +67,12 @@ class PosScreen extends Component
             ->where('is_active', true)
             ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId)->where('is_active', true) : $query])
             ->orderBy('name')
-            ->get(['id', 'name', 'sku', 'sale_price', 'price', 'stock'])
-            ->map(function (Product $product) use ($branchId): ?array {
+            ->get(['id', 'name', 'sku', 'sale_price', 'price', 'stock', 'product_type'])
+            ->map(function (Product $product) use ($branchId, $inventory): ?array {
                 $price = (float) ($product->sale_price ?? $product->price ?? 0);
-                $stock = $branchId
-                    ? (int) ($product->branchStocks->first()?->stock ?? 0)
-                    : (int) ($product->stock ?? 0);
+                $stock = $product->tracksInventory()
+                    ? $inventory->availableStock($product, $branchId)
+                    : 999999;
 
                 if ($stock <= 0) {
                     return null;
@@ -87,6 +95,7 @@ class PosScreen extends Component
         $this->currency = old('currency', config('sales.default_currency', 'PEN'));
         $this->paymentMethod = old('payment_method', 'cash');
         $this->paymentStatus = old('payment_status', 'pending');
+        $this->idempotencyKey = (string) old('idempotency_key', Str::uuid());
         $this->taxRate = (float) old('tax_rate', config('sales.default_tax_rate', 0.18));
         $this->discount = (float) old('discount', 0);
         $this->shipping = (float) old('shipping', 0);

@@ -29,6 +29,8 @@ class InventoryBalance extends Model
         'average_cost',
         'last_cost',
         'version',
+        'reservation_version',
+        'transit_version',
         'is_active',
     ];
 
@@ -41,6 +43,8 @@ class InventoryBalance extends Model
         'average_cost' => 'decimal:4',
         'last_cost' => 'decimal:4',
         'version' => 'integer',
+        'reservation_version' => 'integer',
+        'transit_version' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -62,6 +66,16 @@ class InventoryBalance extends Model
     public function movements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    public function reservationItems(): HasMany
+    {
+        return $this->hasMany(InventoryReservationItem::class, 'inventory_balance_id');
+    }
+
+    public function availableStock(): int
+    {
+        return max(0, (int) $this->physical_stock - (int) $this->reserved_stock);
     }
 
     public static function locationKey(int $branchId, ?int $warehouseId): string

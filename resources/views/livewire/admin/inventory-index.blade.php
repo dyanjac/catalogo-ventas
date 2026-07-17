@@ -176,13 +176,17 @@
                     <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
                         <div>
                             <h4 class="mb-1 text-lg font-semibold text-slate-900">Registrar guia</h4>
-                            <p class="mb-0 text-sm text-muted">Confirma ingresos, salidas, stock inicial o ajustes y genera un movimiento inmutable.</p>
+                            <p class="mb-0 text-sm text-muted">Confirma operaciones locales y genera movimientos inmutables con reversos compensatorios.</p>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <flux:button type="button" variant="{{ $documentType === 'inbound' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'inbound')">Guia ingreso</flux:button>
                             <flux:button type="button" variant="{{ $documentType === 'outbound' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'outbound')">Guia salida</flux:button>
                             <flux:button type="button" variant="{{ $documentType === 'opening_stock' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'opening_stock')">Stock inicial</flux:button>
                             <flux:button type="button" variant="{{ $documentType === 'stock_adjustment' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'stock_adjustment')">Ajuste</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'dispatch' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'dispatch')">Despacho</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'receipt' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'receipt')">Recepcion</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'customer_return' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'customer_return')">Dev. cliente</flux:button>
+                            <flux:button type="button" variant="{{ $documentType === 'supplier_return' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'supplier_return')">Dev. proveedor</flux:button>
                         </div>
                     </div>
 
@@ -250,15 +254,15 @@
                                                     @error('documentItems.'.$index.'.target_quantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
                                                 <div>
-                                                    <label class="form-label">{{ in_array($documentType, ['inbound', 'opening_stock'], true) ? 'Costo unitario' : 'Costo aplicado' }}</label>
+                                                    <label class="form-label">{{ in_array($documentType, ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) ? 'Costo unitario' : 'Costo aplicado' }}</label>
                                                     <input
                                                         type="number"
                                                         min="0"
                                                         step="0.0001"
                                                         wire:model="documentItems.{{ $index }}.unit_cost"
                                                         class="form-control"
-                                                        @disabled(in_array($documentType, ['outbound', 'stock_adjustment'], true))
-                                                        placeholder="{{ in_array($documentType, ['inbound', 'opening_stock'], true) ? '0.0000' : 'Promedio del almacen' }}"
+                                                        @disabled(in_array($documentType, ['outbound', 'dispatch', 'supplier_return', 'stock_adjustment'], true))
+                                                        placeholder="{{ in_array($documentType, ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) ? '0.0000' : 'Promedio del almacen' }}"
                                                     >
                                                     @error('documentItems.'.$index.'.unit_cost') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
@@ -283,7 +287,11 @@
                                             'inbound' => 'El ingreso recalculara el costo promedio del almacen.',
                                             'outbound' => 'La salida consumira el costo promedio vigente.',
                                             'opening_stock' => 'El stock inicial solo se admite sin movimientos ledger previos.',
-                                            default => 'El ajuste registrara la diferencia entre el saldo vigente y el conteo fisico.',
+                                            'stock_adjustment' => 'El ajuste registrara la diferencia entre el saldo vigente y el conteo fisico.',
+                                            'dispatch' => 'El despacho registra una salida fisica del almacen.',
+                                            'receipt' => 'La recepcion registra un ingreso fisico al almacen.',
+                                            'customer_return' => 'La devolucion del cliente reincorpora unidades al almacen.',
+                                            'supplier_return' => 'La devolucion al proveedor registra una salida fisica.',
                                         } }}
                                     </div>
                                 </div>
@@ -325,9 +333,9 @@
                                     <div class="d-flex justify-content-between gap-3">
                                         <div>
                                             <div class="fw-semibold text-slate-900">{{ $document->code }}</div>
-                                            <div class="text-sm text-muted">{{ strtoupper($document->document_type) }} - {{ $document->branch?->name ?? 'Sin sucursal' }} - {{ $document->warehouse?->name ?? 'Sin almacen' }}</div>
+                                            <div class="text-sm text-muted">{{ strtoupper($document->document_type->value) }} - {{ $document->branch?->name ?? 'Sin sucursal' }} - {{ $document->warehouse?->name ?? 'Sin almacen' }}</div>
                                         </div>
-                                        <span class="badge {{ $document->status === 'confirmed' ? 'bg-success' : ($document->status === 'draft' ? 'bg-warning text-dark' : 'bg-secondary') }}">{{ strtoupper($document->status) }}</span>
+                                        <span class="badge {{ $document->status->value === 'confirmed' ? 'bg-success' : ($document->status->value === 'draft' ? 'bg-warning text-dark' : 'bg-secondary') }}">{{ strtoupper($document->status->value) }}</span>
                                     </div>
                                     <div class="mt-2 text-sm text-muted">
                                         @php($firstItem = $document->items->first())
@@ -353,7 +361,7 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <h4 class="mb-1 text-lg font-semibold text-slate-900">Transferencia entre sucursales</h4>
-                            <p class="mb-0 text-sm text-muted">Mantiene el flujo actual de salida en origen y entrada en destino entre sucursales.</p>
+                            <p class="mb-0 text-sm text-muted">El despacho descuenta el origen y deja stock en transito hasta que el destino confirme una recepcion total o parcial.</p>
                         </div>
 
                         @if($canCreateTransfer)
@@ -406,11 +414,64 @@
                                 </div>
 
                                 <div class="d-flex justify-content-end">
-                                    <flux:button type="submit" variant="primary" icon="arrows-right-left" wire:loading.attr="disabled">Registrar transferencia</flux:button>
+                                    <flux:button type="submit" variant="primary" icon="arrows-right-left" wire:loading.attr="disabled">Despachar transferencia</flux:button>
                                 </div>
                             </form>
                         @else
                             <div class="rounded-4 border border-dashed p-4 text-sm text-muted">Tu rol puede revisar transferencias, pero no registrar nuevas operaciones entre sucursales.</div>
+                        @endif
+
+                        @if($canViewTransfers)
+                            <div class="mt-5 border-top pt-4 space-y-3">
+                                <h5 class="mb-0 font-semibold text-slate-900">Transferencias recientes</h5>
+                                @forelse($recentTransfers as $transfer)
+                                    <div class="rounded-4 border border-slate-200 p-3" wire:key="inventory-transfer-{{ $transfer->id }}">
+                                        <div class="d-flex flex-wrap justify-content-between gap-3">
+                                            <div>
+                                                <div class="fw-semibold text-slate-900">{{ $transfer->code }}</div>
+                                                <div class="text-sm text-muted">
+                                                    {{ $transfer->sourceBranch?->name }} / {{ $transfer->sourceWarehouse?->name }}
+                                                    &rarr;
+                                                    {{ $transfer->destinationBranch?->name }} / {{ $transfer->destinationWarehouse?->name }}
+                                                </div>
+                                            </div>
+                                            <span class="badge {{ $transfer->status->value === 'received' ? 'bg-success' : ($transfer->status->value === 'partially_received' ? 'bg-warning text-dark' : 'bg-info text-dark') }}">
+                                                {{ strtoupper(str_replace('_', ' ', $transfer->status->value)) }}
+                                            </span>
+                                        </div>
+
+                                        <div class="mt-3 space-y-2">
+                                            @foreach($transfer->items as $item)
+                                                @php($pending = (int) $item->dispatched_quantity - (int) $item->received_quantity)
+                                                <div class="grid gap-2 md:grid-cols-[1fr,180px] md:items-end">
+                                                    <div class="text-sm">
+                                                        <span class="font-medium text-slate-900">{{ $item->product?->name }}</span>
+                                                        <span class="text-muted">Despachado {{ $item->dispatched_quantity }}, recibido {{ $item->received_quantity }}, pendiente {{ $pending }}</span>
+                                                    </div>
+                                                    @if($canReceiveTransfer && in_array($transfer->status->value, ['in_transit', 'partially_received'], true) && $pending > 0)
+                                                        <div>
+                                                            <label class="form-label">Cantidad recibida</label>
+                                                            <input type="number" min="1" max="{{ $pending }}" wire:model="transferReceiptQuantities.{{ $transfer->id }}.{{ $item->id }}" class="form-control" placeholder="Max. {{ $pending }}">
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        @error('transferReceiptQuantities.'.$transfer->id)
+                                            <div class="mt-2 text-sm text-danger">{{ $message }}</div>
+                                        @enderror
+
+                                        @if($canReceiveTransfer && in_array($transfer->status->value, ['in_transit', 'partially_received'], true))
+                                            <div class="mt-3 d-flex justify-content-end">
+                                                <flux:button type="button" variant="primary" size="sm" icon="check" wire:click="receiveTransfer({{ $transfer->id }})" wire:loading.attr="disabled">Confirmar recepcion</flux:button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @empty
+                                    <div class="rounded-4 border border-dashed p-4 text-sm text-muted">Todavia no hay transferencias registradas.</div>
+                                @endforelse
+                            </div>
                         @endif
                     </div>
                 </div>

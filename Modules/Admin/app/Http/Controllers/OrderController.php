@@ -11,10 +11,15 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Modules\Security\Services\SecurityScopeService;
+use Modules\Orders\Enums\OrderWarehouseStatus;
+use Modules\Orders\Services\OrderInventoryLifecycleService;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly OrganizationContextService $organizationContext)
+    public function __construct(
+        private readonly OrganizationContextService $organizationContext,
+        private readonly OrderInventoryLifecycleService $inventoryLifecycle,
+    )
     {
     }
 
@@ -28,7 +33,7 @@ class OrderController extends Controller
         abort_unless((int) $order->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
         abort_unless($scopeService->canAccessOrder(request()->user(), $order, 'sales'), 403);
 
-        $order->load(['user', 'items.product']);
+        $order->load(['user', 'items.product', 'warehouse', 'inventoryReservation', 'dispatchDocument', 'returnDocument', 'billingDocuments']);
 
         return view('admin.orders.show', compact('order'));
     }
@@ -60,11 +65,62 @@ class OrderController extends Controller
             $data['paid_at'] = null;
         }
 
+        if ($data['status'] === 'cancelled' && $order->sales_channel !== 'legacy') {
+            $this->inventoryLifecycle->cancel($order, (int) $request->user()->id);
+            unset($data['status']);
+        } elseif ($order->sales_channel !== 'legacy' && $data['status'] === 'delivered' && $order->warehouse_status !== OrderWarehouseStatus::Dispatched) {
+            throw ValidationException::withMessages([
+                'status' => 'El pedido solo puede completarse comercialmente despues de confirmar el despacho de almacen.',
+            ]);
+        }
+
         $order->update($data);
 
         return redirect()
             ->route('admin.orders.show', $order)
             ->with('success', 'Pedido actualizado correctamente.');
+    }
+
+    public function requestDispatch(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
+    {
+        $this->authorizeOperationalOrder($request, $order, $scopeService);
+        $this->inventoryLifecycle->requestDispatch($order, (int) $request->user()->id);
+
+        return back()->with('success', 'Solicitud de despacho creada sin mover stock fisico.');
+    }
+
+    public function renewReservation(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
+    {
+        $this->authorizeOperationalOrder($request, $order, $scopeService);
+        $this->inventoryLifecycle->reserve($order, (int) $request->user()->id);
+
+        return back()->with('success', 'Reserva de inventario renovada para el pedido.');
+    }
+
+    public function confirmDispatch(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
+    {
+        $this->authorizeOperationalOrder($request, $order, $scopeService);
+        $this->inventoryLifecycle->confirmDispatch($order, (int) $request->user()->id);
+
+        return back()->with('success', 'Despacho confirmado; la reserva fue consumida una sola vez.');
+    }
+
+    public function confirmReturn(Request $request, Order $order, SecurityScopeService $scopeService): RedirectResponse
+    {
+        $this->authorizeOperationalOrder($request, $order, $scopeService);
+        $data = $request->validate(['credit_note_id' => ['required', 'integer']]);
+        $this->inventoryLifecycle->confirmReturn($order, (int) $data['credit_note_id'], (int) $request->user()->id);
+
+        return back()->with('success', 'Devolucion fisica confirmada sin duplicar el ingreso.');
+    }
+
+    private function authorizeOperationalOrder(Request $request, Order $order, SecurityScopeService $scopeService): void
+    {
+        abort_unless((int) $order->organization_id === (int) $this->organizationContext->currentOrganizationId(), 404);
+        abort_unless($scopeService->canAccessOrder($request->user(), $order, 'sales'), 403);
+        if ($order->organization()->first()?->isSuspended() || $this->organizationContext->isSuspended()) {
+            throw ValidationException::withMessages(['order' => 'La organizacion asociada al pedido esta suspendida.']);
+        }
     }
 
     public function downloadPdf(Order $order, SecurityScopeService $scopeService)

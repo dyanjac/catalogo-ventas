@@ -201,10 +201,14 @@ class SecurityDatabaseSeeder extends Seeder
             ['module' => 'inventory', 'resource' => 'documents', 'action' => 'view', 'code' => 'inventory.documents.view'],
             ['module' => 'inventory', 'resource' => 'documents', 'action' => 'create', 'code' => 'inventory.documents.create'],
             ['module' => 'inventory', 'resource' => 'documents', 'action' => 'confirm', 'code' => 'inventory.documents.confirm'],
+            ['module' => 'inventory', 'resource' => 'dispatches', 'action' => 'confirm', 'code' => 'inventory.dispatches.confirm'],
+            ['module' => 'inventory', 'resource' => 'returns', 'action' => 'confirm', 'code' => 'inventory.returns.confirm'],
             ['module' => 'inventory', 'resource' => 'kardex', 'action' => 'view', 'code' => 'inventory.kardex.view'],
             ['module' => 'inventory', 'resource' => 'adjustments', 'action' => 'update', 'code' => 'inventory.adjustments.update'],
             ['module' => 'inventory', 'resource' => 'transfers', 'action' => 'view', 'code' => 'inventory.transfers.view'],
             ['module' => 'inventory', 'resource' => 'transfers', 'action' => 'create', 'code' => 'inventory.transfers.create'],
+            ['module' => 'inventory', 'resource' => 'transfers', 'action' => 'dispatch', 'code' => 'inventory.transfers.dispatch'],
+            ['module' => 'inventory', 'resource' => 'transfers', 'action' => 'receive', 'code' => 'inventory.transfers.receive'],
             ['module' => 'warranties', 'resource' => 'module', 'action' => 'view', 'code' => 'warranties.module.view'],
             ['module' => 'payroll', 'resource' => 'module', 'action' => 'view', 'code' => 'payroll.module.view'],
         ];
@@ -274,7 +278,7 @@ class SecurityDatabaseSeeder extends Seeder
             'billing_manager' => ['dashboard.overview.view', 'sales.orders.view', 'pos.sales.view', 'customers.records.view', 'catalog.products.view', 'billing.documents.view', 'billing.documents.create', 'billing.documents.update', 'billing.documents.approve', 'billing.documents.export', 'billing.documents.reprocess', 'billing.documents.audit', 'accounting.entries.view', 'orders_front.orders.view', 'reports.module.view'],
             'catalog_manager' => ['dashboard.overview.view', 'sales.orders.view', 'customers.records.view', 'catalog.products.view', 'catalog.products.create', 'catalog.products.update', 'catalog.products.delete', 'catalog.products.export', 'catalog.categories.view', 'catalog.categories.create', 'catalog.categories.update', 'catalog.unit_measures.view', 'catalog.unit_measures.create', 'catalog.unit_measures.update', 'billing.documents.view', 'reports.module.view', 'inventory.module.view', 'inventory.warehouses.view', 'inventory.documents.view', 'inventory.kardex.view'],
             'accounting_manager' => ['dashboard.overview.view', 'sales.orders.view', 'customers.records.view', 'catalog.products.view', 'billing.documents.view', 'billing.documents.audit', 'billing.documents.export', 'accounting.entries.view', 'accounting.entries.create', 'accounting.entries.update', 'accounting.entries.approve', 'accounting.entries.export', 'accounting.settings.configure', 'accounting.audit.view', 'finance.module.view', 'reports.module.view', 'inventory.module.view', 'inventory.documents.view', 'inventory.kardex.view'],
-            'warehouse_manager' => ['dashboard.overview.view', 'sales.orders.view', 'pos.sales.view', 'catalog.products.view', 'catalog.products.update', 'reports.module.view', 'imports.module.view', 'inventory.module.view', 'inventory.warehouses.view', 'inventory.warehouses.update', 'inventory.documents.view', 'inventory.documents.create', 'inventory.documents.confirm', 'inventory.kardex.view', 'inventory.adjustments.update', 'inventory.transfers.view', 'inventory.transfers.create', 'warranties.module.view'],
+            'warehouse_manager' => ['dashboard.overview.view', 'sales.orders.view', 'pos.sales.view', 'catalog.products.view', 'catalog.products.update', 'reports.module.view', 'imports.module.view', 'inventory.module.view', 'inventory.warehouses.view', 'inventory.warehouses.update', 'inventory.documents.view', 'inventory.documents.create', 'inventory.documents.confirm', 'inventory.dispatches.confirm', 'inventory.returns.confirm', 'inventory.kardex.view', 'inventory.adjustments.update', 'inventory.transfers.view', 'inventory.transfers.create', 'inventory.transfers.dispatch', 'inventory.transfers.receive', 'warranties.module.view'],
             'crm_manager' => ['dashboard.overview.view', 'sales.orders.view', 'customers.records.view', 'customers.records.create', 'customers.records.update', 'customers.records.export', 'catalog.products.view', 'orders_front.orders.view', 'crm.module.view', 'reports.module.view'],
             'finance_manager' => ['dashboard.overview.view', 'sales.orders.view', 'customers.records.view', 'catalog.products.view', 'billing.documents.view', 'billing.documents.audit', 'billing.documents.export', 'accounting.entries.view', 'accounting.entries.export', 'finance.module.view', 'reports.module.view'],
             'hr_manager' => ['dashboard.overview.view', 'customers.records.view', 'accounting.entries.view', 'reports.module.view', 'payroll.module.view'],
@@ -315,9 +319,3 @@ class SecurityDatabaseSeeder extends Seeder
             });
     }
 }
-
-
-
-
-
-

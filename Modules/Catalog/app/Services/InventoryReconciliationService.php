@@ -9,9 +9,14 @@ use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryMovement;
 use Modules\Catalog\Entities\InventoryReconciliationIssue;
 use Modules\Catalog\Entities\InventoryReconciliationRun;
+use Modules\Catalog\Entities\InventoryReservation;
+use Modules\Catalog\Entities\InventoryReservationItem;
+use Modules\Catalog\Entities\InventoryTransferItem;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
 use Modules\Catalog\Entities\ProductWarehouseStock;
+use Modules\Catalog\Enums\InventoryReservationStatus;
+use Modules\Catalog\Enums\InventoryTransferStatus;
 
 class InventoryReconciliationService
 {
@@ -42,6 +47,30 @@ class InventoryReconciliationService
                             $this->issue($run, $balance, 'ledger_balance_mismatch', $latest?->stock_after, $balance->physical_stock);
                         }
 
+                        $expectedReserved = (int) InventoryReservationItem::query()
+                            ->join('inventory_reservations', 'inventory_reservations.id', '=', 'inventory_reservation_items.reservation_id')
+                            ->where('inventory_reservation_items.organization_id', $balance->organization_id)
+                            ->where('inventory_reservation_items.inventory_balance_id', $balance->id)
+                            ->where('inventory_reservations.status', InventoryReservationStatus::Active->value)
+                            ->sum('inventory_reservation_items.quantity');
+                        if ($expectedReserved !== (int) $balance->reserved_stock) {
+                            $this->issue($run, $balance, 'reservation_balance_mismatch', $expectedReserved, $balance->reserved_stock);
+                        }
+
+                        $expectedTransit = (int) InventoryTransferItem::query()
+                            ->join('inventory_transfers', 'inventory_transfers.id', '=', 'inventory_transfer_items.transfer_id')
+                            ->where('inventory_transfer_items.organization_id', $balance->organization_id)
+                            ->where('inventory_transfer_items.destination_balance_id', $balance->id)
+                            ->whereIn('inventory_transfers.status', [
+                                InventoryTransferStatus::InTransit->value,
+                                InventoryTransferStatus::PartiallyReceived->value,
+                            ])
+                            ->selectRaw('COALESCE(SUM(dispatched_quantity - received_quantity), 0) as pending')
+                            ->value('pending');
+                        if ($expectedTransit !== (int) $balance->in_transit_stock) {
+                            $this->issue($run, $balance, 'transit_balance_mismatch', $expectedTransit, $balance->in_transit_stock);
+                        }
+
                         if ($balance->warehouse_id) {
                             $legacyWarehouse = ProductWarehouseStock::query()
                                 ->where('organization_id', $balance->organization_id)
@@ -59,6 +88,17 @@ class InventoryReconciliationService
                             }
                         }
                     }
+                });
+
+            InventoryReservation::query()
+                ->where('organization_id', $organizationId)
+                ->where('status', InventoryReservationStatus::Active->value)
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '<=', now())
+                ->with('items:id,reservation_id,product_id,branch_id,warehouse_id')
+                ->each(function (InventoryReservation $reservation) use ($run): void {
+                    $scope = $reservation->items->first() ?? $reservation;
+                    $this->issue($run, $scope, 'active_reservation_expired', 0, 1);
                 });
 
             ProductWarehouseStock::query()
