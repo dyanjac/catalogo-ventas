@@ -59,6 +59,7 @@
         @if($modules->has('accounting'))
             <flux:sidebar.group heading="Contabilidad" icon="calculator" expandable :expanded="request()->routeIs('admin.accounting.*')">
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.accounting.entries.index') }}" icon="clipboard-document-list" :data-current="request()->routeIs('admin.accounting.entries.*') ? 'true' : null">Asientos contables</flux:sidebar.item>
+                <flux:sidebar.item wire:navigate.hover href="{{ route('admin.accounting.events.index') }}" icon="bolt" :data-current="request()->routeIs('admin.accounting.events.*') ? 'true' : null">Eventos económicos</flux:sidebar.item>
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.accounting.accounts.index') }}" icon="square-3-stack-3d" :data-current="request()->routeIs('admin.accounting.accounts.*') ? 'true' : null">Plan de cuentas</flux:sidebar.item>
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.accounting.periods.index') }}" icon="calendar-days" :data-current="request()->routeIs('admin.accounting.periods.*') ? 'true' : null">Periodos contables</flux:sidebar.item>
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.accounting.cost-centers.index') }}" icon="building-office" :data-current="request()->routeIs('admin.accounting.cost-centers.*') ? 'true' : null">Centros de costo</flux:sidebar.item>

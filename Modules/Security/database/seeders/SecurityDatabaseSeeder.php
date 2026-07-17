@@ -171,6 +171,9 @@ class SecurityDatabaseSeeder extends Seeder
             ['module' => 'accounting', 'resource' => 'entries', 'action' => 'approve', 'code' => 'accounting.entries.approve'],
             ['module' => 'accounting', 'resource' => 'entries', 'action' => 'export', 'code' => 'accounting.entries.export'],
             ['module' => 'accounting', 'resource' => 'settings', 'action' => 'configure', 'code' => 'accounting.settings.configure'],
+            ['module' => 'accounting', 'resource' => 'events', 'action' => 'view', 'code' => 'accounting.events.view'],
+            ['module' => 'accounting', 'resource' => 'events', 'action' => 'process', 'code' => 'accounting.events.process'],
+            ['module' => 'accounting', 'resource' => 'events', 'action' => 'reverse', 'code' => 'accounting.events.reverse'],
             ['module' => 'accounting', 'resource' => 'audit', 'action' => 'view', 'code' => 'accounting.audit.view'],
             ['module' => 'commerce', 'resource' => 'settings', 'action' => 'view', 'code' => 'commerce.settings.view'],
             ['module' => 'commerce', 'resource' => 'settings', 'action' => 'update', 'code' => 'commerce.settings.update'],
@@ -292,6 +295,16 @@ class SecurityDatabaseSeeder extends Seeder
             'support_agent' => ['dashboard.overview.view', 'sales.orders.view', 'customers.records.view', 'customers.records.update', 'catalog.products.view', 'billing.documents.view', 'billing.documents.audit', 'orders_front.orders.view', 'warranties.module.view'],
             'customer' => ['catalog.products.view', 'orders_front.orders.view', 'orders_front.orders.create'],
         ];
+
+        $matrix['security_admin'][] = 'accounting.events.view';
+        $matrix['general_manager'][] = 'accounting.events.view';
+        $matrix['finance_manager'][] = 'accounting.events.view';
+        $matrix['accounting_manager'] = array_values(array_unique([
+            ...$matrix['accounting_manager'],
+            'accounting.events.view',
+            'accounting.events.process',
+            'accounting.events.reverse',
+        ]));
 
         foreach ($matrix as $roleCode => $permissionCodes) {
             $roleMap[$roleCode]->permissions()->sync(

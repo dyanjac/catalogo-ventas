@@ -4,7 +4,9 @@ namespace Modules\Billing\Services;
 
 use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Modules\Accounting\Services\EconomicEventService;
 use Modules\Billing\Jobs\IssueBillingDocumentJob;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Models\BillingDocumentFile;
@@ -20,13 +22,12 @@ class ElectronicBillingService
         private readonly BillingProviderResolver $resolver,
         private readonly BillingXmlGenerator $xmlGenerator,
         private readonly OrganizationContextService $organizationContext,
-        private readonly OrganizationEntitlementService $entitlements
-    )
-    {
-    }
+        private readonly OrganizationEntitlementService $entitlements,
+        private readonly EconomicEventService $economicEvents,
+    ) {}
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     public function issueOrQueue(BillingDocument $document, array $payload): array
@@ -34,6 +35,8 @@ class ElectronicBillingService
         $setting = $this->resolveSetting($document);
 
         if ($document->status === 'issued') {
+            $this->recordAccountingEvent($document);
+
             return ['ok' => true, 'queued' => false, 'already_issued' => true, 'message' => 'El comprobante ya fue emitido.'];
         }
         if ($document->status === 'voided') {
@@ -105,7 +108,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     public function issue(BillingDocument $document, array $payload): array
@@ -113,6 +116,8 @@ class ElectronicBillingService
         $setting = $this->resolveSetting($document);
 
         if ($document->status === 'issued') {
+            $this->recordAccountingEvent($document);
+
             return ['ok' => true, 'already_issued' => true, 'message' => 'El comprobante ya fue emitido.'];
         }
         if ($document->status === 'voided') {
@@ -167,25 +172,43 @@ class ElectronicBillingService
 
         $this->storeResponseHistory($document, $setting, $payload, $result);
 
-        $document->update([
-            'provider' => $setting->provider,
-            'request_payload' => $payload,
-            'response_payload' => $result,
-            'status' => (bool) ($result['ok'] ?? false) ? 'issued' : 'error',
-            'issued_at' => (bool) ($result['ok'] ?? false) ? now() : null,
-            'sunat_ticket' => data_get($result, 'ticket') ?? data_get($result, 'sunat_ticket'),
-            'sunat_cdr_code' => data_get($result, 'sunat_cdr_code') ?? data_get($result, 'cdr_code'),
-            'sunat_cdr_description' => data_get($result, 'sunat_cdr_description') ?? data_get($result, 'cdr_description'),
-        ]);
+        DB::transaction(function () use ($document, $setting, $payload, $result): void {
+            $document->update([
+                'provider' => $setting->provider,
+                'request_payload' => $payload,
+                'response_payload' => $result,
+                'status' => (bool) ($result['ok'] ?? false) ? 'issued' : 'error',
+                'issued_at' => (bool) ($result['ok'] ?? false) ? now() : null,
+                'sunat_ticket' => data_get($result, 'ticket') ?? data_get($result, 'sunat_ticket'),
+                'sunat_cdr_code' => data_get($result, 'sunat_cdr_code') ?? data_get($result, 'cdr_code'),
+                'sunat_cdr_description' => data_get($result, 'sunat_cdr_description') ?? data_get($result, 'cdr_description'),
+            ]);
+            if ((bool) ($result['ok'] ?? false)) {
+                $this->recordAccountingEvent($document->fresh());
+            }
+        });
 
         $this->persistCdrFromResult($document, $result);
 
         return $result;
     }
 
+    private function recordAccountingEvent(BillingDocument $document): void
+    {
+        if (! $document->order_id || ! $document->order) {
+            return;
+        }
+
+        if ($document->document_type === 'credit_note') {
+            $this->economicEvents->recordCreditNote($document->order, $document);
+        } else {
+            $this->economicEvents->recordInvoice($document->order, $document);
+        }
+    }
+
     /**
-     * @param array<string,mixed> $requestPayload
-     * @param array<string,mixed> $result
+     * @param  array<string,mixed>  $requestPayload
+     * @param  array<string,mixed>  $result
      */
     private function persistXmlFromResult(BillingDocument $document, array $requestPayload, array $result): void
     {
@@ -247,7 +270,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $result
+     * @param  array<string,mixed>  $result
      */
     private function persistCdrFromResult(BillingDocument $document, array $result): void
     {
@@ -272,8 +295,8 @@ class ElectronicBillingService
         if (is_string($base64) && $base64 !== '') {
             $decoded = base64_decode($base64, true);
             if ($decoded !== false) {
-                $dir = 'billing/cdr/' . now()->format('Ym');
-                $path = $dir . '/R-' . $document->series . '-' . $document->number . '.zip';
+                $dir = 'billing/cdr/'.now()->format('Ym');
+                $path = $dir.'/R-'.$document->series.'-'.$document->number.'.zip';
                 Storage::disk('public')->put($path, $decoded);
 
                 $this->storeFileRecord($document, 'cdr', [
@@ -291,7 +314,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $data
+     * @param  array<string,mixed>  $data
      */
     private function storeFileRecord(BillingDocument $document, string $fileType, array $data): void
     {
@@ -312,8 +335,8 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $requestPayload
-     * @param array<string,mixed> $responsePayload
+     * @param  array<string,mixed>  $requestPayload
+     * @param  array<string,mixed>  $responsePayload
      */
     private function storeResponseHistory(
         BillingDocument $document,
@@ -342,7 +365,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     private function withDispatchMeta(
@@ -369,7 +392,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function storeQueueDispatchedHistory(
         BillingDocument $document,
@@ -402,7 +425,7 @@ class ElectronicBillingService
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>|null
      */
     private function guardSuspendedTenant(BillingDocument $document, ?BillingSetting $setting, array $payload, string $event): ?array

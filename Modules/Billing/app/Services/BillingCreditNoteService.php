@@ -7,10 +7,13 @@ namespace Modules\Billing\Services;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Services\EconomicEventService;
 use Modules\Billing\Models\BillingDocument;
 
 class BillingCreditNoteService
 {
+    public function __construct(private readonly EconomicEventService $economicEvents) {}
+
     /** @param array<string, mixed> $data */
     public function create(BillingDocument $original, array $data): BillingDocument
     {
@@ -119,6 +122,10 @@ class BillingCreditNoteService
                     throw ValidationException::withMessages(['provider_reference' => 'La nota de credito ya fue registrada con otra evidencia.']);
                 }
 
+                if ($locked->order) {
+                    $this->economicEvents->recordCreditNote($locked->order, $locked);
+                }
+
                 return $locked;
             }
             if ($locked->status !== 'draft') {
@@ -133,6 +140,10 @@ class BillingCreditNoteService
                 'sunat_cdr_code' => $evidence['sunat_cdr_code'] ?? null,
                 'sunat_cdr_description' => $evidence['sunat_cdr_description'] ?? null,
             ])->save();
+
+            if ($locked->order) {
+                $this->economicEvents->recordCreditNote($locked->order, $locked);
+            }
 
             return $locked;
         });

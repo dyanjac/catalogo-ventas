@@ -5,6 +5,7 @@ namespace Modules\Accounting\Models;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use LogicException;
 use Modules\Catalog\Entities\Product;
 use Modules\Orders\Entities\Order;
 
@@ -30,6 +31,18 @@ class AccountingEntryLine extends Model
         'debit' => 'decimal:2',
         'credit' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        $guard = function (self $line): void {
+            $entryId = (int) ($line->getRawOriginal('accounting_entry_id') ?: $line->accounting_entry_id);
+            if (AccountingEntry::query()->whereKey($entryId)->whereIn('status', ['posted', 'voided'])->exists()) {
+                throw new LogicException('Las líneas de un asiento publicado son inmutables.');
+            }
+        };
+        static::updating($guard);
+        static::deleting($guard);
+    }
 
     public function entry(): BelongsTo
     {

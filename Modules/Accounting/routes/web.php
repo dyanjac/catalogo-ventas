@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Accounting\Http\Controllers\AccountingAccountController;
+use Modules\Accounting\Http\Controllers\AccountingEconomicEventController;
 use Modules\Accounting\Http\Controllers\AccountingEntryController;
 use Modules\Accounting\Http\Controllers\AccountingPeriodController;
 use Modules\Accounting\Http\Controllers\AccountingSettingsController;
@@ -40,4 +41,17 @@ Route::middleware(['auth', 'security.module:accounting'])->group(function () {
     Route::delete('admin/accounting/entries/{entry}/attachments/{attachment}', [AccountingEntryController::class, 'destroyAttachment'])
         ->middleware('security.permission:accounting.entries.update')
         ->name('admin.accounting.entries.attachments.destroy');
+
+    Route::get('admin/accounting/events', [AccountingEconomicEventController::class, 'index'])
+        ->middleware('security.permission:accounting.events.view')
+        ->name('admin.accounting.events.index');
+    Route::get('admin/accounting/events/{event}', [AccountingEconomicEventController::class, 'show'])
+        ->middleware('security.permission:accounting.events.view')
+        ->name('admin.accounting.events.show');
+    Route::post('admin/accounting/events/{event}/process', [AccountingEconomicEventController::class, 'process'])
+        ->middleware('security.permission:accounting.events.process')
+        ->name('admin.accounting.events.process');
+    Route::post('admin/accounting/events/{event}/reverse', [AccountingEconomicEventController::class, 'reverse'])
+        ->middleware('security.permission:accounting.events.reverse')
+        ->name('admin.accounting.events.reverse');
 });

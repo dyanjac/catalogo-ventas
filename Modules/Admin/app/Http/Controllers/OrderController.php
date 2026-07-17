@@ -8,20 +8,21 @@ use App\Services\OrganizationContextService;
 use App\Support\SimplePdfBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Modules\Security\Services\SecurityScopeService;
+use Modules\Accounting\Services\EconomicEventService;
 use Modules\Orders\Enums\OrderWarehouseStatus;
 use Modules\Orders\Services\OrderInventoryLifecycleService;
+use Modules\Security\Services\SecurityScopeService;
 
 class OrderController extends Controller
 {
     public function __construct(
         private readonly OrganizationContextService $organizationContext,
         private readonly OrderInventoryLifecycleService $inventoryLifecycle,
-    )
-    {
-    }
+        private readonly EconomicEventService $economicEvents,
+    ) {}
 
     public function index(): View
     {
@@ -57,6 +58,8 @@ class OrderController extends Controller
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $wasPaid = $order->payment_status === 'paid';
+
         if ($data['payment_status'] === 'paid' && ! $order->paid_at) {
             $data['paid_at'] = now();
         }
@@ -65,16 +68,22 @@ class OrderController extends Controller
             $data['paid_at'] = null;
         }
 
-        if ($data['status'] === 'cancelled' && $order->sales_channel !== 'legacy') {
-            $this->inventoryLifecycle->cancel($order, (int) $request->user()->id);
-            unset($data['status']);
-        } elseif ($order->sales_channel !== 'legacy' && $data['status'] === 'delivered' && $order->warehouse_status !== OrderWarehouseStatus::Dispatched) {
-            throw ValidationException::withMessages([
-                'status' => 'El pedido solo puede completarse comercialmente despues de confirmar el despacho de almacen.',
-            ]);
-        }
+        DB::transaction(function () use ($data, $order, $request, $wasPaid): void {
+            if ($data['status'] === 'cancelled' && $order->sales_channel !== 'legacy') {
+                $this->inventoryLifecycle->cancel($order, (int) $request->user()->id);
+                unset($data['status']);
+            } elseif ($order->sales_channel !== 'legacy' && $data['status'] === 'delivered' && $order->warehouse_status !== OrderWarehouseStatus::Dispatched) {
+                throw ValidationException::withMessages([
+                    'status' => 'El pedido solo puede completarse comercialmente despues de confirmar el despacho de almacen.',
+                ]);
+            }
 
-        $order->update($data);
+            $order->update($data);
+
+            if (! $wasPaid && $data['payment_status'] === 'paid') {
+                $this->economicEvents->recordPayment($order->fresh(), (int) $request->user()->id);
+            }
+        });
 
         return redirect()
             ->route('admin.orders.show', $order)
@@ -135,34 +144,34 @@ class OrderController extends Controller
         $order->loadMissing(['user', 'items.product']);
 
         $lines = [
-            'Pedido: ' . $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
-            'Fecha: ' . optional($order->created_at)->format('d/m/Y H:i'),
-            'Cliente: ' . ($order->user?->name ?? 'Sin usuario'),
-            'Email: ' . ($order->user?->email ?? '-'),
-            'Estado: ' . strtoupper((string) $order->status),
-            'Pago: ' . strtoupper((string) $order->payment_status),
-            'Metodo pago: ' . strtoupper((string) $order->payment_method),
-            'Moneda: ' . $order->currency,
-            'Subtotal: ' . number_format((float) $order->subtotal, 2),
-            'Descuento: ' . number_format((float) $order->discount, 2),
-            'IGV: ' . number_format((float) $order->tax, 2),
-            'Envio: ' . number_format((float) $order->shipping, 2),
-            'Total: ' . number_format((float) $order->total, 2),
+            'Pedido: '.$order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT),
+            'Fecha: '.optional($order->created_at)->format('d/m/Y H:i'),
+            'Cliente: '.($order->user?->name ?? 'Sin usuario'),
+            'Email: '.($order->user?->email ?? '-'),
+            'Estado: '.strtoupper((string) $order->status),
+            'Pago: '.strtoupper((string) $order->payment_status),
+            'Metodo pago: '.strtoupper((string) $order->payment_method),
+            'Moneda: '.$order->currency,
+            'Subtotal: '.number_format((float) $order->subtotal, 2),
+            'Descuento: '.number_format((float) $order->discount, 2),
+            'IGV: '.number_format((float) $order->tax, 2),
+            'Envio: '.number_format((float) $order->shipping, 2),
+            'Total: '.number_format((float) $order->total, 2),
             '--- Detalle ---',
         ];
 
         foreach ($order->items as $item) {
             $lines[] = ($item->product?->name ?? 'Producto eliminado')
-                . ' | Cant: ' . $item->quantity
-                . ' | P.Unit: ' . number_format((float) $item->unit_price, 2)
-                . ' | Total: ' . number_format((float) $item->line_total, 2);
+                .' | Cant: '.$item->quantity
+                .' | P.Unit: '.number_format((float) $item->unit_price, 2)
+                .' | Total: '.number_format((float) $item->line_total, 2);
         }
 
-        $pdf = SimplePdfBuilder::fromLines('Pedido ' . $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT), $lines);
+        $pdf = SimplePdfBuilder::fromLines('Pedido '.$order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT), $lines);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="pedido-' . $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT) . '.pdf"',
+            'Content-Disposition' => 'attachment; filename="pedido-'.$order->series.'-'.str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT).'.pdf"',
         ]);
     }
 }

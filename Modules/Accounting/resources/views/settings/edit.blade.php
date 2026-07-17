@@ -59,6 +59,7 @@
                         'default_account_inventory' => 'Cuenta de inventario por defecto',
                         'default_account_cogs' => 'Cuenta de costo de venta por defecto',
                         'default_account_tax' => 'Cuenta de impuesto por defecto',
+                        'default_account_cash' => 'Cuenta de caja/bancos por defecto',
                     ] as $field => $label)
                         <div class="col-md-4">
                             <label class="form-label">{{ $label }}</label>

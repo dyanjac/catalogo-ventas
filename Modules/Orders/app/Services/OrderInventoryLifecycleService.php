@@ -6,6 +6,7 @@ namespace Modules\Orders\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Services\EconomicEventService;
 use Modules\Catalog\Data\InventoryReservationCommand;
 use Modules\Catalog\Data\InventoryReservationItemData;
 use Modules\Catalog\Entities\InventoryBalance;
@@ -25,6 +26,7 @@ class OrderInventoryLifecycleService
         private readonly InventoryReservationService $reservations,
         private readonly InventoryDocumentService $documents,
         private readonly SalesInventoryChannelRolloutService $rollouts,
+        private readonly EconomicEventService $economicEvents,
     ) {}
 
     public function reserve(Order $order, ?int $actorId = null): Order
@@ -179,10 +181,13 @@ class OrderInventoryLifecycleService
     {
         $document = $this->requestDispatch($order, $actorId);
 
-        return DB::transaction(function () use ($order, $document, $actorId): Order {
+        $confirmedOrder = DB::transaction(function () use ($order, $document, $actorId): Order {
             $locked = Order::query()->where('organization_id', $order->organization_id)->lockForUpdate()->findOrFail($order->id);
             if ($locked->warehouse_status === OrderWarehouseStatus::Dispatched) {
-                return $locked;
+                $replayed = $locked->fresh(['items', 'dispatchDocument.items']);
+                $this->economicEvents->recordDispatch($replayed, $replayed->dispatchDocument, $actorId);
+
+                return $replayed;
             }
             if ((int) $locked->dispatch_document_id !== (int) $document->id
                 || $locked->warehouse_status !== OrderWarehouseStatus::DispatchRequested) {
@@ -204,8 +209,13 @@ class OrderInventoryLifecycleService
                 'dispatched_at' => now(),
             ])->save();
 
-            return $locked->fresh(['items', 'dispatchDocument.items']);
+            $confirmedOrder = $locked->fresh(['items', 'dispatchDocument.items']);
+            $this->economicEvents->recordDispatch($confirmedOrder, $confirmedOrder->dispatchDocument, $actorId);
+
+            return $confirmedOrder;
         });
+
+        return $confirmedOrder;
     }
 
     public function cancel(Order $order, ?int $actorId = null): Order
@@ -311,10 +321,13 @@ class OrderInventoryLifecycleService
     {
         $document = $this->requestReturn($order, $creditNoteId, $actorId);
 
-        return DB::transaction(function () use ($order, $document, $actorId): Order {
+        $returnedOrder = DB::transaction(function () use ($order, $document, $actorId): Order {
             $locked = Order::query()->where('organization_id', $order->organization_id)->lockForUpdate()->findOrFail($order->id);
             if ($locked->warehouse_status === OrderWarehouseStatus::Returned) {
-                return $locked;
+                $replayed = $locked->fresh(['items', 'returnDocument.items']);
+                $this->economicEvents->recordReturn($replayed, $replayed->returnDocument, $actorId);
+
+                return $replayed;
             }
             if ((int) $locked->return_document_id !== (int) $document->id
                 || $locked->warehouse_status !== OrderWarehouseStatus::ReturnRequested) {
@@ -333,8 +346,13 @@ class OrderInventoryLifecycleService
                 'returned_at' => now(),
             ])->save();
 
-            return $locked->fresh(['items', 'returnDocument.items']);
+            $returnedOrder = $locked->fresh(['items', 'returnDocument.items']);
+            $this->economicEvents->recordReturn($returnedOrder, $returnedOrder->returnDocument, $actorId);
+
+            return $returnedOrder;
         });
+
+        return $returnedOrder;
     }
 
     private function orderCode(Order $order): string

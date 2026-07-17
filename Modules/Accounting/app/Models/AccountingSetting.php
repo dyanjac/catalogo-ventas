@@ -23,6 +23,7 @@ class AccountingSetting extends Model
         'default_account_inventory',
         'default_account_cogs',
         'default_account_tax',
+        'default_account_cash',
     ];
 
     protected $casts = [

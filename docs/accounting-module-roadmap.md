@@ -19,7 +19,10 @@
   - Auditoria basica de cambios y eliminacion de adjuntos.
 - Pendiente:
   - Registro manual de asientos nuevos (pantalla create/store).
-  - Reversion/anulacion asistida con asiento espejo automatico.
+- Implementado en FASE 08:
+  - Reversión asistida con evento y asiento espejo automático.
+  - Inmutabilidad de asientos publicados y líneas.
+  - Vínculo 1:1 con el evento económico que originó el asiento.
 
 ### 3) Gestion de periodos contables
 - Implementado:
@@ -53,12 +56,11 @@
 
 ## Fase siguiente recomendada
 
-### 6) Integracion con otros modulos
-- Ventas/Pedidos:
-  - Generar asiento automatico al emitir comprobante.
-  - Resolver cuentas por defecto desde producto/categoria/configuracion.
-- Compras e inventario:
-  - Asientos de costo de ventas y movimientos de stock.
+### 6) Integracion con otros modulos (implementada en FASE 08)
+- Eventos económicos idempotentes para comprobante, costo de venta, cobro, nota de crédito, devolución física y reversión.
+- Resolución y snapshot de cuentas desde producto, categoría y empresa.
+- Procesamiento transaccional en cola, reintentos y bandeja operativa.
+- Compras y provisiones permanecen pendientes.
 
 ### 7) Libros contables y estados financieros
 - Libro Diario.

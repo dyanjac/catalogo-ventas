@@ -4,7 +4,9 @@ namespace Modules\Accounting\Providers;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Modules\Accounting\Console\RetryEconomicEventsCommand;
 use Modules\Accounting\Services\AccountingAuditService;
+use Modules\Accounting\Services\EconomicEventService;
 use Modules\Accounting\Services\ProductAccountingConfigurationResolver;
 use Modules\Accounting\Services\SalesAccountingService;
 use Nwidart\Modules\Traits\PathNamespace;
@@ -40,6 +42,7 @@ class AccountingServiceProvider extends ServiceProvider
         $this->app->singleton(AccountingAuditService::class);
         $this->app->singleton(ProductAccountingConfigurationResolver::class);
         $this->app->singleton(SalesAccountingService::class);
+        $this->app->singleton(EconomicEventService::class);
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }
@@ -49,7 +52,7 @@ class AccountingServiceProvider extends ServiceProvider
      */
     protected function registerCommands(): void
     {
-        // $this->commands([]);
+        $this->commands([RetryEconomicEventsCommand::class]);
     }
 
     /**

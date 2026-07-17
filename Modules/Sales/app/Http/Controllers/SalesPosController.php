@@ -4,12 +4,12 @@ namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\OrganizationContextService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Database\QueryException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -22,9 +22,9 @@ use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Services\ProductInventoryService;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Entities\OrderItem;
+use Modules\Orders\Repositories\OrderRepositoryInterface;
 use Modules\Orders\Services\OrderInventoryLifecycleService;
 use Modules\Orders\Services\SalesInventoryChannelRolloutService;
-use Modules\Orders\Repositories\OrderRepositoryInterface;
 use Modules\Sales\Services\CustomerDocumentLookupService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Throwable;
@@ -38,8 +38,7 @@ class SalesPosController extends Controller
         private readonly SalesInventoryChannelRolloutService $channelRollouts,
         private readonly OrderInventoryLifecycleService $inventoryLifecycle,
         private readonly OrderRepositoryInterface $orders,
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {
@@ -150,153 +149,65 @@ class SalesPosController extends Controller
         $replayed = false;
 
         try {
-            DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, &$replayed, $data, $taxRate, $discount, $shipping, $branchId, $organizationId, $integrated, $idempotencyKey, $payloadHash): void {
-            $existing = Order::query()
-                ->where('organization_id', $organizationId)
-                ->where('sales_channel', 'pos')
-                ->where('idempotency_key', $idempotencyKey)
-                ->lockForUpdate()
-                ->first();
-            if ($existing) {
-                if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
-                    throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otra venta POS.']);
+            DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, &$replayed, $data, $taxRate, $discount, $shipping, $branchId, $organizationId, $integrated, $idempotencyKey, $payloadHash, $salesAccounting): void {
+                $existing = Order::query()
+                    ->where('organization_id', $organizationId)
+                    ->where('sales_channel', 'pos')
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->lockForUpdate()
+                    ->first();
+                if ($existing) {
+                    if (! hash_equals((string) $existing->payload_hash, $payloadHash)) {
+                        throw ValidationException::withMessages(['idempotency_key' => 'La clave ya fue usada con otra venta POS.']);
+                    }
+                    $createdOrder = $existing;
+                    $createdBillingDocument = BillingDocument::query()->where('organization_id', $organizationId)->where('order_id', $existing->id)->first();
+                    if ($existing->payment_status === 'paid') {
+                        $salesAccounting->postPayment($existing, (int) auth()->id());
+                    }
+                    $replayed = true;
+
+                    return;
                 }
-                $createdOrder = $existing;
-                $createdBillingDocument = BillingDocument::query()->where('organization_id', $organizationId)->where('order_id', $existing->id)->first();
-                $replayed = true;
-                return;
-            }
 
-            $items = collect($data['items']);
-            $products = Product::query()
-                ->forCurrentOrganization()
-                ->with(['branchStocks' => fn ($query) => $query->where('branch_id', $branchId)])
-                ->whereIn('id', $items->pluck('product_id')->all())
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
+                $items = collect($data['items']);
+                $products = Product::query()
+                    ->forCurrentOrganization()
+                    ->with(['branchStocks' => fn ($query) => $query->where('branch_id', $branchId)])
+                    ->whereIn('id', $items->pluck('product_id')->all())
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
 
-            $normalizedItems = $this->normalizeItems($items, $products, $branchId);
-            $subtotal = round((float) $normalizedItems->sum(fn (array $line) => $line['line_subtotal']), 2);
-            $discountAmount = min($discount, $subtotal);
-            $taxableBase = max(0, $subtotal - $discountAmount);
-            $tax = round($taxableBase * $taxRate, 2);
-            $total = round($taxableBase + $tax + $shipping, 2);
-            $series = $this->resolveOrderSeries($data['document_type']);
+                $normalizedItems = $this->normalizeItems($items, $products, $branchId);
+                $subtotal = round((float) $normalizedItems->sum(fn (array $line) => $line['line_subtotal']), 2);
+                $discountAmount = min($discount, $subtotal);
+                $taxableBase = max(0, $subtotal - $discountAmount);
+                $tax = round($taxableBase * $taxRate, 2);
+                $total = round($taxableBase + $tax + $shipping, 2);
+                $series = $this->resolveOrderSeries($data['document_type']);
 
-            $nextOrderNumber = $this->orders->nextOrderNumber($series);
-            $paidAt = $data['payment_status'] === 'paid' ? now() : null;
+                $nextOrderNumber = $this->orders->nextOrderNumber($series);
+                $paidAt = $data['payment_status'] === 'paid' ? now() : null;
 
-            $createdOrder = Order::query()->create([
-                'organization_id' => $organizationId,
-                'user_id' => (int) auth()->id(),
-                'branch_id' => $branchId ?: null,
-                'sales_channel' => 'pos',
-                'idempotency_key' => $idempotencyKey,
-                'payload_hash' => $payloadHash,
-                'series' => $series,
-                'order_number' => $nextOrderNumber,
-                'status' => 'confirmed',
-                'warehouse_status' => $integrated ? 'reserved' : 'legacy_completed',
-                'currency' => $data['currency'],
-                'subtotal' => $subtotal,
-                'discount' => $discountAmount,
-                'shipping' => $shipping,
-                'tax' => $tax,
-                'total' => $total,
-                'shipping_address' => [
-                    'name' => $data['customer']['name'],
-                    'address' => $data['customer']['address'] ?? null,
-                    'city' => $data['customer']['city'] ?? null,
-                    'phone' => $data['customer']['phone'] ?? null,
-                    'document_type' => $data['customer']['document_type'] ?? null,
-                    'document_number' => $data['customer']['document_number'] ?? null,
-                ],
-                'payment_method' => $data['payment_method'],
-                'payment_status' => $data['payment_status'],
-                'paid_at' => $paidAt,
-                'observations' => $data['observations'] ?? null,
-            ]);
-
-            $discountRatio = $subtotal > 0 ? $discountAmount / $subtotal : 0;
-            $taxRatio = $taxableBase > 0 ? $tax / $taxableBase : 0;
-
-            foreach ($normalizedItems as $line) {
-                $lineDiscount = round($line['line_subtotal'] * $discountRatio, 2);
-                $lineTaxable = max(0, $line['line_subtotal'] - $lineDiscount);
-                $lineTax = round($lineTaxable * $taxRatio, 2);
-                $lineTotal = round($lineTaxable + $lineTax, 2);
-
-                OrderItem::query()->create([
+                $createdOrder = Order::query()->create([
                     'organization_id' => $organizationId,
-                    'order_id' => $createdOrder->id,
-                    'product_id' => $line['product']->id,
-                    'currency' => $data['currency'],
-                    'quantity' => $line['quantity'],
-                    'unit_price' => $line['unit_price'],
-                    'discount_amount' => $lineDiscount,
-                    'tax_amount' => $lineTax,
-                    'line_total' => $lineTotal,
-                ]);
-
-                if (! $integrated && $line['product']->tracksInventory()) {
-                    $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity'], [
-                        'reason' => 'pos_sale',
-                        'performed_by' => auth()->id(),
-                        'reference_type' => Order::class,
-                        'reference_id' => $createdOrder->id,
-                        'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
-                        'meta' => ['channel' => 'pos', 'document_type' => $data['document_type']],
-                    ]);
-                }
-            }
-
-            if ($integrated) {
-                $createdOrder = $this->inventoryLifecycle->reserve($createdOrder, auth()->id());
-            }
-
-            if ($data['document_type'] !== 'order') {
-                $billingSetting = $this->resolveBillingSetting();
-                if (! $billingSetting || ! $billingSetting->enabled) {
-                    throw ValidationException::withMessages([
-                        'document_type' => 'La facturación electrónica está desactivada. Actívala antes de emitir boletas o facturas.',
-                    ]);
-                }
-
-                [$billingSeries, $billingNumber] = $this->nextDocumentCorrelative($data['document_type'], $billingSetting);
-
-                $createdBillingDocument = BillingDocument::query()->create([
-                    'organization_id' => $organizationId,
-                    'order_id' => $createdOrder->id,
-                    'idempotency_key' => "sales-order:{$createdOrder->id}:billing",
-                    'payload_hash' => hash('sha256', json_encode([
-                        'order_id' => $createdOrder->id,
-                        'document_type' => $data['document_type'],
-                        'total' => $total,
-                    ], JSON_THROW_ON_ERROR)),
+                    'user_id' => (int) auth()->id(),
                     'branch_id' => $branchId ?: null,
-                    'provider' => $billingSetting->provider,
-                    'document_type' => $data['document_type'],
-                    'series' => $billingSeries,
-                    'number' => $billingNumber,
-                    'issue_date' => now()->toDateString(),
-                    'customer_document_type' => $data['customer']['document_type'] ?? null,
-                    'customer_document_number' => $data['customer']['document_number'] ?? null,
+                    'sales_channel' => 'pos',
+                    'idempotency_key' => $idempotencyKey,
+                    'payload_hash' => $payloadHash,
+                    'series' => $series,
+                    'order_number' => $nextOrderNumber,
+                    'status' => 'confirmed',
+                    'warehouse_status' => $integrated ? 'reserved' : 'legacy_completed',
+                    'currency' => $data['currency'],
                     'subtotal' => $subtotal,
+                    'discount' => $discountAmount,
+                    'shipping' => $shipping,
                     'tax' => $tax,
                     'total' => $total,
-                    'currency' => $data['currency'],
-                    'status' => 'queued',
-                ]);
-
-                $payload = [
-                    'order_id' => $createdOrder->id,
-                    'document_type' => $data['document_type'],
-                    'series' => $billingSeries,
-                    'number' => $billingNumber,
-                    'issue_date' => now()->toDateString(),
-                    'currency' => $data['currency'],
-                    'customer' => [
+                    'shipping_address' => [
                         'name' => $data['customer']['name'],
                         'address' => $data['customer']['address'] ?? null,
                         'city' => $data['customer']['city'] ?? null,
@@ -304,30 +215,126 @@ class SalesPosController extends Controller
                         'document_type' => $data['customer']['document_type'] ?? null,
                         'document_number' => $data['customer']['document_number'] ?? null,
                     ],
-                    'totals' => [
-                        'subtotal' => $subtotal,
-                        'discount' => $discountAmount,
-                        'tax' => $tax,
-                        'shipping' => $shipping,
-                        'total' => $total,
-                    ],
-                    'items' => $normalizedItems->map(function (array $line) {
-                        return [
-                            'product_id' => $line['product']->id,
-                            'sku' => $line['product']->sku,
-                            'name' => $line['product']->name,
-                            'quantity' => $line['quantity'],
-                            'unit_price' => $line['unit_price'],
-                            'line_subtotal' => $line['line_subtotal'],
-                        ];
-                    })->values()->all(),
-                ];
-            }
+                    'payment_method' => $data['payment_method'],
+                    'payment_status' => $data['payment_status'],
+                    'paid_at' => $paidAt,
+                    'observations' => $data['observations'] ?? null,
+                ]);
 
-            if ($integrated && $data['document_type'] !== 'order') {
-                $this->inventoryLifecycle->requestDispatch($createdOrder, auth()->id());
-                $createdOrder->refresh();
-            }
+                $discountRatio = $subtotal > 0 ? $discountAmount / $subtotal : 0;
+                $taxRatio = $taxableBase > 0 ? $tax / $taxableBase : 0;
+
+                foreach ($normalizedItems as $line) {
+                    $lineDiscount = round($line['line_subtotal'] * $discountRatio, 2);
+                    $lineTaxable = max(0, $line['line_subtotal'] - $lineDiscount);
+                    $lineTax = round($lineTaxable * $taxRatio, 2);
+                    $lineTotal = round($lineTaxable + $lineTax, 2);
+
+                    OrderItem::query()->create([
+                        'organization_id' => $organizationId,
+                        'order_id' => $createdOrder->id,
+                        'product_id' => $line['product']->id,
+                        'currency' => $data['currency'],
+                        'quantity' => $line['quantity'],
+                        'unit_price' => $line['unit_price'],
+                        'discount_amount' => $lineDiscount,
+                        'tax_amount' => $lineTax,
+                        'line_total' => $lineTotal,
+                    ]);
+
+                    if (! $integrated && $line['product']->tracksInventory()) {
+                        $this->inventory->decrementBranchStock($line['product'], $branchId, $line['quantity'], [
+                            'reason' => 'pos_sale',
+                            'performed_by' => auth()->id(),
+                            'reference_type' => Order::class,
+                            'reference_id' => $createdOrder->id,
+                            'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
+                            'meta' => ['channel' => 'pos', 'document_type' => $data['document_type']],
+                        ]);
+                    }
+                }
+
+                if ($integrated) {
+                    $createdOrder = $this->inventoryLifecycle->reserve($createdOrder, auth()->id());
+                }
+
+                if ($createdOrder->payment_status === 'paid') {
+                    $salesAccounting->postPayment($createdOrder->fresh('items'), (int) auth()->id());
+                }
+
+                if ($data['document_type'] !== 'order') {
+                    $billingSetting = $this->resolveBillingSetting();
+                    if (! $billingSetting || ! $billingSetting->enabled) {
+                        throw ValidationException::withMessages([
+                            'document_type' => 'La facturación electrónica está desactivada. Actívala antes de emitir boletas o facturas.',
+                        ]);
+                    }
+
+                    [$billingSeries, $billingNumber] = $this->nextDocumentCorrelative($data['document_type'], $billingSetting);
+
+                    $createdBillingDocument = BillingDocument::query()->create([
+                        'organization_id' => $organizationId,
+                        'order_id' => $createdOrder->id,
+                        'idempotency_key' => "sales-order:{$createdOrder->id}:billing",
+                        'payload_hash' => hash('sha256', json_encode([
+                            'order_id' => $createdOrder->id,
+                            'document_type' => $data['document_type'],
+                            'total' => $total,
+                        ], JSON_THROW_ON_ERROR)),
+                        'branch_id' => $branchId ?: null,
+                        'provider' => $billingSetting->provider,
+                        'document_type' => $data['document_type'],
+                        'series' => $billingSeries,
+                        'number' => $billingNumber,
+                        'issue_date' => now()->toDateString(),
+                        'customer_document_type' => $data['customer']['document_type'] ?? null,
+                        'customer_document_number' => $data['customer']['document_number'] ?? null,
+                        'subtotal' => $subtotal,
+                        'tax' => $tax,
+                        'total' => $total,
+                        'currency' => $data['currency'],
+                        'status' => 'queued',
+                    ]);
+
+                    $payload = [
+                        'order_id' => $createdOrder->id,
+                        'document_type' => $data['document_type'],
+                        'series' => $billingSeries,
+                        'number' => $billingNumber,
+                        'issue_date' => now()->toDateString(),
+                        'currency' => $data['currency'],
+                        'customer' => [
+                            'name' => $data['customer']['name'],
+                            'address' => $data['customer']['address'] ?? null,
+                            'city' => $data['customer']['city'] ?? null,
+                            'phone' => $data['customer']['phone'] ?? null,
+                            'document_type' => $data['customer']['document_type'] ?? null,
+                            'document_number' => $data['customer']['document_number'] ?? null,
+                        ],
+                        'totals' => [
+                            'subtotal' => $subtotal,
+                            'discount' => $discountAmount,
+                            'tax' => $tax,
+                            'shipping' => $shipping,
+                            'total' => $total,
+                        ],
+                        'items' => $normalizedItems->map(function (array $line) {
+                            return [
+                                'product_id' => $line['product']->id,
+                                'sku' => $line['product']->sku,
+                                'name' => $line['product']->name,
+                                'quantity' => $line['quantity'],
+                                'unit_price' => $line['unit_price'],
+                                'line_subtotal' => $line['line_subtotal'],
+                            ];
+                        })->values()->all(),
+                    ];
+                }
+
+                if ($integrated && $data['document_type'] !== 'order') {
+                    $this->inventoryLifecycle->requestDispatch($createdOrder, auth()->id());
+                    $createdOrder->refresh();
+                }
             }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
         } catch (QueryException $exception) {
             $existing = Order::query()
@@ -363,8 +370,11 @@ class SalesPosController extends Controller
                 }
 
                 $accounting = $salesAccounting->postIssuedSale($createdOrder, $createdBillingDocument);
+                if ($createdOrder->payment_status === 'paid') {
+                    $salesAccounting->postPayment($createdOrder, (int) $request->user()->id);
+                }
                 if (! $accounting['created']) {
-                    return back()->with('warning', 'Venta y comprobante emitidos. Asiento contable no generado: ' . $accounting['message']);
+                    return back()->with('warning', 'Venta y comprobante emitidos. Asiento contable no generado: '.$accounting['message']);
                 }
 
                 return back()->with('success', 'Venta, comprobante y asiento contable generados correctamente.');
@@ -379,8 +389,8 @@ class SalesPosController extends Controller
     }
 
     /**
-     * @param Collection<int,array<string,mixed>> $items
-     * @param Collection<int,Product> $products
+     * @param  Collection<int,array<string,mixed>>  $items
+     * @param  Collection<int,Product>  $products
      * @return Collection<int,array{product:Product,quantity:int,unit_price:float,line_subtotal:float}>
      */
     private function normalizeItems(Collection $items, Collection $products, int $branchId): Collection

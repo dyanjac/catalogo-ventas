@@ -8,6 +8,7 @@
         <x-admin.page-header title="Asientos contables por periodo">
             <x-slot:actions>
                 <a href="{{ route('admin.accounting.settings.edit') }}" class="btn btn-light border rounded-pill px-4">Configuración</a>
+                <a href="{{ route('admin.accounting.events.index') }}" class="btn btn-light border rounded-pill px-4">Eventos económicos</a>
             </x-slot:actions>
         </x-admin.page-header>
 

@@ -58,14 +58,28 @@ class AccountingSettingsController extends Controller
             'default_account_inventory' => ['nullable', 'string', 'max:120'],
             'default_account_cogs' => ['nullable', 'string', 'max:120'],
             'default_account_tax' => ['nullable', 'string', 'max:120'],
+            'default_account_cash' => ['nullable', 'string', 'max:120'],
         ]);
 
         $organizationId = $this->organizationContext->currentOrganizationId();
         $settings = AccountingSetting::query()->where('organization_id', $organizationId)->first();
 
-        foreach (['default_account_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax'] as $field) {
+        foreach (['default_account_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = filled($data[$field]) ? trim((string) $data[$field]) : null;
+            }
+        }
+
+        foreach (['default_account_revenue', 'default_account_receivable', 'default_account_inventory', 'default_account_cogs', 'default_account_tax', 'default_account_cash'] as $field) {
+            if (filled($data[$field] ?? null)) {
+                $exists = \Modules\Accounting\Models\AccountingAccount::query()
+                    ->where('organization_id', $organizationId)
+                    ->where('code', $data[$field])
+                    ->where('is_active', true)
+                    ->exists();
+                if (! $exists) {
+                    throw ValidationException::withMessages([$field => 'La cuenta debe existir, estar activa y pertenecer a la organización actual.']);
+                }
             }
         }
 
@@ -85,6 +99,7 @@ class AccountingSettingsController extends Controller
                 'default_account_inventory' => array_key_exists('default_account_inventory', $data) ? $data['default_account_inventory'] : $settings?->default_account_inventory,
                 'default_account_cogs' => array_key_exists('default_account_cogs', $data) ? $data['default_account_cogs'] : $settings?->default_account_cogs,
                 'default_account_tax' => array_key_exists('default_account_tax', $data) ? $data['default_account_tax'] : $settings?->default_account_tax,
+                'default_account_cash' => array_key_exists('default_account_cash', $data) ? $data['default_account_cash'] : $settings?->default_account_cash,
             ]
         );
 

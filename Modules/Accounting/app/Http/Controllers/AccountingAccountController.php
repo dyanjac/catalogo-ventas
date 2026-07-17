@@ -129,6 +129,30 @@ class AccountingAccountController extends Controller
                 'is_default_sales' => false,
                 'is_default_tax' => true,
             ],
+            [
+                'code' => '101101',
+                'name' => 'Caja y bancos',
+                'type' => 'activo',
+                'is_default_receivable' => false,
+                'is_default_sales' => false,
+                'is_default_tax' => false,
+            ],
+            [
+                'code' => '201101',
+                'name' => 'Mercaderías',
+                'type' => 'activo',
+                'is_default_receivable' => false,
+                'is_default_sales' => false,
+                'is_default_tax' => false,
+            ],
+            [
+                'code' => '691101',
+                'name' => 'Costo de ventas',
+                'type' => 'gasto',
+                'is_default_receivable' => false,
+                'is_default_sales' => false,
+                'is_default_tax' => false,
+            ],
         ];
 
         $organizationId = $this->organizationContext->currentOrganizationId();
@@ -159,6 +183,18 @@ class AccountingAccountController extends Controller
                     ]
                 );
             }
+
+            AccountingSetting::query()->updateOrCreate(
+                ['organization_id' => $organizationId],
+                [
+                    'default_account_receivable' => '121201',
+                    'default_account_revenue' => '701101',
+                    'default_account_tax' => '401111',
+                    'default_account_cash' => '101101',
+                    'default_account_inventory' => '201101',
+                    'default_account_cogs' => '691101',
+                ]
+            );
         });
 
         $this->audit->log('accounting_setup', 0, 'setup_default_sales_chart', [
@@ -200,6 +236,7 @@ class AccountingAccountController extends Controller
                 'default_account_inventory' => null,
                 'default_account_cogs' => null,
                 'default_account_tax' => null,
+                'default_account_cash' => null,
             ]);
 
             $this->audit->log('accounting_setup', 0, 'reset_chart', [

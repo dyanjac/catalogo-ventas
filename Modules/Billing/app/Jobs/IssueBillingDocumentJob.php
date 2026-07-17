@@ -19,13 +19,12 @@ class IssueBillingDocumentJob implements ShouldQueue
     use SerializesModels;
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     public function __construct(
         public int $documentId,
         public array $payload
-    ) {
-    }
+    ) {}
 
     public function handle(ElectronicBillingService $billingService, SalesAccountingService $salesAccounting): void
     {
@@ -45,6 +44,9 @@ class IssueBillingDocumentJob implements ShouldQueue
 
         if ($document->order_id && $document->order) {
             $salesAccounting->postIssuedSale($document->order, $document->fresh());
+            if ($document->order->payment_status === 'paid') {
+                $salesAccounting->postPayment($document->order);
+            }
         }
     }
 }

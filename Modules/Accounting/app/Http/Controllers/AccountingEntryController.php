@@ -23,8 +23,7 @@ class AccountingEntryController extends Controller
     public function __construct(
         private readonly AccountingAuditService $audit,
         private readonly OrganizationContextService $organizationContext
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -41,10 +40,10 @@ class AccountingEntryController extends Controller
             ->when($status !== '', fn (Builder $q) => $q->where('status', $status))
             ->when($search !== '', function (Builder $q) use ($search) {
                 $q->where(function (Builder $sub) use ($search) {
-                    $sub->where('reference', 'like', '%' . $search . '%')
-                        ->orWhere('description', 'like', '%' . $search . '%')
-                        ->orWhere('voucher_number', 'like', '%' . $search . '%')
-                        ->orWhereHas('lines', fn (Builder $line) => $line->where('account_code', 'like', '%' . $search . '%'));
+                    $sub->where('reference', 'like', '%'.$search.'%')
+                        ->orWhere('description', 'like', '%'.$search.'%')
+                        ->orWhere('voucher_number', 'like', '%'.$search.'%')
+                        ->orWhereHas('lines', fn (Builder $line) => $line->where('account_code', 'like', '%'.$search.'%'));
                 });
             })
             ->orderByDesc('entry_date')
@@ -79,6 +78,9 @@ class AccountingEntryController extends Controller
     public function update(Request $request, AccountingEntry $entry): RedirectResponse
     {
         $this->ensureTenantOperational();
+        if (in_array($entry->status, ['posted', 'voided'], true)) {
+            throw ValidationException::withMessages(['entry' => 'Un asiento publicado o anulado es inmutable; registre una reversión.']);
+        }
         $organizationId = $this->organizationContext->currentOrganizationId();
 
         $data = $request->validate([
@@ -88,7 +90,7 @@ class AccountingEntryController extends Controller
             'voucher_number' => ['nullable', 'string', 'max:30'],
             'reference' => ['nullable', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', 'in:' . implode(',', config('accounting.entry_statuses', ['draft', 'posted', 'voided']))],
+            'status' => ['required', 'in:'.implode(',', config('accounting.entry_statuses', ['draft', 'posted', 'voided']))],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_code' => ['required', 'string', 'max:40'],
             'lines.*.account_name' => ['nullable', 'string', 'max:160'],
@@ -171,7 +173,7 @@ class AccountingEntryController extends Controller
                 continue;
             }
 
-            $path = $file->store('accounting/entries/' . $entry->id, 'public');
+            $path = $file->store('accounting/entries/'.$entry->id, 'public');
 
             $entry->attachments()->create([
                 'organization_id' => $organizationId,
