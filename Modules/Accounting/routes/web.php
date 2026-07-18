@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Accounting\Http\Controllers\AccountingAccountController;
+use Modules\Accounting\Http\Controllers\AccountingActivationController;
 use Modules\Accounting\Http\Controllers\AccountingEconomicEventController;
 use Modules\Accounting\Http\Controllers\AccountingEntryController;
 use Modules\Accounting\Http\Controllers\AccountingPeriodController;
@@ -54,4 +55,20 @@ Route::middleware(['auth', 'security.module:accounting'])->group(function () {
     Route::post('admin/accounting/events/{event}/reverse', [AccountingEconomicEventController::class, 'reverse'])
         ->middleware('security.permission:accounting.events.reverse')
         ->name('admin.accounting.events.reverse');
+
+    Route::get('admin/accounting/historical-activations', [AccountingActivationController::class, 'index'])
+        ->middleware('security.permission:accounting.history.view')
+        ->name('admin.accounting.activations.index');
+    Route::post('admin/accounting/historical-activations', [AccountingActivationController::class, 'store'])
+        ->middleware('security.permission:accounting.history.simulate')
+        ->name('admin.accounting.activations.store');
+    Route::get('admin/accounting/historical-activations/{activation}', [AccountingActivationController::class, 'show'])
+        ->middleware('security.permission:accounting.history.view')
+        ->name('admin.accounting.activations.show');
+    Route::post('admin/accounting/historical-activations/{activation}/confirm', [AccountingActivationController::class, 'confirm'])
+        ->middleware('security.permission:accounting.history.confirm')
+        ->name('admin.accounting.activations.confirm');
+    Route::post('admin/accounting/historical-activations/{activation}/reprocess', [AccountingActivationController::class, 'reprocess'])
+        ->middleware('security.permission:accounting.history.reprocess')
+        ->name('admin.accounting.activations.reprocess');
 });

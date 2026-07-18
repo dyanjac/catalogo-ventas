@@ -175,6 +175,10 @@ class SecurityDatabaseSeeder extends Seeder
             ['module' => 'accounting', 'resource' => 'events', 'action' => 'view', 'code' => 'accounting.events.view'],
             ['module' => 'accounting', 'resource' => 'events', 'action' => 'process', 'code' => 'accounting.events.process'],
             ['module' => 'accounting', 'resource' => 'events', 'action' => 'reverse', 'code' => 'accounting.events.reverse'],
+            ['module' => 'accounting', 'resource' => 'history', 'action' => 'view', 'code' => 'accounting.history.view'],
+            ['module' => 'accounting', 'resource' => 'history', 'action' => 'simulate', 'code' => 'accounting.history.simulate'],
+            ['module' => 'accounting', 'resource' => 'history', 'action' => 'confirm', 'code' => 'accounting.history.confirm'],
+            ['module' => 'accounting', 'resource' => 'history', 'action' => 'reprocess', 'code' => 'accounting.history.reprocess'],
             ['module' => 'accounting', 'resource' => 'audit', 'action' => 'view', 'code' => 'accounting.audit.view'],
             ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'view', 'code' => 'subscriptions.contracts.view'],
             ['module' => 'subscriptions', 'resource' => 'contracts', 'action' => 'create', 'code' => 'subscriptions.contracts.create'],
@@ -310,6 +314,10 @@ class SecurityDatabaseSeeder extends Seeder
             'accounting.events.view',
             'accounting.events.process',
             'accounting.events.reverse',
+            'accounting.history.view',
+            'accounting.history.simulate',
+            'accounting.history.confirm',
+            'accounting.history.reprocess',
         ]));
         $matrix['general_manager'][] = 'subscriptions.contracts.view';
         $matrix['accounting_manager'][] = 'subscriptions.contracts.view';

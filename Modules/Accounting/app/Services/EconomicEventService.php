@@ -181,6 +181,7 @@ class EconomicEventService
         ?int $actorId = null,
         ?int $branchId = null,
         ?int $reversalOfEventId = null,
+        bool $autoProcess = true,
     ): AccountingEconomicEvent {
         $normalized = $this->normalize($payload);
         $hash = hash('sha256', json_encode($normalized, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION));
@@ -227,11 +228,60 @@ class EconomicEventService
             $event = $this->assertReplay($existing, $hash, $type, $sourceType, $sourceId);
         }
 
-        if ($event->wasRecentlyCreated && $this->shouldAutoProcess($event)) {
+        if ($autoProcess && $event->wasRecentlyCreated && $this->shouldAutoProcess($event)) {
             ProcessEconomicEventJob::dispatch((int) $event->organization_id, (int) $event->id);
         }
 
         return $event->fresh() ?? $event;
+    }
+
+    /**
+     * Valida y calcula un asiento sin persistir evento, asiento ni trabajo en cola.
+     *
+     * @param array<string,mixed> $payload
+     * @return array{lines:array<int,array<string,mixed>>,configuration_snapshot:array<string,mixed>,total_debit:float,total_credit:float}
+     */
+    public function preview(
+        int $organizationId,
+        EconomicEventType $type,
+        string $sourceType,
+        int $sourceId,
+        ?string $sourceCode,
+        array $payload,
+        mixed $occurredAt,
+        ?int $branchId = null,
+    ): array {
+        $event = new AccountingEconomicEvent([
+            'organization_id' => $organizationId,
+            'branch_id' => $branchId,
+            'event_type' => $type,
+            'status' => EconomicEventStatus::Pending,
+            'idempotency_key' => 'preview:'.$type->value.':'.$sourceType.':'.$sourceId,
+            'payload_hash' => str_repeat('0', 64),
+            'source_type' => $sourceType,
+            'source_id' => $sourceId,
+            'source_code' => $sourceCode,
+            'payload' => $this->normalize($payload),
+            'occurred_at' => $occurredAt,
+        ]);
+
+        $this->assertPostable($event, true);
+        [$lines, $snapshot] = $this->buildLines($event);
+        if ($lines === []) {
+            throw new DomainException('El evento no produjo líneas contables configuradas.');
+        }
+        $debit = round(array_sum(array_column($lines, 'debit')), 2);
+        $credit = round(array_sum(array_column($lines, 'credit')), 2);
+        if ($debit <= 0 || abs($debit - $credit) > 0.0001) {
+            throw new DomainException('El asiento económico no cuadra en partida doble.');
+        }
+
+        return [
+            'lines' => $lines,
+            'configuration_snapshot' => $snapshot,
+            'total_debit' => $debit,
+            'total_credit' => $credit,
+        ];
     }
 
     public function retry(int $organizationId, int $eventId): AccountingEconomicEvent
@@ -358,6 +408,33 @@ class EconomicEventService
         }
 
         return $entry->fresh('lines');
+    }
+
+    private function assertPostable(AccountingEconomicEvent $event, bool $requireExistingOpenPeriod = false): void
+    {
+        $organization = Organization::query()->findOrFail($event->organization_id);
+        if ($organization->isSuspended()) {
+            throw new DomainException('La organización está suspendida.');
+        }
+        if (! $this->entitlements->hasCapability('accounting.general_ledger', $organization)) {
+            throw new DomainException('La organización no tiene habilitada la contabilidad general.');
+        }
+
+        $date = $event->occurred_at;
+        if (! $date) {
+            throw new DomainException('La fecha económica del evento es obligatoria.');
+        }
+        $period = AccountingPeriod::query()
+            ->where('organization_id', $event->organization_id)
+            ->where('year', $date->year)
+            ->where('month', $date->month)
+            ->first();
+        if ($requireExistingOpenPeriod && ! $period) {
+            throw new DomainException('No existe un periodo contable abierto para la fecha económica.');
+        }
+        if ($period?->status === 'closed') {
+            throw new DomainException('El periodo contable del evento está cerrado.');
+        }
     }
 
     /** @return array{array<int,array<string,mixed>>,array<string,mixed>} */

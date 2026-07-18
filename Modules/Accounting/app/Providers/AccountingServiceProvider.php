@@ -5,10 +5,13 @@ namespace Modules\Accounting\Providers;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Modules\Accounting\Console\RetryEconomicEventsCommand;
+use Modules\Accounting\Console\ProcessHistoricalAccountingActivationCommand;
+use Modules\Accounting\Console\SimulateHistoricalAccountingActivationCommand;
 use Modules\Accounting\Services\AccountingAuditService;
 use Modules\Accounting\Services\EconomicEventService;
 use Modules\Accounting\Services\ProductAccountingConfigurationResolver;
 use Modules\Accounting\Services\SalesAccountingService;
+use Modules\Accounting\Services\HistoricalAccountingActivationService;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -43,6 +46,7 @@ class AccountingServiceProvider extends ServiceProvider
         $this->app->singleton(ProductAccountingConfigurationResolver::class);
         $this->app->singleton(SalesAccountingService::class);
         $this->app->singleton(EconomicEventService::class);
+        $this->app->singleton(HistoricalAccountingActivationService::class);
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }
@@ -52,7 +56,11 @@ class AccountingServiceProvider extends ServiceProvider
      */
     protected function registerCommands(): void
     {
-        $this->commands([RetryEconomicEventsCommand::class]);
+        $this->commands([
+            RetryEconomicEventsCommand::class,
+            SimulateHistoricalAccountingActivationCommand::class,
+            ProcessHistoricalAccountingActivationCommand::class,
+        ]);
     }
 
     /**
