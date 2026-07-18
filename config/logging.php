@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'operations' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/operations.json.log'),
+            'level' => env('OPERATIONS_LOG_LEVEL', 'info'),
+            'days' => env('OPERATIONS_LOG_DAYS', 30),
+            'tap' => [Modules\Operations\Logging\UseJsonFormatter::class],
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

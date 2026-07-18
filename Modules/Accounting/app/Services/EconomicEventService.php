@@ -383,7 +383,7 @@ class EconomicEventService
             'voucher_number' => isset($payload['number']) ? (string) $payload['number'] : null,
             'reference' => $event->source_code ?? strtoupper($event->event_type->value).'-'.$event->source_id,
             'description' => $event->event_type->label().' · '.$event->source_code,
-            'status' => 'posted',
+            'status' => 'posting',
             'total_debit' => $debit,
             'total_credit' => $credit,
             'posted_at' => now(),
@@ -394,6 +394,11 @@ class EconomicEventService
             'organization_id' => $organizationId,
             'order_id' => $payload['order_id'] ?? null,
         ], $lines));
+
+        $entry->forceFill([
+            'status' => 'posted',
+            'posted_at' => now(),
+        ])->save();
 
         $event->forceFill([
             'configuration_snapshot' => $snapshot,

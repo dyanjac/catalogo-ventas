@@ -1,0 +1,16 @@
+{
+    "name": "nwidart/operations",
+    "description": "ERP operational reconciliation and observability",
+    "autoload": {
+        "psr-4": {
+            "Modules\\Operations\\": "app/",
+            "Modules\\Operations\\Database\\Factories\\": "database/factories/",
+            "Modules\\Operations\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Operations\\Tests\\": "tests/"
+        }
+    }
+}

@@ -286,6 +286,18 @@ class InventoryLedgerService
             return 0.0;
         }
 
+        if ($type === InventoryMovementType::Reversal) {
+            $inventoryValueAfter = ($before * $averageBefore) + ($delta * $unitCost);
+
+            if ($inventoryValueAfter < -0.0001) {
+                throw ValidationException::withMessages([
+                    'stock' => 'La reversión produciría una valorización negativa del inventario.',
+                ]);
+            }
+
+            return round(max(0.0, $inventoryValueAfter) / $after, 4);
+        }
+
         if ($delta > 0 && in_array($type, [InventoryMovementType::Inbound, InventoryMovementType::OpeningStock], true)) {
             return round((($before * $averageBefore) + ($delta * $unitCost)) / $after, 4);
         }

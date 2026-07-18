@@ -1,0 +1,11 @@
+{
+    "name": "Operations",
+    "alias": "operations",
+    "description": "Conciliación, observabilidad, alertas y recuperación operativa del ERP",
+    "keywords": ["operations", "reconciliation", "observability"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Operations\\Providers\\OperationsServiceProvider"
+    ],
+    "files": []
+}

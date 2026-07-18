@@ -73,6 +73,12 @@
             </flux:sidebar.group>
         @endif
 
+        @if($modules->has('operations'))
+            <flux:sidebar.group heading="Operaciones" icon="signal" expandable :expanded="request()->routeIs('admin.operations.*')">
+                <flux:sidebar.item wire:navigate.hover href="{{ route('admin.operations.index') }}" icon="chart-bar-square" :data-current="request()->routeIs('admin.operations.*') ? 'true' : null">Conciliación y alertas</flux:sidebar.item>
+            </flux:sidebar.group>
+        @endif
+
         @if($modules->has('billing'))
             <flux:sidebar.group heading="Facturacion electronica" icon="document-text" expandable :expanded="request()->routeIs('admin.billing.*') || request()->routeIs('admin.electronic-documents.*')">
                 <flux:sidebar.item wire:navigate.hover href="{{ route('admin.billing.documents.index') }}" icon="document-duplicate" :data-current="request()->routeIs('admin.billing.documents.*') ? 'true' : null">Docs electronicos</flux:sidebar.item>

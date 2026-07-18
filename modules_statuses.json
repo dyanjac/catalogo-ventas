@@ -11,5 +11,6 @@
     "Commerce": true,
     "Security": true,
     "Transport": true,
-    "Subscriptions": true
+    "Subscriptions": true,
+    "Operations": true
 }

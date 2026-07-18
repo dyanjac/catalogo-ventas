@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 use LogicException;
 use Modules\Catalog\Entities\Category;
 use Modules\Catalog\Entities\InventoryBalance;
+use Modules\Catalog\Entities\InventoryDocument;
 use Modules\Catalog\Entities\InventoryMovement;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
@@ -26,6 +27,7 @@ use Modules\Catalog\Services\InventoryLedgerRolloutService;
 use Modules\Catalog\Services\InventoryMovementService;
 use Modules\Catalog\Services\InventoryReconciliationService;
 use Modules\Catalog\Services\ProductInventoryService;
+use Modules\Operations\Services\OperationalReconciliationService;
 use Modules\Security\Models\SecurityBranch;
 use Tests\TestCase;
 
@@ -99,6 +101,26 @@ class InventoryLedgerTest extends TestCase
         $this->assertSame(5, ProductBranchStock::query()->where('product_id', $product->id)->value('stock'));
     }
 
+    public function test_reversing_an_inbound_movement_restores_the_previous_average_cost(): void
+    {
+        [, $branch, $product] = $this->inventoryScope(0);
+        $service = app(InventoryMovementService::class);
+        $service->recordInbound($product, $branch->id, 10, [
+            'idempotency_key' => 'purchase-cost-base',
+            'unit_cost' => 2,
+        ]);
+        $inbound = $service->recordInbound($product, $branch->id, 10, [
+            'idempotency_key' => 'purchase-cost-restore',
+            'unit_cost' => 4,
+        ]);
+
+        $this->assertSame('3.0000', $inbound->average_cost_after);
+        $reversal = $service->reverse($inbound, idempotencyKey: 'purchase-cost-restore:reverse');
+
+        $this->assertSame('2.0000', $reversal->average_cost_after);
+        $this->assertSame('2.0000', InventoryBalance::query()->whereKey($reversal->inventory_balance_id)->value('average_cost'));
+    }
+
     public function test_backfill_is_idempotent_and_separates_warehouse_from_unallocated_stock(): void
     {
         [$organization, $branch, $product, $warehouse] = $this->inventoryScope(10, withWarehouse: true, warehouseStock: 6);
@@ -153,6 +175,72 @@ class InventoryLedgerTest extends TestCase
 
         $this->assertSame('failed', $run->status);
         $this->assertTrue($run->issues->contains('issue_type', 'warehouse_legacy_mismatch'));
+    }
+
+    public function test_operational_reconciliation_detects_a_ledger_head_drift(): void
+    {
+        [$organization, $branch, $product] = $this->inventoryScope(0);
+        $movement = app(InventoryMovementService::class)->recordInbound($product, $branch->id, 5, [
+            'idempotency_key' => 'ops-ledger-head-drift',
+            'unit_cost' => 2,
+        ]);
+        InventoryBalance::query()->whereKey($movement->inventory_balance_id)->update(['physical_stock' => 4]);
+
+        $run = app(OperationalReconciliationService::class)->run((int) $organization->id, 'test');
+
+        $this->assertSame('failed', $run->status);
+        $this->assertTrue($run->issues->contains('issue_code', 'INV_BALANCE_HEAD_MISMATCH'));
+    }
+
+    public function test_operational_reconciliation_detects_a_confirmed_document_item_without_movement(): void
+    {
+        [$organization, $branch, $product, $warehouse] = $this->inventoryScope(0, withWarehouse: true, warehouseStock: 0);
+        $document = InventoryDocument::query()->create([
+            'organization_id' => $organization->id,
+            'code' => 'OPS-DOC-'.uniqid(),
+            'idempotency_key' => 'ops-doc-missing-movement',
+            'payload_hash' => hash('sha256', 'ops-doc-missing-movement'),
+            'document_type' => 'inbound',
+            'status' => 'draft',
+            'branch_id' => $branch->id,
+            'warehouse_id' => $warehouse->id,
+            'issued_at' => now(),
+        ]);
+        $document->items()->create([
+            'organization_id' => $organization->id,
+            'product_id' => $product->id,
+            'quantity' => 5,
+            'unit_cost' => 2,
+            'line_total' => 10,
+        ]);
+        $document->forceFill(['status' => 'confirmed', 'confirmed_at' => now()])->save();
+
+        $run = app(OperationalReconciliationService::class)->run((int) $organization->id, 'test');
+
+        $this->assertSame('failed', $run->status);
+        $this->assertTrue($run->issues->contains('issue_code', 'DOC_ITEM_MOVEMENT_MISSING'));
+    }
+
+    public function test_confirmed_document_rejects_new_items(): void
+    {
+        [$organization, $branch, $product, $warehouse] = $this->inventoryScope(0, withWarehouse: true, warehouseStock: 0);
+        $document = InventoryDocument::query()->create([
+            'organization_id' => $organization->id,
+            'code' => 'OPS-LOCK-'.uniqid(),
+            'document_type' => 'inbound',
+            'status' => 'confirmed',
+            'branch_id' => $branch->id,
+            'warehouse_id' => $warehouse->id,
+            'issued_at' => now(),
+            'confirmed_at' => now(),
+        ]);
+
+        $this->expectException(LogicException::class);
+        $document->items()->create([
+            'organization_id' => $organization->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
     }
 
     public function test_backfill_preserves_inactive_warehouse_stock_as_unavailable(): void

@@ -40,6 +40,7 @@ class InventoryDocumentItem extends Model
             }
         };
 
+        static::creating($guard);
         static::updating($guard);
         static::deleting($guard);
     }

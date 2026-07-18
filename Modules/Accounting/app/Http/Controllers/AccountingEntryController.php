@@ -155,10 +155,10 @@ class AccountingEntryController extends Controller
                 'voucher_number' => $data['voucher_number'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'description' => $data['description'] ?? null,
-                'status' => $data['status'],
+                'status' => 'draft',
                 'total_debit' => $totalDebit,
                 'total_credit' => $totalCredit,
-                'posted_at' => $data['status'] === 'posted' ? now() : null,
+                'posted_at' => null,
             ]);
 
             $entry->lines()->delete();
@@ -166,6 +166,13 @@ class AccountingEntryController extends Controller
                 ...$line,
                 'organization_id' => $organizationId,
             ])->all());
+
+            if ($data['status'] !== 'draft') {
+                $entry->forceFill([
+                    'status' => $data['status'],
+                    'posted_at' => $data['status'] === 'posted' ? now() : null,
+                ])->save();
+            }
         });
 
         foreach (($request->file('attachments') ?? []) as $file) {

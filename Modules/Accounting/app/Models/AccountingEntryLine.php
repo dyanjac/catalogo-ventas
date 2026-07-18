@@ -40,6 +40,7 @@ class AccountingEntryLine extends Model
                 throw new LogicException('Las líneas de un asiento publicado son inmutables.');
             }
         };
+        static::creating($guard);
         static::updating($guard);
         static::deleting($guard);
     }

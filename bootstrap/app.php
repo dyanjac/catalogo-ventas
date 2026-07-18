@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Modules\Commerce\Http\Middleware\EnsureOrganizationCapability;
+use Modules\Operations\Http\Middleware\AttachObservabilityContext;
 use Modules\Security\Http\Middleware\EnsureModuleAccess;
 use Modules\Security\Http\Middleware\EnsurePermission;
 
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             EnsureActiveOrganizationSession::class,
+            AttachObservabilityContext::class,
         ]);
 
         $middleware->alias([
