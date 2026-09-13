@@ -104,4 +104,3 @@ EXPOSE 80
 
 ENTRYPOINT ["docker-entrypoint-app"]
 CMD ["apache2-foreground"]
-

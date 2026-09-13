@@ -4,6 +4,9 @@
 node_modules
 vendor
 .env
+.env.docker
+.env.swarm
+.env.swarm.*
 .phpunit.result.cache
 storage/logs/*
 storage/framework/cache/*

@@ -3,7 +3,7 @@ set -eu
 
 cd /var/www/html
 
-if [ ! -f .env ] && [ -f .env.example ]; then
+if [ ! -f .env ] && [ -f .env.example ] && [ -z "${APP_KEY:-}" ]; then
     cp .env.example .env
 fi
 
@@ -16,6 +16,10 @@ mkdir -p \
 
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R ug+rwx storage bootstrap/cache
+
+if [ ! -e public/storage ]; then
+    ln -s /var/www/html/storage/app/public public/storage
+fi
 
 if [ "${CLEAR_LARAVEL_CACHE:-false}" = "true" ]; then
     php artisan optimize:clear || true
@@ -48,4 +52,3 @@ chown -R www-data:www-data storage bootstrap/cache
 chmod -R ug+rwx storage bootstrap/cache
 
 exec "$@"
-
