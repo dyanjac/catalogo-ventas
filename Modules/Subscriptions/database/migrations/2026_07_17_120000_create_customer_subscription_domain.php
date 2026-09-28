@@ -86,7 +86,11 @@ return new class extends Migration
             $t->bigInteger('amount_minor');
             $t->char('currency', 3);
             $t->text('reason')->nullable();
-            $t->foreignId('accounting_economic_event_id')->nullable()->constrained('accounting_economic_events')->restrictOnDelete();
+            $t->foreignId('accounting_economic_event_id')->nullable();
+            $t->foreign('accounting_economic_event_id', 'sas_economic_event_fk')
+                ->references('id')
+                ->on('accounting_economic_events')
+                ->restrictOnDelete();
             $t->uuid('lease_token')->nullable();
             $t->timestamp('claimed_at')->nullable();
             $t->unsignedInteger('attempts')->default(0);
