@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  app:
+    # Docker Swarm does not build images. Build ERP_IMAGE on the VPS before deploying.
+    image: ${ERP_IMAGE}
+    environment:
+      APP_NAME: ${APP_NAME}
+      APP_ENV: production
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stack}
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      DB_CONNECTION: mysql
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_DRIVER: ${SESSION_DRIVER:-database}
+      SESSION_LIFETIME: ${SESSION_LIFETIME:-120}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+      SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
+      CACHE_STORE: ${CACHE_STORE:-database}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-sync}
+      FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+      RUN_MIGRATIONS: "false"
+      RUN_SEEDERS: "false"
+      CLEAR_LARAVEL_CACHE: "false"
+      GENERATE_APP_KEY: "false"
+    ports:
+      - target: 80
+        published: ${ERP_PUBLISHED_PORT:-8080}
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - type: bind
+        source: ${ERP_STORAGE_PATH}
+        target: /var/www/html/storage
+    networks:
+      - erp_backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ${ERP_NODE_HOSTNAME}
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 45s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+networks:
+  erp_backend:
+    external: true
+    name: ${ERP_NETWORK}
