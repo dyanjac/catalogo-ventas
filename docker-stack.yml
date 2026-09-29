@@ -1,78 +1,298 @@
 version: "3.8"
 
 services:
+
   app:
-    # Docker Swarm does not build images. Build ERP_IMAGE on the VPS before deploying.
+    # ========================================================
+    # IMAGEN
+    # ========================================================
+    # Docker Swarm no ejecuta "build".
+    # La imagen debe existir previamente.
     image: ${ERP_IMAGE}
+
+    # ========================================================
+    # VARIABLES DE ENTORNO
+    # ========================================================
     environment:
+
+      # ------------------------------------------------------
+      # LARAVEL
+      # ------------------------------------------------------
       APP_NAME: ${APP_NAME}
-      APP_ENV: production
+      APP_ENV: ${APP_ENV:-production}
       APP_KEY: ${APP_KEY}
-      APP_DEBUG: "false"
+      APP_DEBUG: ${APP_DEBUG:-false}
       APP_URL: ${APP_URL}
+
+      APP_LOCALE: ${APP_LOCALE:-en}
+      APP_FALLBACK_LOCALE: ${APP_FALLBACK_LOCALE:-en}
+      APP_FAKER_LOCALE: ${APP_FAKER_LOCALE:-en_US}
+
+      APP_MAINTENANCE_DRIVER: ${APP_MAINTENANCE_DRIVER:-file}
+
+      PHP_CLI_SERVER_WORKERS: ${PHP_CLI_SERVER_WORKERS:-4}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+
+      # ------------------------------------------------------
+      # LOGGING
+      # ------------------------------------------------------
       LOG_CHANNEL: ${LOG_CHANNEL:-stack}
-      LOG_LEVEL: ${LOG_LEVEL:-warning}
-      DB_CONNECTION: mysql
+      LOG_STACK: ${LOG_STACK:-single}
+      LOG_DEPRECATIONS_CHANNEL: ${LOG_DEPRECATIONS_CHANNEL:-null}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # ------------------------------------------------------
+      # MYSQL
+      # ------------------------------------------------------
+      DB_CONNECTION: ${DB_CONNECTION:-mysql}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+
+      # ------------------------------------------------------
+      # SESSION
+      # ------------------------------------------------------
       SESSION_DRIVER: ${SESSION_DRIVER:-database}
       SESSION_LIFETIME: ${SESSION_LIFETIME:-120}
+      SESSION_ENCRYPT: ${SESSION_ENCRYPT:-false}
+      SESSION_PATH: ${SESSION_PATH:-/}
+      SESSION_DOMAIN: ${SESSION_DOMAIN:-null}
       SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
       SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
+
+      # ------------------------------------------------------
+      # BROADCAST
+      # ------------------------------------------------------
+      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-log}
+
+      # ------------------------------------------------------
+      # CACHE
+      # ------------------------------------------------------
       CACHE_STORE: ${CACHE_STORE:-database}
+
+      # ------------------------------------------------------
+      # QUEUE
+      # ------------------------------------------------------
       QUEUE_CONNECTION: ${QUEUE_CONNECTION:-sync}
+
+      # ------------------------------------------------------
+      # FILESYSTEM
+      # ------------------------------------------------------
       FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+
+      # ------------------------------------------------------
+      # RABBITMQ
+      # ------------------------------------------------------
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_USER: ${RABBITMQ_USER:-}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-billing}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-}
+      RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-direct}
+      RABBITMQ_RETRY_AFTER: ${RABBITMQ_RETRY_AFTER:-90}
+
+      # ------------------------------------------------------
+      # GREENTER
+      # ------------------------------------------------------
+      GREENTER_DEFAULT_CERT_PATH: ${GREENTER_DEFAULT_CERT_PATH:-storage/app/certificados/greenter-test-bundle.pem}
+      GREENTER_DEFAULT_CERT_PASSWORD: ${GREENTER_DEFAULT_CERT_PASSWORD:-}
+      GREENTER_STRICT_UBL_21: ${GREENTER_STRICT_UBL_21:-false}
+
+      # ------------------------------------------------------
+      # WKHTMLTOPDF
+      # ------------------------------------------------------
+      WKHTML_PDF_BINARY: ${WKHTML_PDF_BINARY:-wkhtmltopdf}
+      WKHTML_IMAGE_BINARY: ${WKHTML_IMAGE_BINARY:-wkhtmltoimage}
+
+      # ------------------------------------------------------
+      # MEMCACHED
+      # ------------------------------------------------------
+      MEMCACHED_HOST: ${MEMCACHED_HOST:-}
+
+      # ------------------------------------------------------
+      # REDIS
+      # ------------------------------------------------------
+      REDIS_CLIENT: ${REDIS_CLIENT:-phpredis}
+      REDIS_HOST: ${REDIS_HOST:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-null}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+
+      # ------------------------------------------------------
+      # MAIL
+      # ------------------------------------------------------
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_SCHEME: ${MAIL_SCHEME:-null}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-2525}
+      MAIL_USERNAME: ${MAIL_USERNAME:-null}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-null}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Laravel}
+
+      # ------------------------------------------------------
+      # AWS
+      # ------------------------------------------------------
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      AWS_BUCKET: ${AWS_BUCKET:-}
+      AWS_USE_PATH_STYLE_ENDPOINT: ${AWS_USE_PATH_STYLE_ENDPOINT:-false}
+
+      # ------------------------------------------------------
+      # EMPRESA
+      # ------------------------------------------------------
+      NOMBRE_EMPRESA: ${NOMBRE_EMPRESA:-Name Company}
+      LOGO_EMPRESA: ${LOGO_EMPRESA:-img/logo-V&V.png}
+
+      COMMERCE_EMAIL: ${COMMERCE_EMAIL:-hello@example.com}
+      COMMERCE_ADDRESS: ${COMMERCE_ADDRESS:-}
+      COMMERCE_PHONE: ${COMMERCE_PHONE:-}
+      COMMERCE_MOBILE: ${COMMERCE_MOBILE:-}
+      COMMERCE_TAX_ID: ${COMMERCE_TAX_ID:-}
+
+      # ------------------------------------------------------
+      # ADMINISTRADOR
+      # ------------------------------------------------------
+      ADMIN_NAME: ${ADMIN_NAME:-Super Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@local.test}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PHONE: ${ADMIN_PHONE:-}
+
+      # ------------------------------------------------------
+      # CONSULTA DNI / RUC
+      # ------------------------------------------------------
+      SALES_DOCUMENT_LOOKUP_ENABLED: ${SALES_DOCUMENT_LOOKUP_ENABLED:-true}
+      SALES_DOCUMENT_LOOKUP_TIMEOUT: ${SALES_DOCUMENT_LOOKUP_TIMEOUT:-10}
+      SALES_DOCUMENT_LOOKUP_VERIFY: ${SALES_DOCUMENT_LOOKUP_VERIFY:-true}
+      SALES_DOCUMENT_LOOKUP_CA_BUNDLE: ${SALES_DOCUMENT_LOOKUP_CA_BUNDLE:-}
+
+      SALES_DOCUMENT_LOOKUP_DNI_URL: ${SALES_DOCUMENT_LOOKUP_DNI_URL:-https://mpv.essalud.gob.pe/Parametro/BuscarDNI}
+      SALES_DOCUMENT_LOOKUP_DNI_FIELD: ${SALES_DOCUMENT_LOOKUP_DNI_FIELD:-numeroDNI}
+
+      SALES_DOCUMENT_LOOKUP_RUC_URL: ${SALES_DOCUMENT_LOOKUP_RUC_URL:-https://mpv.essalud.gob.pe/Parametro/BuscarRUC}
+      SALES_DOCUMENT_LOOKUP_RUC_FIELD: ${SALES_DOCUMENT_LOOKUP_RUC_FIELD:-numeroRUC}
+
+      # ------------------------------------------------------
+      # CONTROL DE INICIALIZACION
+      # ------------------------------------------------------
+      # Evitamos modificaciones automáticas de BD durante
+      # un deploy normal.
       RUN_MIGRATIONS: "false"
       RUN_SEEDERS: "false"
       CLEAR_LARAVEL_CACHE: "false"
       GENERATE_APP_KEY: "false"
+
+    # ========================================================
+    # PUERTO
+    # ========================================================
+    # Actualmente:
+    #
+    # 18080 -> perubts-web-test
+    # 18081 -> perubts-app_web
+    # 18082 -> stremio_web
+    # 18083 -> catalogo-ventas
+    #
     ports:
       - target: 80
-        published: ${ERP_PUBLISHED_PORT:-8080}
+        published: ${ERP_PUBLISHED_PORT:-18083}
         protocol: tcp
         mode: ingress
+
+    # ========================================================
+    # STORAGE PERSISTENTE
+    # ========================================================
     volumes:
       - type: bind
         source: ${ERP_STORAGE_PATH}
         target: /var/www/html/storage
+
+    # ========================================================
+    # RED OVERLAY
+    # ========================================================
     networks:
       - erp_backend
+
+    # ========================================================
+    # HEALTHCHECK
+    # ========================================================
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1/up || exit 1"
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 40s
+
+    # ========================================================
+    # DOCKER SWARM
+    # ========================================================
     deploy:
+
       replicas: 1
+
+      # ------------------------------------------------------
+      # PLACEMENT
+      # ------------------------------------------------------
+      # El servicio se ejecutará únicamente en nodos que
+      # tengan acceso al storage local de catalogo-ventas.
+      #
+      # Actualmente:
+      # vmi3520431 -> catalogo_storage=true
+      #
       placement:
         constraints:
-          - node.hostname == ${ERP_NODE_HOSTNAME}
+          - node.labels.catalogo_storage == true
+
+      # ------------------------------------------------------
+      # RESTART
+      # ------------------------------------------------------
       restart_policy:
         condition: any
         delay: 5s
         max_attempts: 3
         window: 120s
+
+      # ------------------------------------------------------
+      # UPDATE
+      # ------------------------------------------------------
       update_config:
         parallelism: 1
         delay: 10s
         order: start-first
         failure_action: rollback
         monitor: 45s
+
+      # ------------------------------------------------------
+      # ROLLBACK
+      # ------------------------------------------------------
       rollback_config:
         parallelism: 1
         delay: 5s
         order: stop-first
+
+      # ------------------------------------------------------
+      # RECURSOS
+      # ------------------------------------------------------
       resources:
         limits:
           memory: 1G
+
         reservations:
           memory: 256M
 
+
+# ============================================================
+# NETWORKS
+# ============================================================
 networks:
+
   erp_backend:
     external: true
     name: ${ERP_NETWORK}
