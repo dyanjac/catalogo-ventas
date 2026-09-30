@@ -235,6 +235,57 @@ class InventoryWarehouseOperationsTest extends TestCase
         }
     }
 
+    public function test_first_inbound_provisions_missing_stock_rows_for_a_new_product(): void
+    {
+        $scope = $this->scope();
+        $product = $scope['product']->replicate();
+        $product->fill([
+            'name' => 'First inbound '.uniqid(),
+            'sku' => 'FIRST-'.uniqid(),
+            'slug' => 'first-inbound-'.uniqid(),
+            'stock' => 0,
+            'min_stock' => 0,
+            'purchase_price' => 0,
+            'average_price' => 0,
+            'is_active' => true,
+        ])->save();
+
+        $this->assertDatabaseMissing('product_branch_stocks', [
+            'product_id' => $product->id,
+            'branch_id' => $scope['source_branch']->id,
+        ]);
+        $this->assertDatabaseMissing('product_warehouse_stocks', [
+            'product_id' => $product->id,
+            'warehouse_id' => $scope['source_warehouse']->id,
+        ]);
+
+        $documents = app(InventoryDocumentService::class);
+        $draft = $documents->createDraft($this->documentPayload($scope, 'inbound', 1000, [
+            'idempotency_key' => 'first-inbound-product-coverage',
+            'items' => [[
+                'product_id' => $product->id,
+                'quantity' => 1000,
+                'unit_cost' => 50,
+            ]],
+        ]));
+        $confirmed = $documents->confirm($draft->id, $scope['user']->id);
+
+        $this->assertSame(InventoryDocumentStatus::Confirmed, $confirmed->status);
+        $this->assertSame(1000, (int) ProductBranchStock::query()
+            ->where('product_id', $product->id)
+            ->where('branch_id', $scope['source_branch']->id)
+            ->value('stock'));
+        $this->assertSame(1000, (int) ProductWarehouseStock::query()
+            ->where('product_id', $product->id)
+            ->where('warehouse_id', $scope['source_warehouse']->id)
+            ->value('stock'));
+        $this->assertSame(1000, (int) InventoryBalance::query()
+            ->where('product_id', $product->id)
+            ->where('warehouse_id', $scope['source_warehouse']->id)
+            ->value('physical_stock'));
+        $this->assertSame(1000, $product->fresh()->stock);
+    }
+
     public function test_transfer_create_replays_and_rejects_same_key_with_different_payload(): void
     {
         $scope = $this->scope();

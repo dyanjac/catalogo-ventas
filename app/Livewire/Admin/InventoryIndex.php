@@ -76,6 +76,8 @@ class InventoryIndex extends Component
 
     public string $flashTone = 'success';
 
+    public ?string $documentError = null;
+
     public function mount(): void
     {
         if ($this->documentItems === []) {
@@ -144,6 +146,7 @@ class InventoryIndex extends Component
         $this->documentNotes = '';
         $this->documentItems = [$this->emptyDocumentItem()];
         $this->documentIdempotencyKey = (string) Str::uuid();
+        $this->documentError = null;
     }
 
     public function saveDocument(
@@ -235,31 +238,56 @@ class InventoryIndex extends Component
             })
             ->all();
 
-        $document = $documents->createDraft([
-            'organization_id' => $organizationId,
-            'idempotency_key' => $this->documentIdempotencyKey,
-            'document_type' => $validated['documentType'],
-            'branch_id' => (int) $validated['documentBranchId'],
-            'warehouse_id' => (int) $validated['documentWarehouseId'],
-            'reason' => $validated['documentReason'] !== '' ? $validated['documentReason'] : null,
-            'external_reference' => $validated['documentExternalReference'] !== '' ? $validated['documentExternalReference'] : null,
-            'issued_at' => now(),
-            'created_by' => auth()->id(),
-            'notes' => $validated['documentNotes'] !== '' ? $validated['documentNotes'] : null,
-            'items' => $items,
-        ]);
-
-        $confirmed = $documents->confirm($document->id, auth()->id());
-
-        if (! $scopeService->canAccessInventoryDocument($actor, $confirmed, 'inventory')) {
-            throw ValidationException::withMessages([
-                'document' => 'La guia fue generada pero quedo fuera de tu alcance operativo.',
+        try {
+            $document = $documents->createDraft([
+                'organization_id' => $organizationId,
+                'idempotency_key' => $this->documentIdempotencyKey,
+                'document_type' => $validated['documentType'],
+                'branch_id' => (int) $validated['documentBranchId'],
+                'warehouse_id' => (int) $validated['documentWarehouseId'],
+                'reason' => $validated['documentReason'] !== '' ? $validated['documentReason'] : null,
+                'external_reference' => $validated['documentExternalReference'] !== '' ? $validated['documentExternalReference'] : null,
+                'issued_at' => now(),
+                'created_by' => auth()->id(),
+                'notes' => $validated['documentNotes'] !== '' ? $validated['documentNotes'] : null,
+                'items' => $items,
             ]);
+
+            $confirmed = $documents->confirm($document->id, auth()->id());
+
+            if (! $scopeService->canAccessInventoryDocument($actor, $confirmed, 'inventory')) {
+                throw ValidationException::withMessages([
+                    'document' => 'La guia fue generada pero quedo fuera de tu alcance operativo.',
+                ]);
+            }
+        } catch (ValidationException $exception) {
+            $this->presentDocumentValidation($exception);
+
+            return;
         }
 
         $this->resetDocumentForm();
         $this->flashTone = 'success';
         $this->flashMessage = 'Guia registrada correctamente: '.$confirmed->code;
+    }
+
+    private function presentDocumentValidation(ValidationException $exception): void
+    {
+        $this->resetErrorBag();
+        $this->documentError = null;
+
+        foreach ($exception->errors() as $key => $messages) {
+            $target = match (strtok($key, '.')) {
+                'branch', 'branch_id' => 'documentBranchId',
+                'warehouse', 'warehouse_id' => 'documentWarehouseId',
+                'items', 'product', 'product_id', 'quantity', 'target_quantity', 'unit_cost', 'average_cost' => 'documentItems',
+                default => 'documentError',
+            };
+
+            foreach ($messages as $message) {
+                $this->addError($target, $message);
+            }
+        }
     }
 
     public function saveTransfer(

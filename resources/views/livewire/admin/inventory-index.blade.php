@@ -177,6 +177,7 @@
                         <div>
                             <h4 class="mb-1 text-lg font-semibold text-slate-900">Registrar guia</h4>
                             <p class="mb-0 text-sm text-muted">Confirma operaciones locales y genera movimientos inmutables con reversos compensatorios.</p>
+                            @error('documentError') <div class="mt-2 text-sm text-danger">{{ $message }}</div> @enderror
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <flux:button type="button" variant="{{ $documentType === 'inbound' ? 'primary' : 'outline' }}" size="sm" wire:click="$set('documentType', 'inbound')">Guia ingreso</flux:button>
@@ -230,6 +231,7 @@
                                 </div>
 
                                 <div class="space-y-3">
+                                    @error('documentItems') <div class="text-sm text-danger">{{ $message }}</div> @enderror
                                     @foreach($documentItems as $index => $item)
                                         <div class="rounded-4 border border-slate-200 p-3" wire:key="document-item-{{ $index }}">
                                             <div class="grid gap-3 lg:grid-cols-[1.5fr,120px,140px,auto] lg:items-end">

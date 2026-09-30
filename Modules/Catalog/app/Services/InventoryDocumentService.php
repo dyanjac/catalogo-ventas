@@ -75,7 +75,8 @@ class InventoryDocumentService
             $this->assertProductOperationalCoverage(
                 $product,
                 (int) $payload['branch_id'],
-                (int) $payload['warehouse_id']
+                (int) $payload['warehouse_id'],
+                $this->canInitializeProductCoverage($documentType),
             );
         }
 
@@ -235,6 +236,18 @@ class InventoryDocumentService
                 throw ValidationException::withMessages([
                     'items' => 'La guia no tiene items para confirmar.',
                 ]);
+            }
+
+            if ($this->canInitializeProductCoverage($document->document_type)) {
+                foreach ($items as $item) {
+                    if ($item->product instanceof Product) {
+                        $this->initializeProductCoverage(
+                            $item->product,
+                            (int) $document->branch_id,
+                            (int) $warehouse->id,
+                        );
+                    }
+                }
             }
 
             if ($document->document_type === InventoryDocumentType::Dispatch && $document->reservation_id) {
@@ -580,11 +593,17 @@ class InventoryDocumentService
         }
     }
 
-    private function assertProductOperationalCoverage(Product $product, int $branchId, int $warehouseId): void
+    private function assertProductOperationalCoverage(Product $product, int $branchId, int $warehouseId, bool $allowMissing = false): void
     {
         if (! $product->is_active) {
             throw ValidationException::withMessages([
                 'product' => "El producto {$product->name} esta inactivo a nivel global.",
+            ]);
+        }
+
+        if (! $product->tracksInventory()) {
+            throw ValidationException::withMessages([
+                'product' => "El producto {$product->name} no controla inventario fisico.",
             ]);
         }
 
@@ -594,7 +613,13 @@ class InventoryDocumentService
             ->where('branch_id', $branchId)
             ->first();
 
-        if (! $branchStock || ! $branchStock->is_active) {
+        if ($branchStock && ! $branchStock->is_active) {
+            throw ValidationException::withMessages([
+                'branch' => "El producto {$product->name} no esta habilitado para la sucursal seleccionada.",
+            ]);
+        }
+
+        if (! $branchStock && ! $allowMissing) {
             throw ValidationException::withMessages([
                 'branch' => "El producto {$product->name} no esta habilitado para la sucursal seleccionada.",
             ]);
@@ -607,10 +632,60 @@ class InventoryDocumentService
             ->where('warehouse_id', $warehouseId)
             ->first();
 
-        if (! $warehouseStock || ! $warehouseStock->is_active) {
+        if ($warehouseStock && ! $warehouseStock->is_active) {
             throw ValidationException::withMessages([
                 'warehouse' => "El producto {$product->name} no esta habilitado para el almacen seleccionado.",
             ]);
         }
+
+        if (! $warehouseStock && ! $allowMissing) {
+            throw ValidationException::withMessages([
+                'warehouse' => "El producto {$product->name} no esta habilitado para el almacen seleccionado.",
+            ]);
+        }
+    }
+
+    private function canInitializeProductCoverage(InventoryDocumentType $documentType): bool
+    {
+        return in_array($documentType, [
+            InventoryDocumentType::Inbound,
+            InventoryDocumentType::OpeningStock,
+        ], true);
+    }
+
+    private function initializeProductCoverage(Product $product, int $branchId, int $warehouseId): void
+    {
+        if (! $product->is_active || ! $product->tracksInventory()) {
+            return;
+        }
+
+        ProductBranchStock::query()->firstOrCreate(
+            [
+                'organization_id' => $product->organization_id,
+                'product_id' => $product->id,
+                'branch_id' => $branchId,
+            ],
+            [
+                'stock' => 0,
+                'min_stock' => 0,
+                'is_active' => true,
+            ],
+        );
+
+        ProductWarehouseStock::query()->firstOrCreate(
+            [
+                'organization_id' => $product->organization_id,
+                'product_id' => $product->id,
+                'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId,
+            ],
+            [
+                'stock' => 0,
+                'min_stock' => 0,
+                'average_cost' => 0,
+                'last_cost' => 0,
+                'is_active' => true,
+            ],
+        );
     }
 }
