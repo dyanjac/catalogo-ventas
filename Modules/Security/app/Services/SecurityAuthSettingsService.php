@@ -2,6 +2,7 @@
 
 namespace Modules\Security\Services;
 
+use App\Models\Organization;
 use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Schema;
 use Modules\Security\Models\SecurityAuthSetting;
@@ -10,8 +11,7 @@ class SecurityAuthSettingsService
 {
     public function __construct(
         private readonly OrganizationContextService $organizationContext
-    ) {
-    }
+    ) {}
 
     public function defaults(): array
     {
@@ -34,6 +34,22 @@ class SecurityAuthSettingsService
 
         return array_merge($defaults, array_filter(
             $setting->only(array_keys($defaults)),
+            fn ($value) => $value !== null
+        ));
+    }
+
+    public function getForOrganization(Organization $organization): array
+    {
+        $defaults = $this->defaults();
+
+        if (! Schema::hasTable('security_auth_settings')) {
+            return $defaults;
+        }
+
+        $setting = SecurityAuthSetting::query()->where('organization_id', $organization->id)->first();
+
+        return array_merge($defaults, array_filter(
+            $setting?->only(array_keys($defaults)) ?? [],
             fn ($value) => $value !== null
         ));
     }

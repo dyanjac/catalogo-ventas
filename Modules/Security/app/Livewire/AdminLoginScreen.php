@@ -92,6 +92,7 @@ class AdminLoginScreen extends Component
 
     public function selectOrganization(string $slug, OrganizationContextService $organizationContext): void
     {
+        $this->password = '';
         $organization = $organizationContext->rememberExplicit($slug);
 
         if (! $organization) {
@@ -107,21 +108,23 @@ class AdminLoginScreen extends Component
 
     public function clearOrganizationSelection(OrganizationContextService $organizationContext): void
     {
+        $this->password = '';
         $this->selectedOrganizationSlug = '';
         $this->organizationOptions = [];
         $organizationContext->clearExplicit();
-        $this->resetErrorBag('selectedOrganizationSlug');
+        $this->resetErrorBag();
     }
 
     public function login(SecurityAuthorizationService $authorization, SecurityAuditService $audit, OrganizationContextService $organizationContext): void
     {
-        $settings = app(SecurityAuthSettingsService::class)->getForView();
-        $ldapEnabled = (bool) ($settings['ldap_enabled'] ?? false);
-
         $credentials = $this->validate([
             'identifier' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
             'remember' => ['boolean'],
+        ], [
+            'identifier.required' => 'Ingresa tu correo o usuario.',
+            'identifier.max' => 'El correo o usuario admite hasta 255 caracteres.',
+            'password.required' => 'Ingresa tu contraseña.',
         ]);
 
         $identifier = trim($credentials['identifier']);
@@ -141,6 +144,9 @@ class AdminLoginScreen extends Component
 
             $organization = $this->resolvedOrganization($organizationContext);
         }
+
+        $settings = app(SecurityAuthSettingsService::class)->getForOrganization($organization);
+        $ldapEnabled = (bool) ($settings['ldap_enabled'] ?? false);
 
         if ($organization?->isSuspended()) {
             $message = 'La organización seleccionada está suspendida y no permite ingresos al panel administrativo.';
@@ -252,9 +258,9 @@ class AdminLoginScreen extends Component
         $organization = $this->resolvedOrganization($organizationContext);
 
         return view('security::auth.livewire.admin-login-screen', [
-            'authSettings' => $settingsService->getForView(),
+            'authSettings' => $organization ? $settingsService->getForOrganization($organization) : $settingsService->defaults(),
             'resolvedOrganization' => $organization,
-            'commerce' => $this->resolveCommerceData($organization),
+            'loginBrand' => $this->resolveCommerceData($organization),
         ]);
     }
 
@@ -353,13 +359,16 @@ class AdminLoginScreen extends Component
     }
 
     /**
-     * @return array{name:string,email:string,phone:string,tax_id:string,logo_url:?string}
+     * @return array<string,mixed>
      */
     private function resolveCommerceData(?Organization $organization): array
     {
         if (! $organization) {
             return [
-                'name' => 'Selecciona tu organización',
+                'brand_name' => config('marketing.brand_name'),
+                'tagline' => '',
+                'support_email' => '',
+                'support_phone' => '',
                 'email' => '',
                 'phone' => '',
                 'tax_id' => '',
@@ -370,7 +379,10 @@ class AdminLoginScreen extends Component
         $setting = CommerceSetting::query()->where('organization_id', $organization->id)->first();
 
         return [
-            'name' => $setting?->company_name ?: $organization->name,
+            'brand_name' => $setting?->brand_name ?: $setting?->company_name ?: $organization->name,
+            'tagline' => (string) ($setting?->tagline ?: ''),
+            'support_email' => (string) ($setting?->support_email ?: $setting?->email ?: ''),
+            'support_phone' => (string) ($setting?->support_phone ?: $setting?->phone ?: ''),
             'email' => (string) ($setting?->email ?: ''),
             'phone' => (string) ($setting?->phone ?: ''),
             'tax_id' => (string) ($setting?->tax_id ?: $organization->tax_id ?: ''),

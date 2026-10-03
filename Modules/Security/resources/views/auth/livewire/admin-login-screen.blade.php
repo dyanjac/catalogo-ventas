@@ -1,172 +1,90 @@
-<section class="auth-screen">
-    <div class="auth-screen__backdrop"></div>
-
-    <div class="auth-screen__content">
-        <div class="auth-screen__panel auth-screen__panel--brand">
-            <div class="auth-screen__brand-lockup">
-                @if(!empty($commerce['logo_url']))
-                    <div class="auth-screen__brand-logo">
-                        <img src="{{ $commerce['logo_url'] }}" alt="{{ $commerce['brand_name'] ?? 'Empresa' }}">
-                    </div>
-                @else
-                    <div class="auth-screen__brand-logo auth-screen__brand-logo--fallback">
-                        {{ $resolvedOrganization ? \Illuminate\Support\Str::of($commerce['brand_name'] ?? 'OR')->explode(' ')->filter()->take(2)->map(fn ($segment) => \Illuminate\Support\Str::substr($segment, 0, 1))->implode('') : 'ID' }}
-                    </div>
-                @endif
-
-                <div>
-                    <div class="auth-screen__eyebrow">Acceso administrativo</div>
-                    <div class="auth-screen__brand-name">{{ $commerce['brand_name'] ?? 'Panel administrativo' }}</div>
-                    @if($resolvedOrganization)
-                        <div class="auth-screen__brand-meta">{{ $resolvedOrganization->code }} · {{ $resolvedOrganization->slug }}</div>
-                    @else
-                        <div class="auth-screen__brand-meta">Primero identifica la organización antes de autenticar la cuenta.</div>
+<section class="marketing-onboarding">
+    <div class="marketing-container marketing-onboarding__grid marketing-login">
+        <div class="marketing-onboarding__intro">
+            <a class="marketing-text-link" href="{{ route('home') }}">← Volver a la plataforma</a>
+            <p class="marketing-eyebrow">Acceso al ERP</p>
+            @if($resolvedOrganization)
+                <div class="marketing-login__brand">
+                    @if($loginBrand['logo_url'])
+                        <img src="{{ $loginBrand['logo_url'] }}" alt="{{ $loginBrand['brand_name'] }}">
                     @endif
+                    <strong>{{ $loginBrand['brand_name'] }}</strong>
                 </div>
-            </div>
-
-            <h1 class="auth-screen__title">
-                {{ $resolvedOrganization ? ($authSettings['login_headline'] ?? 'Ingreso seguro para operacion interna') : 'Selecciona tu organizacion antes de ingresar' }}
-            </h1>
-            <p class="auth-screen__copy">
-                {{ $resolvedOrganization ? ($authSettings['login_slogan'] ?? ($commerce['tagline'] ?: 'Este acceso toma la identidad visual configurada en el panel y permanece separado del login del ecommerce.')) : 'Si tu correo existe en una sola organización, la resolveremos automáticamente. Si existe en varias, podrás elegir la correcta antes de validar contraseña, LDAP u otros proveedores.' }}
-            </p>
-
-            <div class="auth-screen__card-grid">
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Organizacion</div>
-                    <div class="auth-screen__mini-value">{{ $resolvedOrganization ? 'Identificada' : 'Pendiente' }}</div>
-                </div>
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Federacion</div>
-                    <div class="auth-screen__mini-value">
-                        {{ $resolvedOrganization && (!empty($authSettings['oauth_google_enabled']) || !empty($authSettings['oauth_github_enabled']) || !empty($authSettings['oauth_custom_enabled'])) ? 'Proveedores preparados' : 'Pendiente' }}
+                <h1>{{ ($authSettings['login_headline'] ?? '') ?: 'Continúa con tu organización.' }}</h1>
+                <p>{{ $loginBrand['tagline'] ?: (($authSettings['login_slogan'] ?? '') ?: 'Ingresa con tu cuenta para continuar con la operación de tu empresa.') }}</p>
+                @if($loginBrand['support_email'] || $loginBrand['support_phone'])
+                    <div class="marketing-login__support">
+                        <strong>Contacto de tu organización</strong>
+                        @if($loginBrand['support_email'])<span>{{ $loginBrand['support_email'] }}</span>@endif
+                        @if($loginBrand['support_phone'])<span>{{ $loginBrand['support_phone'] }}</span>@endif
                     </div>
-                </div>
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Directorio</div>
-                    <div class="auth-screen__mini-value">{{ $resolvedOrganization && !empty($authSettings['ldap_enabled']) ? 'LDAP activo' : 'Sin contexto' }}</div>
-                </div>
-            </div>
-
-            <div class="auth-screen__company-strip">
-                @if($resolvedOrganization && !empty($commerce['support_phone']))
-                    <div class="auth-screen__company-chip">Soporte: {{ $commerce['support_phone'] }}</div>
-                @elseif($resolvedOrganization && !empty($commerce['phone']))
-                    <div class="auth-screen__company-chip">Tel: {{ $commerce['phone'] }}</div>
                 @endif
-                @if($resolvedOrganization && !empty($commerce['support_email']))
-                    <div class="auth-screen__company-chip">Email: {{ $commerce['support_email'] }}</div>
-                @endif
-                @if($resolvedOrganization && !empty($commerce['tax_id']))
-                    <div class="auth-screen__company-chip">RUC: {{ $commerce['tax_id'] }}</div>
-                @endif
-                @if($resolvedOrganization)
-                    <div class="auth-screen__company-chip">Tenant: {{ $resolvedOrganization->slug }}</div>
-                @endif
-            </div>
+            @else
+                <h1>Tu equipo. Tu organización. Un solo acceso.</h1>
+                <p>Ingresa tu correo para encontrar la organización a la que perteneces. Si tienes acceso a más de una, podrás elegir con cuál trabajar.</p>
+                <p class="marketing-onboarding__login">¿Aún no tienes una organización? <a href="{{ route('saas.register.create') }}">Crea un espacio DEMO</a>.</p>
+            @endif
         </div>
 
-        <div class="auth-screen__panel auth-screen__panel--form">
-            <div class="auth-screen__form-header">
-                <div>
-                    <div class="auth-screen__kicker">Iniciar sesion</div>
-                    <h2 class="auth-screen__form-title">{{ $resolvedOrganization ? ($commerce['brand_name'] ?? 'Panel administrativo') : 'Identificar organizacion' }}</h2>
-                </div>
-
-                <flux:badge color="zinc">-V.1.1-</flux:badge>
+        <div class="marketing-registration">
+            <div class="marketing-registration__heading">
+                <span class="marketing-registration__badge">Paso {{ $resolvedOrganization ? '2 de 2' : '1 de 2' }}</span>
+                <h2>{{ $resolvedOrganization ? 'Inicia sesión' : 'Encuentra tu organización' }}</h2>
+                <p>{{ $resolvedOrganization ? 'Utiliza las credenciales de tu cuenta administrativa.' : 'Comienza con el correo de tu cuenta administrativa.' }}</p>
             </div>
 
             @if(session('error'))
-                <div class="auth-form__alert" role="alert">{{ session('error') }}</div>
+                <div class="marketing-form-alert" role="alert">{{ session('error') }}</div>
             @endif
 
-            <form wire:submit="login" class="auth-form">
-                @error('identifier')
-                    <div class="auth-form__alert" role="alert">{{ $message }}</div>
-                @enderror
-                @error('selectedOrganizationSlug')
-                    <div class="auth-form__alert" role="alert">{{ $message }}</div>
-                @enderror
-
-                <div class="auth-form__field">
-                    <label class="form-label" for="admin-login-identifier">Correo o usuario</label>
-                    <flux:input
-                        wire:model.live="identifier"
-                        id="admin-login-identifier"
-                        type="text"
-                        placeholder="admin@empresa.com o usuario"
-                        autofocus
-                    />
+            <form wire:submit="{{ $resolvedOrganization ? 'login' : 'identifyOrganization' }}" class="marketing-form">
+                <div class="marketing-form__field">
+                    <label for="admin-login-identifier">{{ $resolvedOrganization && !empty($authSettings['ldap_enabled']) ? 'Correo o usuario de directorio' : 'Correo electrónico' }}</label>
+                    <input wire:model="identifier" id="admin-login-identifier" type="text" autocomplete="username" required maxlength="255"
+                        @error('identifier') aria-invalid="true" aria-describedby="admin-login-identifier-error" @enderror>
+                    @error('identifier')<p id="admin-login-identifier-error" class="marketing-form__error" role="alert">{{ $message }}</p>@enderror
                 </div>
 
-                @if(!$resolvedOrganization)
-                    <flux:button type="button" variant="primary" class="w-full justify-center auth-form__submit" wire:click="identifyOrganization">
-                        Identificar organizacion
-                    </flux:button>
+                @error('selectedOrganizationSlug')
+                    <p class="marketing-form__error" role="alert">{{ $message }}</p>
+                @enderror
 
+                @if(!$resolvedOrganization)
                     @if($organizationOptions !== [])
-                        <div class="auth-form__field">
-                            <label class="form-label">Organizaciones encontradas</label>
-                            <div class="d-grid gap-2">
-                                @foreach($organizationOptions as $option)
-                                    <button
-                                        type="button"
-                                        wire:click="selectOrganization('{{ $option['slug'] }}')"
-                                        class="btn {{ $selectedOrganizationSlug === $option['slug'] ? 'btn-primary' : 'btn-outline-secondary' }} text-start"
-                                    >
-                                        <strong>{{ $option['name'] }}</strong><br>
-                                        <span class="small opacity-75">{{ $option['code'] }} · {{ $option['slug'] }}</span>
-                                    </button>
-                                @endforeach
-                            </div>
+                        <div class="marketing-login__organizations" aria-label="Elige tu organización">
+                            @foreach($organizationOptions as $option)
+                                <button type="button" wire:key="organization-{{ $option['slug'] }}"
+                                    wire:click="selectOrganization(@js($option['slug']))"
+                                    wire:loading.attr="disabled" class="marketing-login__organization">
+                                    <strong>{{ $option['name'] }}</strong>
+                                    <span>{{ $option['code'] }} · {{ $option['slug'] }}</span>
+                                </button>
+                            @endforeach
                         </div>
                     @endif
+                    <button type="submit" class="marketing-button marketing-login__submit" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="identifyOrganization">Continuar</span>
+                        <span wire:loading wire:target="identifyOrganization" role="status">Buscando organización…</span>
+                    </button>
                 @else
-                    <div class="auth-form__alert" role="alert">
-                        Organización seleccionada: <strong>{{ $resolvedOrganization->name }}</strong>
-                        <button type="button" wire:click="clearOrganizationSelection" class="btn btn-sm btn-outline-secondary ms-3">Cambiar</button>
+                    <div class="marketing-login__selection">
+                        <div><span>Organización seleccionada</span><strong>{{ $resolvedOrganization->name }}</strong></div>
+                        <button type="button" wire:click="clearOrganizationSelection" wire:loading.attr="disabled">Cambiar</button>
                     </div>
-
-                    <div class="auth-form__field">
-                        <label class="form-label" for="admin-login-password">Contrasena</label>
-                        <flux:input wire:model.live="password" id="admin-login-password" type="password" placeholder="Ingresa tu contrasena" />
-                        @error('password')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
+                    <div class="marketing-form__field">
+                        <label for="admin-login-password">Contraseña</label>
+                        <input wire:model="password" id="admin-login-password" type="password" autocomplete="current-password" required
+                            @error('password') aria-invalid="true" aria-describedby="admin-login-password-error" @enderror>
+                        @error('password')<p id="admin-login-password-error" class="marketing-form__error" role="alert">{{ $message }}</p>@enderror
                     </div>
-
-                    <label class="auth-form__remember">
-                        <input wire:model.live="remember" type="checkbox">
-                        <span>Recordarme en este dispositivo</span>
-                    </label>
-
-                    <flux:button type="submit" variant="primary" class="w-full justify-center auth-form__submit" wire:loading.attr="disabled">
-                        <span wire:loading.remove wire:target="login">Ingresar al panel</span>
-                        <span wire:loading wire:target="login">Validando acceso...</span>
-                    </flux:button>
-
-                    <div class="auth-divider">
-                        <span>Proximamente</span>
-                    </div>
-
-                    <div class="auth-provider-list">
-                        <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['oauth_google_enabled'])" icon="globe-alt">
-                            Google Workspace {{ !empty($authSettings['oauth_google_enabled']) ? '(configurado)' : '(pendiente)' }}
-                        </flux:button>
-                        <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['oauth_github_enabled'])" icon="code-bracket">
-                            GitHub Enterprise {{ !empty($authSettings['oauth_github_enabled']) ? '(configurado)' : '(pendiente)' }}
-                        </flux:button>
-                        <flux:button variant="outline" class="w-full justify-start" :disabled="empty($authSettings['ldap_enabled'])" icon="building-office-2">
-                            LDAP / Active Directory {{ !empty($authSettings['ldap_enabled']) ? '(configurado)' : '(pendiente)' }}
-                        </flux:button>
-                    </div>
+                    <label class="marketing-login__remember"><input wire:model="remember" type="checkbox"> Recordarme en este dispositivo</label>
+                    <button type="submit" class="marketing-button marketing-login__submit" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="login">Ingresar al ERP</span>
+                        <span wire:loading wire:target="login" role="status">Validando acceso…</span>
+                    </button>
                 @endif
+                <p wire:offline class="marketing-form__error" role="status">Se perdió la conexión. Intenta continuar cuando vuelva a estar disponible.</p>
             </form>
-
-            <div class="auth-screen__footer-note">
-                El acceso del cliente ecommerce permanece separado y sigue operando desde el flujo publico.
-            </div>
         </div>
     </div>
 </section>

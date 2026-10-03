@@ -39,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::composer('*', function (\Illuminate\View\View $view): void {
-            if (request()->routeIs('home', 'saas.register.*')) {
+            if (request()->routeIs('home', 'saas.register.*', 'admin.login')) {
                 return;
             }
 

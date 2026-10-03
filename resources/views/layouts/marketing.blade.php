@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet">
     @vite(['resources/css/marketing.css', 'resources/js/marketing.js'])
+    @stack('styles')
 </head>
 <body class="marketing-page">
     <a class="marketing-skip" href="#contenido">Saltar al contenido</a>
@@ -18,5 +19,6 @@
     <main id="contenido">@yield('content')</main>
 
     @include('marketing.partials.footer')
+    @stack('scripts')
 </body>
 </html>

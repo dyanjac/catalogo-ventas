@@ -303,6 +303,32 @@ a { color: inherit; }
     .marketing-form__field input { font-size: 1rem; }
 }
 
+.marketing-login { min-height: 32rem; }
+.marketing-login .marketing-registration { max-width: 36rem; width: 100%; justify-self: end; }
+.marketing-login__brand { display: flex; align-items: center; gap: .9rem; margin: 0 0 1.4rem; font-size: 1.2rem; overflow-wrap: anywhere; }
+.marketing-login__brand img { width: 4rem; height: 4rem; object-fit: contain; border-radius: .6rem; background: #fff; }
+.marketing-login__support { display: grid; gap: .5rem; margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--marketing-line); color: var(--marketing-muted); font-size: .83rem; overflow-wrap: anywhere; }
+.marketing-login__support strong { color: var(--marketing-ink); }
+.marketing-login .marketing-form { margin-top: 1.5rem; }
+.marketing-login__submit { width: 100%; margin-top: 1.4rem; cursor: pointer; }
+.marketing-login button:disabled { opacity: .65; cursor: wait; transform: none; }
+.marketing-login__organizations { display: grid; gap: .65rem; margin-top: 1.2rem; }
+.marketing-login__organization { display: grid; gap: .35rem; padding: 1rem; border: 1px solid #b8c9df; border-radius: .6rem; background: #fff; color: var(--marketing-ink); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.marketing-login__organization:hover { border-color: var(--marketing-blue); background: var(--marketing-soft); }
+.marketing-login__organization strong { font-size: .9rem; }
+.marketing-login__organization span { color: var(--marketing-muted); font-size: .75rem; }
+.marketing-login__selection { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.2rem 0; padding: .9rem; border-radius: .6rem; background: var(--marketing-soft); }
+.marketing-login__selection span, .marketing-login__selection strong { display: block; overflow-wrap: anywhere; }
+.marketing-login__selection span { margin-bottom: .3rem; color: var(--marketing-muted); font-size: .72rem; }
+.marketing-login__selection strong { font-size: .85rem; }
+.marketing-login__selection button { padding: .5rem; border: 0; background: none; color: var(--marketing-blue-dark); font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
+.marketing-login__remember { display: flex; align-items: center; gap: .55rem; margin-top: 1.2rem; color: var(--marketing-muted); font-size: .82rem; }
+.marketing-login__remember input { width: 1.1rem; height: 1.1rem; accent-color: var(--marketing-blue); }
+
+@media (max-width: 900px) {
+    .marketing-login .marketing-registration { max-width: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .marketing-button, .marketing-card, .marketing-mobile-menu summary svg { transition: none; }
