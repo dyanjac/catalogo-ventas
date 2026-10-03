@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Modules\Operations\Console\LaunchReadinessCommand;
 use Modules\Operations\Console\OperationsDoctorCommand;
 use Modules\Operations\Console\ReconcileOperationsCommand;
 use Modules\Operations\Console\RecoverEconomicEventsCommand;
@@ -43,7 +44,12 @@ final class OperationsServiceProvider extends ServiceProvider
         $this->registerObservabilityListeners();
 
         if ($this->app->runningInConsole()) {
-            $this->commands([ReconcileOperationsCommand::class, RecoverEconomicEventsCommand::class, OperationsDoctorCommand::class]);
+            $this->commands([
+                ReconcileOperationsCommand::class,
+                RecoverEconomicEventsCommand::class,
+                OperationsDoctorCommand::class,
+                LaunchReadinessCommand::class,
+            ]);
         }
 
         $this->app->booted(function (): void {

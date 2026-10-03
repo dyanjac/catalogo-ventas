@@ -27,7 +27,7 @@
                     Tu equipo trabaja con la misma información en cada etapa de la venta.
                 </p>
                 <div class="marketing-actions">
-                    <a class="marketing-button" href="{{ route('saas.register.create') }}">Crear organización de prueba</a>
+                    <a class="marketing-button" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="hero">Crear organización de prueba</a>
                     <a class="marketing-button marketing-button--outline" href="{{ route('home') }}#capacidades">Explorar la plataforma</a>
                 </div>
                 <p class="marketing-hero__note">El registro inicial crea una organización en entorno DEMO.</p>
@@ -115,7 +115,7 @@
             </ol>
             <div class="marketing-steps__action">
                 <p>¿Ya tienes una organización? <a href="{{ route('admin.login') }}">Ingresa al ERP</a>.</p>
-                <a class="marketing-button" href="{{ route('saas.register.create') }}">Crear mi organización DEMO</a>
+                <a class="marketing-button" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="steps">Crear mi organización DEMO</a>
             </div>
         </div>
     </section>
@@ -126,7 +126,7 @@
                 <p class="marketing-eyebrow">ERP + ecommerce</p>
                 <h2 id="marketing-commerce-title">La plataforma y tu tienda tienen espacios propios.</h2>
                 <p>Esta portada presenta el ERP. Cada empresa puede tener su escaparate público separado, con identidad y catálogo propios, si el canal ecommerce está habilitado para su organización.</p>
-                <a class="marketing-text-link" href="{{ route('saas.register.create') }}">Comenzar con una organización <span aria-hidden="true">→</span></a>
+                <a class="marketing-text-link" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="ecommerce">Comenzar con una organización <span aria-hidden="true">→</span></a>
             </div>
             <div class="marketing-commerce__routes" aria-label="Separación de la plataforma y las tiendas">
                 <div>
@@ -175,7 +175,7 @@
     <section class="marketing-cta">
         <div class="marketing-container marketing-cta__inner">
             <div><p class="marketing-eyebrow">Empieza con tu organización</p><h2>Tu operación comercial, en un solo sistema.</h2><p class="marketing-cta__copy">Crea tu espacio DEMO y conoce cómo se conectan tus equipos.</p></div>
-            <a class="marketing-button marketing-button--light" href="{{ route('saas.register.create') }}">Crear organización DEMO</a>
+            <a class="marketing-button marketing-button--light" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="closing-cta">Crear organización DEMO</a>
         </div>
     </section>
 @endsection

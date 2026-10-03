@@ -1,5 +1,8 @@
 # Despliegue del ERP con Docker Swarm
 
+Para el control final de salida, analítica, readiness y rollback operativo,
+consulta también [`production-launch-runbook.md`](production-launch-runbook.md).
+
 Este procedimiento despliega **solo la aplicación ERP**. No crea ni modifica
 MySQL, phpMyAdmin ni ningún otro servicio. La imagen se construye en el mismo
 VPS donde se clonó el repositorio y el stack ejecuta una réplica de esa imagen.
@@ -98,8 +101,9 @@ editor .env.swarm
 
 Completa como mínimo estos valores:
 
-- `ERP_NODE_HOSTNAME`: resultado exacto de `hostname` del VPS que ejecutará la
-  aplicación.
+- `ERP_STACK_NAME`: nombre estable del stack, por ejemplo `catalogo-ventas`.
+- El nodo que ejecuta la aplicación debe tener la etiqueta
+  `catalogo_storage=true`, porque es donde existe el bind mount persistente.
 - `ERP_STORAGE_PATH`: ruta absoluta persistente, por ejemplo `/srv/erp/storage`.
 - `ERP_NETWORK`: red overlay que comparte con MySQL, si MySQL es un servicio
   Swarm.
@@ -168,7 +172,7 @@ docker compose --env-file .env.swarm -f docker-stack.yml config --quiet
 docker run --rm --env-file .env.swarm --network "$ERP_NETWORK" \
   "$ERP_IMAGE" php artisan migrate --force
 
-docker stack deploy --resolve-image never --compose-file docker-stack.yml erp
+docker stack deploy --resolve-image never --compose-file docker-stack.yml "$ERP_STACK_NAME"
 ```
 
 La red debe ser `attachable` para el comando temporal de migración. Si el
@@ -179,16 +183,17 @@ no cambies `RUN_MIGRATIONS` a `true` como sustituto.
 ## 6. Verificar y operar
 
 ```bash
-docker stack services erp
-docker service ps erp_app --no-trunc
-docker service logs -f erp_app
+docker stack services "$ERP_STACK_NAME"
+docker service ps "${ERP_STACK_NAME}_app" --no-trunc
+docker service logs -f "${ERP_STACK_NAME}_app"
 curl -fsS "http://127.0.0.1:${ERP_PUBLISHED_PORT}/up"
+curl -fsS "http://127.0.0.1:${ERP_PUBLISHED_PORT}/health/ready"
 ```
 
-El endpoint `/up` confirma que Laravel responde. Después configura el proxy
-inverso/TLS existente para reenviar el dominio a `127.0.0.1:8080` (o al valor
-de `ERP_PUBLISHED_PORT`) y deja abierto públicamente solo 80/443. No expongas
-MySQL al público.
+El endpoint `/up` confirma que Laravel responde y `/health/ready` valida sus
+dependencias. Después configura el proxy inverso/TLS existente para reenviar
+el dominio a `127.0.0.1:${ERP_PUBLISHED_PORT}` y deja abierto públicamente solo
+80/443. No expongas MySQL al público.
 
 Para actualizar, cambia `ERP_IMAGE` a una etiqueta nueva, vuelve a construir,
 ejecuta la migración y despliega de nuevo. El stack usa actualización de una
@@ -201,7 +206,7 @@ set +a
 docker build --pull --tag "$ERP_IMAGE" .
 docker run --rm --env-file .env.swarm --network "$ERP_NETWORK" \
   "$ERP_IMAGE" php artisan migrate --force
-docker stack deploy --resolve-image never --compose-file docker-stack.yml erp
+docker stack deploy --resolve-image never --compose-file docker-stack.yml "$ERP_STACK_NAME"
 ```
 
 Para volver temporalmente a una imagen previa, fija `ERP_IMAGE` a su etiqueta

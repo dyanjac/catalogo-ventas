@@ -26,6 +26,10 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet">
+    @if(config('marketing.analytics.enabled') && filled(config('marketing.analytics.domain')))
+        <script defer data-domain="{{ config('marketing.analytics.domain') }}" src="{{ config('marketing.analytics.script_url') }}"></script>
+        <script>window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments); };</script>
+    @endif
     @stack('head')
     @vite(['resources/css/marketing.css', 'resources/js/marketing.js'])
     @stack('styles')

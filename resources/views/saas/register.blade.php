@@ -53,7 +53,7 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('saas.register.store') }}" class="marketing-form">
+                <form method="POST" action="{{ route('saas.register.store') }}" class="marketing-form" data-analytics-event="Registration Submitted" data-analytics-placement="registration-form">
                     @csrf
                     <fieldset>
                         <legend><span aria-hidden="true">01</span> Tu empresa</legend>

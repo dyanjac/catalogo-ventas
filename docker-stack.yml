@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
 
   app:
@@ -23,6 +21,11 @@ services:
       APP_KEY: ${APP_KEY}
       APP_DEBUG: ${APP_DEBUG:-false}
       APP_URL: ${APP_URL}
+
+      MARKETING_BRAND_NAME: ${MARKETING_BRAND_NAME:-MetisHub ERP}
+      MARKETING_ANALYTICS_ENABLED: ${MARKETING_ANALYTICS_ENABLED:-false}
+      MARKETING_ANALYTICS_DOMAIN: ${MARKETING_ANALYTICS_DOMAIN:-}
+      MARKETING_ANALYTICS_SCRIPT_URL: ${MARKETING_ANALYTICS_SCRIPT_URL:-https://plausible.io/js/script.js}
 
       APP_LOCALE: ${APP_LOCALE:-en}
       APP_FALLBACK_LOCALE: ${APP_FALLBACK_LOCALE:-en}
@@ -177,6 +180,18 @@ services:
       SALES_DOCUMENT_LOOKUP_RUC_FIELD: ${SALES_DOCUMENT_LOOKUP_RUC_FIELD:-numeroRUC}
 
       # ------------------------------------------------------
+      # OPERACIONES Y READINESS
+      # ------------------------------------------------------
+      OPERATIONS_QUEUE: ${OPERATIONS_QUEUE:-operations}
+      OPERATIONS_RECONCILIATION_SCHEDULE: "${OPERATIONS_RECONCILIATION_SCHEDULE:-*/15 * * * *}"
+      OPERATIONS_STALE_AFTER_MINUTES: ${OPERATIONS_STALE_AFTER_MINUTES:-15}
+      OPERATIONS_FRESHNESS_MINUTES: ${OPERATIONS_FRESHNESS_MINUTES:-30}
+      OPERATIONS_STALE_EVENT_MINUTES: ${OPERATIONS_STALE_EVENT_MINUTES:-15}
+      OPERATIONS_READY_REQUIRE_RECONCILIATION: ${OPERATIONS_READY_REQUIRE_RECONCILIATION:-false}
+      OPERATIONS_READY_MAX_RECONCILIATION_AGE: ${OPERATIONS_READY_MAX_RECONCILIATION_AGE:-30}
+      OPERATIONS_REQUIRED_RETRY_AFTER: ${OPERATIONS_REQUIRED_RETRY_AFTER:-960}
+
+      # ------------------------------------------------------
       # CONTROL DE INICIALIZACION
       # ------------------------------------------------------
       # Evitamos modificaciones automáticas de BD durante
@@ -194,11 +209,11 @@ services:
     # 18080 -> perubts-web-test
     # 18081 -> perubts-app_web
     # 18082 -> stremio_web
-    # 18083 -> catalogo-ventas
+    # 8585 -> catalogo-ventas detrás del proxy inverso
     #
     ports:
       - target: 80
-        published: ${ERP_PUBLISHED_PORT:-18083}
+        published: ${ERP_PUBLISHED_PORT:-8585}
         protocol: tcp
         mode: ingress
 
@@ -223,7 +238,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -fsS http://127.0.0.1/up || exit 1"
+          "curl -fsS http://127.0.0.1/health/ready || exit 1"
         ]
       interval: 30s
       timeout: 5s

@@ -10,7 +10,7 @@
             <a href="{{ route('home') }}#capacidades">Capacidades</a>
             <a href="{{ route('home') }}#como-empezar">Cómo empezar</a>
             <a class="marketing-nav__login" href="{{ route('admin.login') }}">Ingresar</a>
-            <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}">Crear organización</a>
+            <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="header">Crear organización</a>
         </nav>
 
         <details class="marketing-mobile-menu">
@@ -23,7 +23,7 @@
                 <a href="{{ route('home') }}#capacidades">Capacidades</a>
                 <a href="{{ route('home') }}#como-empezar">Cómo empezar</a>
                 <a href="{{ route('admin.login') }}">Ingresar</a>
-                <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}">Crear organización</a>
+                <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}" data-analytics-event="Registration Started" data-analytics-placement="mobile-menu">Crear organización</a>
             </nav>
         </details>
     </div>

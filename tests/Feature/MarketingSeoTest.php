@@ -23,6 +23,28 @@ class MarketingSeoTest extends TestCase
             ->assertSee('"applicationCategory":"BusinessApplication"', false);
     }
 
+    public function test_optional_analytics_is_rendered_only_when_fully_configured(): void
+    {
+        config()->set([
+            'marketing.analytics.enabled' => true,
+            'marketing.analytics.domain' => 'erp.example.test',
+            'marketing.analytics.script_url' => 'https://analytics.example.test/script.js',
+        ]);
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('data-domain="erp.example.test"', false)
+            ->assertSee('src="https://analytics.example.test/script.js"', false)
+            ->assertSee('data-analytics-event="Registration Started"', false)
+            ->assertSee('data-analytics-placement="hero"', false);
+
+        config()->set('marketing.analytics.enabled', false);
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertDontSee('analytics.example.test/script.js');
+    }
+
     public function test_registration_and_admin_login_are_not_indexed(): void
     {
         $this->get(route('saas.register.create'))
