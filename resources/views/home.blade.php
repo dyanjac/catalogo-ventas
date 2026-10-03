@@ -15,8 +15,8 @@
                     Compra harina, arroz, azucar, manteca y otros productos esenciales con una experiencia clara, moderna y enfocada en conversion.
                 </p>
                 <div class="mp-hero-actions">
-                    <a href="{{ route('catalog.index') }}" class="btn btn-primary btn-lg rounded-pill px-5">Ver catalogo</a>
-                    <a href="{{ route('contacto.index') }}" class="btn btn-light btn-lg border rounded-pill px-5">Hablar con ventas</a>
+                    <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-primary btn-lg rounded-pill px-5">Ver catalogo</a>
+                    <a href="{{ $storefrontRoutes->route('contacto.index') }}" class="btn btn-light btn-lg border rounded-pill px-5">Hablar con ventas</a>
                 </div>
                 <div class="mp-info-strip mt-4">
                     <div class="mp-info-chip"><i class="fa fa-store"></i><span>Precios para negocio</span></div>
@@ -32,7 +32,7 @@
                             <h3>{{ $featured->first()->name }}</h3>
                             <p>{{ \Illuminate\Support\Str::limit($featured->first()->description ?? 'Ideal para reposicion continua de negocios.', 90) }}</p>
                             <div class="mp-detail-price mb-3">S/ {{ number_format((float) ($featured->first()->display_price ?? 0), 2) }}</div>
-                            <a href="{{ route('catalog.show', $featured->first()) }}" class="btn btn-primary rounded-pill px-4">Comprar ahora</a>
+                            <a href="{{ $storefrontRoutes->route('catalog.show', ['product' => $featured->first()]) }}" class="btn btn-primary rounded-pill px-4">Comprar ahora</a>
                         @else
                             <h3>Catalogo listo para vender</h3>
                             <p>Agrega productos destacados y utiliza esta portada para impulsar conversion.</p>
@@ -104,7 +104,7 @@
                 <h2>Productos preparados para vender mas</h2>
                 <p>Presentacion moderna con foco en precio, categoria, stock y accion de compra inmediata.</p>
             </div>
-            <a href="{{ route('catalog.index') }}" class="btn btn-light border rounded-pill px-4">Ver todo</a>
+            <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-light border rounded-pill px-4">Ver todo</a>
         </div>
 
         <div class="row g-4 mb-5">
@@ -131,11 +131,11 @@
                                 <h4 class="mb-1">{{ $group->name }}</h4>
                                 <p class="mb-0">{{ $group->products->count() }} productos visibles</p>
                             </div>
-                            <a href="{{ route('catalog.index', ['category_id' => $group->id]) }}" class="btn btn-sm btn-light border rounded-pill px-3">Ver mas</a>
+                            <a href="{{ $storefrontRoutes->route('catalog.index', ['category_id' => $group->id]) }}" class="btn btn-sm btn-light border rounded-pill px-3">Ver mas</a>
                         </div>
                         <div class="mp-mini-list">
                             @foreach($group->products->take(3) as $product)
-                                <a href="{{ route('catalog.show', $product) }}" class="mp-mini-item">
+                                <a href="{{ $storefrontRoutes->route('catalog.show', ['product' => $product]) }}" class="mp-mini-item">
                                     <img src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}" alt="{{ $product->name }}">
                                     <div>
                                         <strong>{{ $product->name }}</strong>

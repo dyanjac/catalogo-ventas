@@ -6,29 +6,31 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Services\ProductInventoryService;
+use Modules\Commerce\Services\StorefrontCartService;
+use Modules\Commerce\Services\StorefrontRouteService;
 use Modules\Security\Services\SecurityBranchContextService;
 
 class CartController extends Controller
 {
-    public function view()
+    public function view(StorefrontCartService $storefrontCart)
     {
-        $cart = session('cart', []);
+        $cart = $storefrontCart->all();
         $total = collect($cart)->sum(fn ($i) => $i['quantity'] * $i['price']);
 
         return view('cart.view', compact('cart', 'total'));
     }
 
-    public function addFromLink(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext)
+    public function addFromLink(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, StorefrontRouteService $storefrontRoutes, StorefrontCartService $storefrontCart)
     {
-        return $this->addToCart($product, $request, $inventory, $branchContext, true);
+        return $this->addToCart($product, $request, $inventory, $branchContext, $storefrontRoutes, $storefrontCart, true);
     }
 
-    public function add(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext)
+    public function add(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, StorefrontRouteService $storefrontRoutes, StorefrontCartService $storefrontCart)
     {
-        return $this->addToCart($product, $request, $inventory, $branchContext, false);
+        return $this->addToCart($product, $request, $inventory, $branchContext, $storefrontRoutes, $storefrontCart, false);
     }
 
-    public function update(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext)
+    public function update(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, StorefrontCartService $storefrontCart)
     {
         $qty = max(1, (int) $request->integer('quantity', 1));
         $branchId = $branchContext->currentBranchId($request->user());
@@ -40,38 +42,38 @@ class CartController extends Controller
             ]);
         }
 
-        $cart = session('cart', []);
+        $cart = $storefrontCart->all();
         $id = (string) $product->id;
 
         if (isset($cart[$id])) {
             $cart[$id]['quantity'] = $qty;
         }
 
-        session(['cart' => $cart]);
+        $storefrontCart->replace($cart);
 
         return back();
     }
 
-    public function remove(Product $product)
+    public function remove(Product $product, StorefrontCartService $storefrontCart)
     {
-        $cart = session('cart', []);
+        $cart = $storefrontCart->all();
         unset($cart[(string) $product->id]);
-        session(['cart' => $cart]);
+        $storefrontCart->replace($cart);
 
         return back();
     }
 
-    public function clear()
+    public function clear(StorefrontCartService $storefrontCart)
     {
-        session()->forget('cart');
+        $storefrontCart->forget();
 
         return back();
     }
 
-    private function addToCart(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, bool $redirectToCart)
+    private function addToCart(Product $product, Request $request, ProductInventoryService $inventory, SecurityBranchContextService $branchContext, StorefrontRouteService $storefrontRoutes, StorefrontCartService $storefrontCart, bool $redirectToCart)
     {
         $qty = max(1, (int) $request->integer('quantity', 1));
-        $cart = session('cart', []);
+        $cart = $storefrontCart->all();
         $id = (string) $product->id;
         $currentQty = (int) ($cart[$id]['quantity'] ?? 0);
         $requestedQty = $currentQty + $qty;
@@ -79,7 +81,7 @@ class CartController extends Controller
         $available = $inventory->availableStock($product, $branchId);
 
         if ($requestedQty > $available) {
-            $response = $redirectToCart ? redirect()->route('cart.view') : back();
+            $response = $redirectToCart ? redirect()->to($storefrontRoutes->route('cart.view')) : back();
 
             return $response->withErrors([
                 'cart' => "Stock insuficiente para {$product->name}. Disponible en la sucursal: {$available}.",
@@ -94,9 +96,9 @@ class CartController extends Controller
             'quantity' => $requestedQty,
         ];
 
-        session(['cart' => $cart]);
+        $storefrontCart->replace($cart);
 
-        $response = $redirectToCart ? redirect()->route('cart.view') : back();
+        $response = $redirectToCart ? redirect()->to($storefrontRoutes->route('cart.view')) : back();
 
         return $response->with('success', 'Producto agregado al carrito.');
     }

@@ -1,5 +1,5 @@
 @php
-    $cartCount = collect(session('cart', []))->sum('quantity');
+    $cartCount = collect($storefrontCart->all())->sum('quantity');
 @endphp
 
 <div id="spinner" class="show w-100 vh-100 bg-white position-fixed translate-middle top-50 start-50 d-flex align-items-center justify-content-center">
@@ -15,14 +15,14 @@
             </div>
             <div class="top-link pe-2">
                 <span class="text-white-50 small me-3">Soluciones para venta mayorista y abastecimiento</span>
-                <a href="{{ route('contacto.index') }}" class="text-white"><small class="text-white mx-2">Cotizar</small></a>
+                <a href="{{ $storefrontRoutes->route('contacto.index') }}" class="text-white"><small class="text-white mx-2">Cotizar</small></a>
             </div>
         </div>
     </div>
 
     <div class="container px-0">
         <nav class="navbar navbar-light bg-white navbar-expand-xl mp-navbar-shell">
-            <a href="{{ route('home') }}" class="navbar-brand d-flex align-items-center py-0">
+            <a href="{{ $storefrontRoutes->route('home') }}" class="navbar-brand d-flex align-items-center py-0">
                 <img
                     src="{{ $commerce['logo_url'] }}"
                     alt="{{ $commerce['name'] }}"
@@ -34,16 +34,16 @@
             </button>
             <div class="collapse navbar-collapse bg-white" id="navbarCollapse">
                 <div class="navbar-nav mx-auto mp-navbar-links">
-                    <a href="{{ route('home') }}" class="nav-item nav-link {{ request()->routeIs('home') ? 'active' : '' }}">Inicio</a>
-                    <a href="{{ route('catalog.index') }}" class="nav-item nav-link {{ request()->routeIs('catalog.*') ? 'active' : '' }}">Catálogo</a>
-                    <a href="{{ route('nosotros.index') }}" class="nav-item nav-link {{ request()->routeIs('nosotros.index') ? 'active' : '' }}">Nosotros</a>
-                    <a href="{{ route('contacto.index') }}" class="nav-item nav-link {{ request()->routeIs('contacto.index') ? 'active' : '' }}">Contacto</a>
+                    <a href="{{ $storefrontRoutes->route('home') }}" class="nav-item nav-link {{ $storefrontRoutes->matches('home') ? 'active' : '' }}">Inicio</a>
+                    <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="nav-item nav-link {{ $storefrontRoutes->matches('catalog.*') ? 'active' : '' }}">Catálogo</a>
+                    <a href="{{ $storefrontRoutes->route('nosotros.index') }}" class="nav-item nav-link {{ $storefrontRoutes->matches('nosotros.index') ? 'active' : '' }}">Nosotros</a>
+                    <a href="{{ $storefrontRoutes->route('contacto.index') }}" class="nav-item nav-link {{ $storefrontRoutes->matches('contacto.index') ? 'active' : '' }}">Contacto</a>
                 </div>
                 <div class="d-flex align-items-center m-3 me-0 mp-nav-actions">
                     <button class="btn-search btn border border-secondary btn-md-square rounded-circle bg-white me-3" data-bs-toggle="modal" data-bs-target="#searchModal">
                         <i class="fas fa-search text-primary"></i>
                     </button>
-                    <a href="{{ route('cart.view') }}" class="position-relative me-3 my-auto mp-cart-link" title="Ver carrito">
+                    <a href="{{ $storefrontRoutes->route('cart.view') }}" class="position-relative me-3 my-auto mp-cart-link" title="Ver carrito">
                         <i class="fa fa-shopping-bag fa-2x"></i>
                         <span class="position-absolute bg-secondary rounded-circle d-flex align-items-center justify-content-center text-dark px-1 mp-cart-count">{{ $cartCount }}</span>
                     </a>

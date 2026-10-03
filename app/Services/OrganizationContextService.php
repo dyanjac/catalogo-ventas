@@ -9,10 +9,18 @@ use Illuminate\Support\Str;
 
 class OrganizationContextService
 {
+    public const PUBLIC_STOREFRONT_ATTRIBUTE = 'organization_context.public_storefront';
+
     public function current(): ?Organization
     {
         if (! Schema::hasTable('organizations')) {
             return null;
+        }
+
+        $publicStorefront = $this->publicStorefront();
+
+        if ($publicStorefront) {
+            return $publicStorefront;
         }
 
         $user = auth()->user();
@@ -126,6 +134,13 @@ class OrganizationContextService
     public function isDemo(): bool
     {
         return $this->currentEnvironment() === 'demo';
+    }
+
+    public function publicStorefront(): ?Organization
+    {
+        $organization = request()?->attributes->get(self::PUBLIC_STOREFRONT_ATTRIBUTE);
+
+        return $organization instanceof Organization ? $organization : null;
     }
 
     /**

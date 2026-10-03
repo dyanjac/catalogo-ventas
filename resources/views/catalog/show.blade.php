@@ -11,9 +11,9 @@
 <section class="container-fluid py-5 mt-5 mp-shell">
     <div class="container py-4">
         <div class="mp-breadcrumb mb-4">
-            <a href="{{ route('home') }}">Inicio</a>
+            <a href="{{ $storefrontRoutes->route('home') }}">Inicio</a>
             <span>/</span>
-            <a href="{{ route('catalog.index') }}">Catalogo</a>
+            <a href="{{ $storefrontRoutes->route('catalog.index') }}">Catalogo</a>
             <span>/</span>
             <strong>{{ $product->name }}</strong>
         </div>
@@ -78,7 +78,7 @@
                             <input id="detail-qty-{{ $product->id }}" type="number" min="1" value="1" class="form-control">
                         </div>
 
-                        <form method="POST" action="{{ route('cart.add', $product->id) }}">
+                        <form method="POST" action="{{ $storefrontRoutes->route('cart.add', ['product' => $product->id]) }}">
                             @csrf
                             <input type="hidden" name="quantity" id="detail-add-qty-{{ $product->id }}" value="1">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100" onclick="syncDetailQty({{ $product->id }})">
@@ -94,7 +94,7 @@
                             <i class="fab fa-whatsapp me-2"></i>Cotizar por WhatsApp
                         </button>
 
-                        <a href="{{ route('catalog.index') }}" class="btn btn-light border btn-lg rounded-pill w-100">
+                        <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-light border btn-lg rounded-pill w-100">
                             Volver al catalogo
                         </a>
                     </div>

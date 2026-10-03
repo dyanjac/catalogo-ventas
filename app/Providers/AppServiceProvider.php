@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Modules\Commerce\Services\CommerceSettingsService;
+use Modules\Commerce\Services\StorefrontCartService;
+use Modules\Commerce\Services\StorefrontRouteService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,7 +38,13 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
-        View::share('organizationContext', $this->app->make(OrganizationContextService::class)->forView());
-        View::share('commerce', $this->app->make(CommerceSettingsService::class)->getForView());
+        View::composer('*', function (\Illuminate\View\View $view): void {
+            $organizationContext = $this->app->make(OrganizationContextService::class);
+
+            $view->with('organizationContext', $organizationContext->forView());
+            $view->with('commerce', $this->app->make(CommerceSettingsService::class)->getForView());
+            $view->with('storefrontRoutes', $this->app->make(StorefrontRouteService::class));
+            $view->with('storefrontCart', $this->app->make(StorefrontCartService::class));
+        });
     }
 }

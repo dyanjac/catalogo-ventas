@@ -11,7 +11,7 @@
                 <h1>Revisa tu pedido antes de confirmar</h1>
                 <p>Controla cantidades, subtotal e impuestos con una vista clara orientada a cierre de compra.</p>
             </div>
-            <a href="{{ route('catalog.index') }}" class="btn btn-light border rounded-pill px-4">Seguir comprando</a>
+            <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-light border rounded-pill px-4">Seguir comprando</a>
         </div>
 
         @include('partials.flash')
@@ -20,7 +20,7 @@
             <div class="mp-empty-state">
                 <h3>Tu carrito esta vacio</h3>
                 <p>Explora el catalogo y agrega productos de alta rotacion para continuar con tu pedido.</p>
-                <a href="{{ route('catalog.index') }}" class="btn btn-primary rounded-pill px-4">Ir al catalogo</a>
+                <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-primary rounded-pill px-4">Ir al catalogo</a>
             </div>
         @else
             <div class="row g-4">
@@ -48,7 +48,7 @@
                                     </div>
 
                                     <div class="mp-cart-actions">
-                                        <form method="POST" action="{{ route('cart.update', $item['id']) }}" class="d-flex align-items-center gap-2 flex-wrap">
+                                        <form method="POST" action="{{ $storefrontRoutes->route('cart.update', ['product' => $item['id']]) }}" class="d-flex align-items-center gap-2 flex-wrap">
                                             @csrf
                                             <div class="input-group" style="max-width: 160px;">
                                                 <span class="input-group-text">Cant.</span>
@@ -57,7 +57,7 @@
                                             <button class="btn btn-light border rounded-pill px-3">Actualizar</button>
                                         </form>
 
-                                        <form method="POST" action="{{ route('cart.remove', $item['id']) }}">
+                                        <form method="POST" action="{{ $storefrontRoutes->route('cart.remove', ['product' => $item['id']]) }}">
                                             @csrf
                                             <button class="btn btn-outline-danger rounded-pill px-3">Quitar</button>
                                         </form>
@@ -66,7 +66,7 @@
                             </div>
                         @endforeach
 
-                        <form method="POST" action="{{ route('cart.clear') }}" class="mt-4">
+                        <form method="POST" action="{{ $storefrontRoutes->route('cart.clear') }}" class="mt-4">
                             @csrf
                             <button class="btn btn-outline-danger rounded-pill px-4">Vaciar carrito</button>
                         </form>

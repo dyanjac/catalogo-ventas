@@ -5,7 +5,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Modules\Commerce\Http\Middleware\EnsureOrganizationCapability;
+use Modules\Commerce\Http\Middleware\ResolvePublicStorefront;
 use Modules\Operations\Http\Middleware\AttachObservabilityContext;
 use Modules\Security\Http\Middleware\EnsureModuleAccess;
 use Modules\Security\Http\Middleware\EnsurePermission;
@@ -36,7 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'security.module' => EnsureModuleAccess::class,
             'security.permission' => EnsurePermission::class,
             'tenant.capability' => EnsureOrganizationCapability::class,
+            'public.storefront' => ResolvePublicStorefront::class,
         ]);
+
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            ResolvePublicStorefront::class
+        );
 
         $middleware->redirectGuestsTo(function (Request $request): string {
             return $request->is('admin') || $request->is('admin/*')

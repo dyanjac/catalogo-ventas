@@ -64,7 +64,7 @@
         </div>
 
         <div class="mp-product-controls">
-            <a href="{{ route('catalog.show', $product) }}" class="btn btn-light border rounded-pill px-3">
+            <a href="{{ $storefrontRoutes->route('catalog.show', ['product' => $product]) }}" class="btn btn-light border rounded-pill px-3">
                 Ver detalle
             </a>
             <div class="input-group input-group-sm mp-qty-group">
@@ -74,7 +74,7 @@
         </div>
 
         <div class="mp-product-actions">
-            <form method="POST" action="{{ route('cart.add', $product->id) }}" class="m-0">
+            <form method="POST" action="{{ $storefrontRoutes->route('cart.add', ['product' => $product->id]) }}" class="m-0">
                 @csrf
                 <input type="hidden" name="quantity" id="{{ $hiddenQuantityId }}" value="1">
                 <button

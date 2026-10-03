@@ -42,7 +42,7 @@
                 </div>
                 <div class="col-lg-3 d-flex gap-2">
                     <button class="btn btn-primary btn-lg rounded-pill w-100">Filtrar</button>
-                    <a href="{{ route('catalog.index') }}" class="btn btn-light border btn-lg rounded-pill">Limpiar</a>
+                    <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn btn-light border btn-lg rounded-pill">Limpiar</a>
                 </div>
             </form>
         </div>

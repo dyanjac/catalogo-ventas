@@ -17,9 +17,9 @@
             <div class="col-md-6 col-lg-2">
                 <h5 class="text-white mb-3">Navegación</h5>
                 <div class="d-flex flex-column gap-2">
-                    <a href="{{ route('home') }}" class="btn-link">Inicio</a>
-                    <a href="{{ route('catalog.index') }}" class="btn-link">Catálogo</a>
-                    <a href="{{ route('contacto.index') }}" class="btn-link">Contacto</a>
+                    <a href="{{ $storefrontRoutes->route('home') }}" class="btn-link">Inicio</a>
+                    <a href="{{ $storefrontRoutes->route('catalog.index') }}" class="btn-link">Catálogo</a>
+                    <a href="{{ $storefrontRoutes->route('contacto.index') }}" class="btn-link">Contacto</a>
                 </div>
             </div>
 
