@@ -1,5 +1,5 @@
 @extends('layouts.app-home')
-@section('title','Inicio')
+@section('title', $commerce['name'].' · Tienda')
 @section('content')
 @php
     $sellerPhone = $commerce['mobile_digits'];

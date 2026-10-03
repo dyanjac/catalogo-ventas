@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Modules\Commerce\Entities\CommerceSetting;
+use Modules\Commerce\Services\StorefrontRouteService;
 use Modules\Security\Services\LdapDirectoryService;
 use Modules\Security\Services\SecurityAuditService;
 use Modules\Security\Services\SecurityAuthorizationService;
@@ -31,10 +32,10 @@ class AdminLoginScreen extends Component
      */
     public array $organizationOptions = [];
 
-    public function mount(SecurityAuthorizationService $authorization, OrganizationContextService $organizationContext): void
+    public function mount(SecurityAuthorizationService $authorization, OrganizationContextService $organizationContext, StorefrontRouteService $storefrontRoutes): void
     {
         if (Auth::check()) {
-            $this->redirectAuthenticatedUser($authorization);
+            $this->redirectAuthenticatedUser($authorization, $storefrontRoutes);
         }
 
         $organization = $organizationContext->explicit();
@@ -257,9 +258,11 @@ class AdminLoginScreen extends Component
         ]);
     }
 
-    private function redirectAuthenticatedUser(SecurityAuthorizationService $authorization): void
+    private function redirectAuthenticatedUser(SecurityAuthorizationService $authorization, StorefrontRouteService $storefrontRoutes): void
     {
-        $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
+        $target = $authorization->canAccessAdminPanel(Auth::user())
+            ? route('admin.dashboard')
+            : $storefrontRoutes->homeForUser(Auth::user());
 
         $this->redirectIntended($target, navigate: false);
     }

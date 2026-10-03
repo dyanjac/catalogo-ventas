@@ -1,6 +1,7 @@
 @php
     $pageTitle = View::yieldContent('page_title', View::yieldContent('title', 'Panel CMS'));
     $user = auth()->user();
+    $storefrontHomeUrl = $storefrontRoutes->homeForOrganization($user?->organization);
     $orgName = $organizationContext['organization_name'] ?? null;
     $isDemo = (bool) ($organizationContext['is_demo'] ?? false);
     $environment = strtoupper((string) ($organizationContext['environment'] ?? 'production'));
@@ -91,9 +92,11 @@
                 </flux:button>
             @endif
 
-            <flux:button href="{{ route('home') }}" wire:navigate.hover variant="primary" icon="shopping-bag" size="sm">
-                Ver tienda
-            </flux:button>
+            @if($storefrontHomeUrl)
+                <flux:button href="{{ $storefrontHomeUrl }}" variant="primary" icon="shopping-bag" size="sm">
+                    Ver tienda
+                </flux:button>
+            @endif
 
             <flux:dropdown position="bottom" align="end" class="admin-user-menu">
                 <flux:profile
@@ -111,9 +114,11 @@
                         Dashboard
                     </flux:menu.item>
 
-                    <flux:menu.item href="{{ route('home') }}" wire:navigate.hover icon="shopping-bag">
-                        Ver tienda
-                    </flux:menu.item>
+                    @if($storefrontHomeUrl)
+                        <flux:menu.item href="{{ $storefrontHomeUrl }}" icon="shopping-bag">
+                            Ver tienda
+                        </flux:menu.item>
+                    @endif
 
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

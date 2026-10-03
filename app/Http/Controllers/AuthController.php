@@ -7,6 +7,7 @@ use App\Services\OrganizationContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Modules\Commerce\Services\StorefrontRouteService;
 use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Models\SecurityRole;
 use Modules\Security\Services\SecurityAuditService;
@@ -14,10 +15,12 @@ use Modules\Security\Services\SecurityAuthorizationService;
 
 class AuthController extends Controller
 {
-    public function showLogin(SecurityAuthorizationService $authorization)
+    public function showLogin(SecurityAuthorizationService $authorization, StorefrontRouteService $storefrontRoutes)
     {
         if (Auth::check()) {
-            $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
+            $target = $authorization->canAccessAdminPanel(Auth::user())
+                ? route('admin.dashboard')
+                : $storefrontRoutes->homeForUser(Auth::user());
 
             return redirect()->intended($target);
         }
@@ -30,6 +33,7 @@ class AuthController extends Controller
         SecurityAuthorizationService $authorization,
         OrganizationContextService $organizationContext,
         SecurityAuditService $audit,
+        StorefrontRouteService $storefrontRoutes,
     ) {
         $credentials = $request->validateWithBag('login', [
             'email' => ['required', 'email'],
@@ -67,13 +71,15 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $target = $authorization->canAccessAdminPanel(Auth::user()) ? route('admin.dashboard') : route('home');
+        $target = $authorization->canAccessAdminPanel(Auth::user())
+            ? route('admin.dashboard')
+            : $storefrontRoutes->homeForUser(Auth::user());
 
         return redirect()->intended($target)
             ->with('success', 'Sesión iniciada correctamente.');
     }
 
-    public function register(Request $request, OrganizationContextService $organizationContext, SecurityAuditService $audit)
+    public function register(Request $request, OrganizationContextService $organizationContext, SecurityAuditService $audit, StorefrontRouteService $storefrontRoutes)
     {
         $organization = $organizationContext->current();
         $organizationId = $organization?->id;
@@ -132,17 +138,19 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('home'))
+        return redirect()->intended($storefrontRoutes->homeForUser($user))
             ->with('success', 'Cuenta creada e inicio de sesión exitoso.');
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request, StorefrontRouteService $storefrontRoutes)
     {
+        $destination = $storefrontRoutes->homeForUser(Auth::user());
+
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('home')->with('success', 'Sesión cerrada.');
+        return redirect()->to($destination)->with('success', 'Sesión cerrada.');
     }
 }

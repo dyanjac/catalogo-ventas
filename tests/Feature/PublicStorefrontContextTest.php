@@ -13,6 +13,7 @@ use Modules\Catalog\Entities\UnitMeasure;
 use Modules\Commerce\Entities\CommerceSetting;
 use Modules\Commerce\Entities\SaasCapability;
 use Modules\Commerce\Services\OrganizationEntitlementService;
+use Modules\Commerce\Services\StorefrontRouteService;
 use Tests\TestCase;
 
 class PublicStorefrontContextTest extends TestCase
@@ -75,6 +76,7 @@ class PublicStorefrontContextTest extends TestCase
 
         $this->get('/ecommerce/branded-store')
             ->assertOk()
+            ->assertViewIs('storefront.home')
             ->assertSee('Tienda Branded')
             ->assertSee('/ecommerce/branded-store/catalogo', false);
 
@@ -168,6 +170,7 @@ class PublicStorefrontContextTest extends TestCase
         );
 
         $this->get('/_test/storefront/no-ecommerce')->assertNotFound();
+        $this->assertNull(app(StorefrontRouteService::class)->homeForOrganization($organization));
     }
 
     private function createOrganization(string $code, string $status = 'active'): Organization

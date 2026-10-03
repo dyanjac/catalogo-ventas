@@ -2,11 +2,32 @@
 
 namespace Modules\Commerce\Services;
 
+use App\Models\Organization;
+use App\Models\User;
 use App\Services\OrganizationContextService;
 
 class StorefrontRouteService
 {
-    public function __construct(private readonly OrganizationContextService $organizationContext) {}
+    public function __construct(
+        private readonly OrganizationContextService $organizationContext,
+        private readonly OrganizationEntitlementService $entitlements,
+    ) {}
+
+    public function homeForOrganization(?Organization $organization): ?string
+    {
+        if (! $organization?->isActiveStatus()
+            || ! $organization->slug
+            || ! $this->entitlements->hasCapability('sales.ecommerce', $organization)) {
+            return null;
+        }
+
+        return route('ecommerce.home', ['commerce' => $organization->slug]);
+    }
+
+    public function homeForUser(?User $user): string
+    {
+        return $this->homeForOrganization($user?->organization) ?? route('home');
+    }
 
     /**
      * @param  array<string,mixed>  $parameters

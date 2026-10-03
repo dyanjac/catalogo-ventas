@@ -1,5 +1,6 @@
 @php
     $user = auth()->user();
+    $storefrontHomeUrl = $storefrontRoutes->homeForOrganization($user?->organization);
     $authorization = app(\Modules\Security\Services\SecurityAuthorizationService::class);
     $modules = $authorization->modulesForNavigation($user)->keyBy('code');
     $canViewSecurityRoles = $authorization->hasPermission($user, 'security.roles.view');
@@ -159,9 +160,11 @@
         @endif
     </flux:sidebar.nav>
 
-    <div class="admin-sidebar__footer">
-        <flux:button href="{{ route('home') }}" wire:navigate.hover variant="outline" icon="arrow-up-right" class="w-full justify-start">
-            Volver a tienda
-        </flux:button>
-    </div>
+    @if($storefrontHomeUrl)
+        <div class="admin-sidebar__footer">
+            <flux:button href="{{ $storefrontHomeUrl }}" variant="outline" icon="arrow-up-right" class="w-full justify-start">
+                Volver a tienda
+            </flux:button>
+        </div>
+    @endif
 </flux:sidebar>

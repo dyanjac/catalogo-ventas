@@ -3,6 +3,7 @@
 namespace Modules\Catalog\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\View\View;
 use Modules\Catalog\Services\CatalogService;
 
 class ProductController extends Controller
@@ -11,14 +12,14 @@ class ProductController extends Controller
     {
     }
 
-    public function home()
+    public function home(): View
     {
         $featured = $this->catalogService->featuredProducts(8);
         $categories = $this->catalogService->categoriesWithProductsCount();
         $homeGroups = $this->catalogService->homeGroups(6, 8);
         $bestPrices = $this->catalogService->bestPriceProducts(10);
 
-        return view('home', compact('featured', 'categories', 'homeGroups', 'bestPrices'));
+        return view('storefront.home', compact('featured', 'categories', 'homeGroups', 'bestPrices'));
 
     }
 
