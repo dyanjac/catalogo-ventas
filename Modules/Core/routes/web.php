@@ -5,8 +5,11 @@ use App\Http\Controllers\ContactoController;
 use App\Http\Controllers\SaasRegistrationController;
 use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\MarketingHomeController;
+use Modules\Core\Http\Controllers\MarketingSeoController;
 
 Route::get('/', MarketingHomeController::class)->name('home');
+Route::get('/robots.txt', [MarketingSeoController::class, 'robots'])->name('marketing.robots');
+Route::get('/sitemap.xml', [MarketingSeoController::class, 'sitemap'])->name('marketing.sitemap');
 Route::view('/nosotros', 'nosotros.index')->name('nosotros.index');
 Route::get('/contacto', [ContactoController::class, 'index'])->name('contacto.index');
 

@@ -1,6 +1,9 @@
 @extends('layouts.marketing')
 
-@section('title', 'Acceso administrativo')
+@section('title', 'Acceso al ERP | '.config('marketing.brand_name'))
+@section('description', 'Acceso administrativo para organizaciones registradas en '.config('marketing.brand_name').'.')
+@section('canonical', route('admin.login'))
+@section('robots', 'noindex, nofollow')
 
 @push('styles')
     @livewireStyles

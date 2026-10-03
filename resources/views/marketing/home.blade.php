@@ -1,6 +1,20 @@
 @extends('layouts.marketing')
 
 @section('title', config('marketing.brand_name').' | Ventas, inventario y facturación')
+@section('description', config('marketing.description'))
+@section('canonical', route('home'))
+
+@push('head')
+    <script type="application/ld+json">{!! json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'SoftwareApplication',
+        'name' => config('marketing.brand_name'),
+        'applicationCategory' => 'BusinessApplication',
+        'operatingSystem' => 'Web',
+        'url' => route('home'),
+        'description' => config('marketing.description'),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+@endpush
 
 @section('content')
     <section class="marketing-hero" aria-labelledby="marketing-hero-title">

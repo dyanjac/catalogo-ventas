@@ -1,6 +1,9 @@
 @extends('layouts.marketing')
 
 @section('title', 'Crea tu organización | '.config('marketing.brand_name'))
+@section('description', 'Crea una organización en entorno DEMO y recibe el acceso de su administrador inicial.')
+@section('canonical', route('saas.register.create'))
+@section('robots', 'noindex, follow')
 
 @section('content')
 <section class="marketing-onboarding">
