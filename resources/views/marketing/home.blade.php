@@ -18,20 +18,33 @@
                 </div>
             </div>
 
-            <div class="marketing-preview" aria-label="Vista conceptual de la plataforma ERP">
-                <div class="marketing-preview__top"><span></span><span></span><span></span><strong>Panel de operaciones</strong></div>
-                <div class="marketing-preview__body">
-                    <div class="marketing-preview__sidebar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                    <div class="marketing-preview__content">
-                        <p class="marketing-preview__label">Un flujo conectado</p>
-                        <h2>De la venta al control</h2>
-                        <div class="marketing-preview__flow">
-                            <span>Ventas</span><span>Inventario</span><span>Facturación</span>
+            <figure class="marketing-product">
+                <div class="marketing-preview" aria-hidden="true">
+                    <div class="marketing-preview__top">
+                        <span class="marketing-preview__mini-mark">M</span>
+                        <strong>Panel de operaciones</strong>
+                        <span class="marketing-preview__top-pill">Vista general</span>
+                    </div>
+                    <div class="marketing-preview__body">
+                        <div class="marketing-preview__sidebar"><i></i><i></i><i></i><i></i></div>
+                        <div class="marketing-preview__content">
+                            <div class="marketing-preview__heading">
+                                <div><p>Resumen comercial</p><strong>Todo conectado</strong></div>
+                                <span>Hoy</span>
+                            </div>
+                            <div class="marketing-preview__tiles">
+                                <div><span>Pedidos</span><strong>En seguimiento</strong><i></i></div>
+                                <div><span>Inventario</span><strong>Disponible</strong><i></i></div>
+                                <div><span>Documentos</span><strong>Organizados</strong><i></i></div>
+                            </div>
+                            <div class="marketing-preview__flow">
+                                <span>Venta</span><b></b><span>Almacén</span><b></b><span>Facturación</span>
+                            </div>
                         </div>
-                        <div class="marketing-preview__rows" aria-hidden="true"><i></i><i></i><i></i></div>
                     </div>
                 </div>
-            </div>
+                <figcaption>Vista conceptual de un flujo comercial conectado</figcaption>
+            </figure>
         </div>
     </section>
 
@@ -40,6 +53,9 @@
             <p class="marketing-eyebrow">Una plataforma integrada</p>
             <h2>Más claridad para cada decisión comercial.</h2>
             <p>Desde el primer pedido hasta el registro contable, la información acompaña a los equipos que hacen crecer tu negocio.</p>
+            <div class="marketing-connection" aria-label="Flujo entre equipos">
+                <span>Ventas</span><i aria-hidden="true"></i><span>Almacén</span><i aria-hidden="true"></i><span>Facturación</span>
+            </div>
         </div>
     </section>
 
@@ -50,10 +66,10 @@
                 <h2>Todo lo que necesitas para vender y operar.</h2>
             </div>
             <div class="marketing-cards">
-                <article class="marketing-card"><span>01</span><h3>Ventas y clientes</h3><p>Gestiona pedidos, punto de venta y relaciones comerciales en un mismo flujo.</p></article>
-                <article class="marketing-card"><span>02</span><h3>Inventario y almacenes</h3><p>Consulta existencias y acompaña reservas, movimientos y despachos.</p></article>
-                <article class="marketing-card"><span>03</span><h3>Facturación electrónica</h3><p>Emite documentos electrónicos desde las operaciones de tu empresa.</p></article>
-                <article class="marketing-card"><span>04</span><h3>Ecommerce por empresa</h3><p>Publica una tienda propia conectada al catálogo de tu organización.</p></article>
+                <article class="marketing-card"><span class="marketing-card__number">01</span><x-marketing.feature-icon name="sales" /><h3>Ventas y clientes</h3><p>Gestiona pedidos, punto de venta y relaciones comerciales en un mismo flujo.</p></article>
+                <article class="marketing-card"><span class="marketing-card__number">02</span><x-marketing.feature-icon name="inventory" /><h3>Inventario y almacenes</h3><p>Consulta existencias y acompaña reservas, movimientos y despachos.</p></article>
+                <article class="marketing-card"><span class="marketing-card__number">03</span><x-marketing.feature-icon name="billing" /><h3>Facturación electrónica</h3><p>Emite documentos electrónicos desde las operaciones de tu empresa.</p></article>
+                <article class="marketing-card"><span class="marketing-card__number">04</span><x-marketing.feature-icon name="commerce" /><h3>Ecommerce por empresa</h3><p>Publica una tienda propia conectada al catálogo de tu organización.</p></article>
             </div>
         </div>
     </section>
