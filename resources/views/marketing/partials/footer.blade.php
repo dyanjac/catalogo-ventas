@@ -11,6 +11,8 @@
             <span>Explora</span>
             <a href="{{ route('home') }}#plataforma">Plataforma</a>
             <a href="{{ route('home') }}#capacidades">Capacidades</a>
+            <a href="{{ route('home') }}#ecommerce">Ecommerce</a>
+            <a href="{{ route('home') }}#preguntas">Preguntas frecuentes</a>
         </nav>
         <nav class="marketing-footer__nav" aria-label="Enlaces de acceso">
             <span>Comienza</span>

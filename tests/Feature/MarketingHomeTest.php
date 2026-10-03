@@ -52,6 +52,19 @@ class MarketingHomeTest extends TestCase
             ->assertDontSee('Comprar ahora');
     }
 
+    public function test_home_explains_demo_onboarding_and_separate_tenant_storefronts(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('id="como-empezar"', false)
+            ->assertSee('id="ecommerce"', false)
+            ->assertSee('id="preguntas"', false)
+            ->assertSee('href="'.route('saas.register.create').'"', false)
+            ->assertSee('href="'.route('admin.login').'"', false)
+            ->assertSee('/ecommerce/{nombre-comercio}')
+            ->assertSee('Su acceso público depende de la capacidad ecommerce');
+    }
+
     public function test_authenticated_customer_is_redirected_to_their_storefront(): void
     {
         $organization = $this->createOrganization('CLIENTE-UNO', 'cliente-uno');

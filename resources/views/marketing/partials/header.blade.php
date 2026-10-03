@@ -8,6 +8,7 @@
         <nav class="marketing-nav" aria-label="Navegación principal">
             <a href="{{ route('home') }}#plataforma">Plataforma</a>
             <a href="{{ route('home') }}#capacidades">Capacidades</a>
+            <a href="{{ route('home') }}#como-empezar">Cómo empezar</a>
             <a class="marketing-nav__login" href="{{ route('admin.login') }}">Ingresar</a>
             <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}">Crear organización</a>
         </nav>
@@ -20,6 +21,7 @@
             <nav aria-label="Navegación móvil">
                 <a href="{{ route('home') }}#plataforma">Plataforma</a>
                 <a href="{{ route('home') }}#capacidades">Capacidades</a>
+                <a href="{{ route('home') }}#como-empezar">Cómo empezar</a>
                 <a href="{{ route('admin.login') }}">Ingresar</a>
                 <a class="marketing-button marketing-button--small" href="{{ route('saas.register.create') }}">Crear organización</a>
             </nav>
