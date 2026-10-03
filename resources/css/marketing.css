@@ -246,6 +246,63 @@ a { color: inherit; }
     .marketing-footer__bottom { flex-direction: column; }
 }
 
+.marketing-onboarding { padding: 3.5rem 0 5rem; background: var(--marketing-soft); }
+.marketing-onboarding__grid { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: start; gap: clamp(2rem, 5vw, 5rem); }
+.marketing-onboarding__intro > .marketing-text-link { margin: 0 0 2rem; }
+.marketing-onboarding__intro > .marketing-eyebrow { display: flex; }
+.marketing-onboarding__intro h1 { margin: 0; font-size: clamp(2.2rem, 3.6vw, 3.4rem); line-height: 1.12; letter-spacing: -.05em; }
+.marketing-onboarding__intro > p:not(.marketing-eyebrow) { color: var(--marketing-muted); font-size: .97rem; line-height: 1.7; }
+.marketing-onboarding__benefits { display: grid; gap: 1.5rem; margin: 2rem 0; padding: 0; list-style: none; }
+.marketing-onboarding__benefits li { padding-left: 1.2rem; border-left: 3px solid #8fd0e4; }
+.marketing-onboarding__benefits strong, .marketing-onboarding__benefits span { display: block; font-size: .88rem; line-height: 1.6; }
+.marketing-onboarding__benefits span { margin-top: .2rem; color: var(--marketing-muted); }
+.marketing-onboarding__login a { color: var(--marketing-blue-dark); font-weight: 800; text-underline-offset: .2em; }
+.marketing-registration { min-width: 0; padding: clamp(1.5rem, 3vw, 2.5rem); border: 1px solid var(--marketing-line); border-radius: 1.1rem; background: #fff; box-shadow: 0 16px 40px rgb(19 61 129 / 6%); }
+.marketing-registration h2 { margin: .6rem 0; font-size: 1.7rem; letter-spacing: -.035em; }
+.marketing-registration__heading > p, .marketing-registration__success > p:not(.marketing-eyebrow) { color: var(--marketing-muted); font-size: .87rem; line-height: 1.6; }
+.marketing-registration__badge { display: inline-block; padding: .35rem .65rem; border-radius: 1rem; background: #e5f5fa; color: #086e88; font-size: .68rem; font-weight: 800; letter-spacing: .06em; }
+.marketing-form fieldset { min-width: 0; margin: 2rem 0; padding: 0; border: 0; }
+.marketing-form legend { display: flex; align-items: center; gap: .65rem; margin-bottom: 1.2rem; padding: 0; font-size: 1rem; font-weight: 800; }
+.marketing-form legend span { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: #edf3ff; color: var(--marketing-blue); font-size: .65rem; }
+.marketing-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.3rem 1rem; }
+.marketing-form__field { min-width: 0; }
+.marketing-form__field label { display: block; margin-bottom: .5rem; font-size: .79rem; font-weight: 800; }
+.marketing-form__field label span { color: var(--marketing-blue); }
+.marketing-form__field input { width: 100%; min-height: 2.9rem; padding: .7rem .8rem; border: 1px solid #b8c9df; border-radius: .5rem; background: #fff; color: var(--marketing-ink); font: inherit; font-size: .9rem; }
+.marketing-form__field input:focus { border-color: var(--marketing-blue); }
+.marketing-form__field input[aria-invalid="true"] { border-color: #b42332; }
+.marketing-form__help { margin: .5rem 0 0; color: var(--marketing-muted); font-size: .74rem; line-height: 1.6; }
+.marketing-form fieldset > .marketing-form__help { margin: -.5rem 0 1.1rem; }
+.marketing-form__error { margin: .4rem 0 0; color: #a1202e; font-size: .77rem; line-height: 1.5; }
+.marketing-form-alert { margin: 1.5rem 0; padding: 1rem; border: 1px solid #edb9be; border-radius: .6rem; background: #fff5f5; color: #8e2230; font-size: .83rem; line-height: 1.6; }
+.marketing-form-alert ul { margin: .6rem 0 0; padding-left: 1.2rem; }
+.marketing-form-alert a { text-underline-offset: .15em; }
+.marketing-form__optional { border-top: 1px solid var(--marketing-line); border-bottom: 1px solid var(--marketing-line); }
+.marketing-form__optional summary { padding: 1rem 0; font-size: .86rem; font-weight: 800; cursor: pointer; }
+.marketing-form__optional summary span { margin-left: .3rem; color: var(--marketing-muted); font-size: .73rem; font-weight: 500; }
+.marketing-form__optional > .marketing-form__grid { padding: .5rem 0 1.5rem; }
+.marketing-form__submit { margin-top: 1.7rem; }
+.marketing-form__submit .marketing-button { width: 100%; cursor: pointer; }
+.marketing-form__submit p { margin: .8rem 0 0; color: var(--marketing-muted); font-size: .74rem; line-height: 1.6; text-align: center; }
+.marketing-credentials { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid var(--marketing-line); border-radius: .6rem; background: var(--marketing-soft); }
+.marketing-credentials dt { margin-top: 1rem; color: var(--marketing-muted); font-size: .75rem; }
+.marketing-credentials dt:first-child { margin-top: 0; }
+.marketing-credentials dd { margin: .3rem 0 0; font-size: .95rem; font-weight: 700; overflow-wrap: anywhere; }
+.marketing-form__field input, .marketing-form-alert { scroll-margin-top: 7rem; }
+
+@media (max-width: 900px) {
+    .marketing-onboarding__grid { grid-template-columns: 1fr; }
+    .marketing-onboarding__intro h1 { max-width: 17ch; }
+    .marketing-onboarding__benefits { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+}
+
+@media (max-width: 560px) {
+    .marketing-onboarding { padding-top: 2rem; }
+    .marketing-onboarding__benefits, .marketing-form__grid { grid-template-columns: 1fr; }
+    .marketing-registration { padding: 1.25rem; }
+    .marketing-form__field input { font-size: 1rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .marketing-button, .marketing-card, .marketing-mobile-menu summary svg { transition: none; }

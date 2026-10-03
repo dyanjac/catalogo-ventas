@@ -8,7 +8,7 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet">
-    @vite('resources/css/marketing.css')
+    @vite(['resources/css/marketing.css', 'resources/js/marketing.js'])
 </head>
 <body class="marketing-page">
     <a class="marketing-skip" href="#contenido">Saltar al contenido</a>

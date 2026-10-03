@@ -19,6 +19,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/admin.css',
                 'resources/css/marketing.css',
+                'resources/js/marketing.js',
                 'resources/js/admin.js',
             ],
             refresh: true,

@@ -1,248 +1,98 @@
-@extends('layouts.auth')
+@extends('layouts.marketing')
 
-@section('title', 'Registro SaaS')
+@section('title', 'Crea tu organización | '.config('marketing.brand_name'))
 
 @section('content')
-<section class="auth-screen">
-    <div class="auth-screen__backdrop"></div>
+<section class="marketing-onboarding">
+    <div class="marketing-container marketing-onboarding__grid">
+        <aside class="marketing-onboarding__intro" aria-labelledby="registration-title">
+            <a class="marketing-text-link" href="{{ route('home') }}">← Volver a la plataforma</a>
+            <p class="marketing-eyebrow">Tu primer paso</p>
+            <h1 id="registration-title">Un espacio para toda tu operación.</h1>
+            <p>Crea tu organización de prueba y comienza a configurar tu empresa en {{ config('marketing.brand_name') }}.</p>
+            <ul class="marketing-onboarding__benefits">
+                <li><strong>Tu empresa y sucursal principal</strong><span>Un punto de partida para organizar tu trabajo.</span></li>
+                <li><strong>Un administrador inicial</strong><span>Recibirás las credenciales al completar el registro.</span></li>
+                <li><strong>Un entorno DEMO</strong><span>El paso a producción se realiza posteriormente.</span></li>
+            </ul>
+            <p class="marketing-onboarding__login">¿Ya tienes una cuenta? <a href="{{ route('admin.login') }}">Ingresar al ERP</a></p>
+        </aside>
 
-    <div class="auth-screen__content">
-        <div class="auth-screen__panel auth-screen__panel--brand">
-            <div class="auth-screen__brand-lockup">
-                <div class="auth-screen__brand-logo auth-screen__brand-logo--fallback">
-                    SA
+        <div class="marketing-registration">
+            @if(session('provisioned_credentials'))
+                @php($credentials = session('provisioned_credentials'))
+                <div class="marketing-registration__success" role="status">
+                    <p class="marketing-eyebrow">Organización creada</p>
+                    <h2>Tu espacio DEMO está listo.</h2>
+                    <p>Guarda las credenciales iniciales antes de continuar.</p>
+                    <dl class="marketing-credentials">
+                        <dt>Organización</dt><dd>{{ $credentials['organization'] }}</dd>
+                        <dt>Correo del administrador</dt><dd>{{ $credentials['admin_email'] }}</dd>
+                        <dt>Contraseña temporal</dt><dd><code>{{ $credentials['generated_password'] }}</code></dd>
+                    </dl>
+                    <a class="marketing-button" href="{{ $credentials['admin_login_url'] }}">Ingresar a mi organización</a>
+                </div>
+            @else
+                <div class="marketing-registration__heading">
+                    <span class="marketing-registration__badge">DEMO</span>
+                    <h2>Crea tu organización</h2>
+                    <p>Los campos con <span aria-hidden="true">*</span> son obligatorios.</p>
                 </div>
 
-                <div>
-                    <div class="auth-screen__eyebrow">Onboarding SaaS</div>
-                    <div class="auth-screen__brand-name">Alta publica de organizaciones</div>
-                    <div class="auth-screen__brand-meta">Provisionamiento inicial en entorno DEMO</div>
-                </div>
-            </div>
+                @if($errors->any())
+                    <div class="marketing-form-alert" role="alert" tabindex="-1" id="registration-errors">
+                        <strong>Revisa los datos indicados para continuar.</strong>
+                        <ul>
+                            @foreach($errors->messages() as $field => $messages)
+                                <li><a href="#registration-{{ $field }}">{{ $messages[0] }}</a></li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
-            <h1 class="auth-screen__title">Crea una empresa nueva sin iniciar sesion</h1>
-            <p class="auth-screen__copy">
-                Este flujo crea un tenant nuevo con sucursal principal, administrador inicial, branding base y configuracion inicial de comercio, facturacion y contabilidad.
-            </p>
-
-            <div class="auth-screen__card-grid">
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Entorno inicial</div>
-                    <div class="auth-screen__mini-value">DEMO</div>
-                </div>
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Acceso admin</div>
-                    <div class="auth-screen__mini-value">Correo + password temporal</div>
-                </div>
-                <div class="auth-screen__mini-card">
-                    <div class="auth-screen__mini-label">Branding</div>
-                    <div class="auth-screen__mini-value">Marca + tagline inicial</div>
-                </div>
-            </div>
-
-            <div class="auth-screen__company-strip">
-                <div class="auth-screen__company-chip">1. Organizacion y sucursal principal</div>
-                <div class="auth-screen__company-chip">2. Admin inicial con credenciales nuevas</div>
-                <div class="auth-screen__company-chip">3. Marca, soporte y slogan inicial del tenant</div>
-            </div>
-        </div>
-
-        <div class="auth-screen__panel auth-screen__panel--form">
-            <div class="auth-screen__form-header">
-                <div>
-                    <div class="auth-screen__kicker">Alta publica</div>
-                    <h2 class="auth-screen__form-title">Nueva organizacion DEMO</h2>
-                </div>
-
-                <a href="{{ route('admin.login') }}" class="btn btn-outline-secondary rounded-pill px-3 py-2">
-                    Ir al login admin
-                </a>
-            </div>
-
-            <div class="auth-form__alert" role="alert">
-                El acceso administrativo inicial se crea automaticamente. Debes ingresar el <strong>nombre</strong> y el <strong>correo</strong> del administrador. La <strong>contrasena temporal</strong> se genera sola y se muestra al terminar el registro.
-            </div>
-
-            @if(session('success'))
-                <div class="auth-form__alert" role="alert">
-                    <div class="fw-semibold mb-2">{{ session('success') }}</div>
-                    @if(session('provisioned_credentials'))
-                        @php($credentials = session('provisioned_credentials'))
-                        <div><strong>Organizacion:</strong> {{ $credentials['organization'] }}</div>
-                        <div><strong>Usuario admin:</strong> {{ $credentials['admin_email'] }}</div>
-                        <div><strong>Contrasena temporal:</strong> {{ $credentials['generated_password'] }}</div>
-                        <div class="mt-3">
-                            <a href="{{ $credentials['admin_login_url'] }}" class="btn btn-primary rounded-pill px-4">
-                                Continuar al login administrativo
-                            </a>
+                <form method="POST" action="{{ route('saas.register.store') }}" class="marketing-form">
+                    @csrf
+                    <fieldset>
+                        <legend><span aria-hidden="true">01</span> Tu empresa</legend>
+                        <div class="marketing-form__grid">
+                            <x-marketing.form-field name="organization_name" label="Nombre de la organización" required maxlength="160" autocomplete="organization" />
+                            <x-marketing.form-field name="contact_email" label="Correo comercial" type="email" required maxlength="255" autocomplete="section-company email" />
+                            <x-marketing.form-field name="organization_code" label="Código de la organización" required maxlength="40" hint="Un identificador único, por ejemplo ACME. Usa letras, números, guiones o guiones bajos." />
+                            <x-marketing.form-field name="organization_slug" label="Nombre en la dirección web" required maxlength="160" hint="Por ejemplo: mi-comercio. Identifica a tu organización y su tienda cuando el canal ecommerce esté habilitado." />
+                            <x-marketing.form-field name="branch_name" label="Sucursal principal" required maxlength="120" default="Sucursal Principal" />
                         </div>
-                    @endif
-                </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend><span aria-hidden="true">02</span> Administrador inicial</legend>
+                        <p class="marketing-form__help">La contraseña temporal se genera y se muestra al finalizar el registro.</p>
+                        <div class="marketing-form__grid">
+                            <x-marketing.form-field name="admin_name" label="Nombre completo" required maxlength="120" autocomplete="section-admin name" />
+                            <x-marketing.form-field name="admin_email" label="Correo para ingresar al ERP" type="email" required maxlength="255" autocomplete="section-admin email" />
+                        </div>
+                    </fieldset>
+
+                    <details class="marketing-form__optional" @if($errors->any()) open @endif>
+                        <summary>Marca y datos de contacto <span>Opcional</span></summary>
+                        <div class="marketing-form__grid">
+                            <x-marketing.form-field name="brand_name" label="Nombre de marca" maxlength="160" hint="Si lo dejas vacío, usaremos el nombre de la organización." />
+                            <x-marketing.form-field name="tagline" label="Frase de tu marca" maxlength="255" />
+                            <x-marketing.form-field name="tax_id" label="RUC / Identificación fiscal" maxlength="30" />
+                            <x-marketing.form-field name="phone" label="Teléfono comercial" type="tel" maxlength="30" autocomplete="section-company tel" />
+                            <x-marketing.form-field name="support_email" label="Correo de soporte" type="email" maxlength="255" />
+                            <x-marketing.form-field name="support_phone" label="Teléfono de soporte" type="tel" maxlength="30" />
+                            <x-marketing.form-field name="city" label="Ciudad" maxlength="100" autocomplete="address-level2" />
+                            <x-marketing.form-field name="address" label="Dirección" maxlength="200" autocomplete="street-address" />
+                            <x-marketing.form-field name="admin_phone" label="Teléfono del administrador" type="tel" maxlength="30" autocomplete="section-admin tel" />
+                        </div>
+                    </details>
+
+                    <div class="marketing-form__submit">
+                        <button type="submit" class="marketing-button">Crear organización DEMO</button>
+                        <p>El registro crea un entorno de prueba. La activación de producción es posterior.</p>
+                    </div>
+                </form>
             @endif
-
-            @if($errors->any())
-                <div class="auth-form__alert" role="alert">
-                    Revisa los datos del formulario y corrige los campos marcados.
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('saas.register.store') }}" class="auth-form">
-                @csrf
-
-                <div class="row g-3">
-                    <div class="col-md-8 auth-form__field">
-                        <label class="form-label">Nombre de organizacion</label>
-                        <input type="text" name="organization_name" value="{{ old('organization_name') }}" class="form-control" required>
-                        @error('organization_name')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-4 auth-form__field">
-                        <label class="form-label">RUC / Tax ID</label>
-                        <input type="text" name="tax_id" value="{{ old('tax_id') }}" class="form-control">
-                        @error('tax_id')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Codigo interno</label>
-                        <input type="text" name="organization_code" value="{{ old('organization_code') }}" class="form-control" required>
-                        @error('organization_code')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Slug</label>
-                        <input type="text" name="organization_slug" value="{{ old('organization_slug') }}" class="form-control" required>
-                        @error('organization_slug')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Nombre de marca</label>
-                        <input type="text" name="brand_name" value="{{ old('brand_name') }}" class="form-control">
-                        <div class="auth-screen__footer-note mt-2">Si lo dejas vacío, usaremos el nombre de la organización.</div>
-                        @error('brand_name')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Tagline institucional</label>
-                        <input type="text" name="tagline" value="{{ old('tagline') }}" class="form-control">
-                        @error('tagline')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Email comercial</label>
-                        <input type="email" name="contact_email" value="{{ old('contact_email') }}" class="form-control" required>
-                        @error('contact_email')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Email de soporte</label>
-                        <input type="email" name="support_email" value="{{ old('support_email') }}" class="form-control">
-                        @error('support_email')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Telefono</label>
-                        <input type="text" name="phone" value="{{ old('phone') }}" class="form-control">
-                        @error('phone')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Telefono de soporte</label>
-                        <input type="text" name="support_phone" value="{{ old('support_phone') }}" class="form-control">
-                        @error('support_phone')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Ciudad</label>
-                        <input type="text" name="city" value="{{ old('city') }}" class="form-control">
-                        @error('city')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Sucursal principal</label>
-                        <input type="text" name="branch_name" value="{{ old('branch_name', 'Sucursal Principal') }}" class="form-control" required>
-                        @error('branch_name')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-12 auth-form__field">
-                        <label class="form-label">Direccion</label>
-                        <textarea name="address" class="form-control" rows="3">{{ old('address') }}</textarea>
-                        @error('address')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Nombre del administrador inicial</label>
-                        <input type="text" name="admin_name" value="{{ old('admin_name') }}" class="form-control" required>
-                        <div class="auth-screen__footer-note mt-2">Este campo es el nombre de la persona, no el usuario de acceso.</div>
-                        @error('admin_name')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Correo del administrador</label>
-                        <input type="email" name="admin_email" value="{{ old('admin_email') }}" class="form-control" required>
-                        <div class="auth-screen__footer-note mt-2">Este correo sera el usuario para entrar a <strong>/admin/login</strong>.</div>
-                        @error('admin_email')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-6 auth-form__field">
-                        <label class="form-label">Telefono del administrador</label>
-                        <input type="text" name="admin_phone" value="{{ old('admin_phone') }}" class="form-control">
-                        @error('admin_phone')
-                            <div class="auth-form__error">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100 auth-form__submit mt-3">
-                    Crear organizacion demo
-                </button>
-            </form>
-
-            <div class="auth-divider">
-                <span>Acceso</span>
-            </div>
-
-            <div class="auth-provider-list">
-                <a href="{{ route('admin.login') }}" class="btn btn-outline-secondary w-100 justify-content-start">
-                    Ya tengo credenciales administrativas
-                </a>
-                <a href="{{ route('login') }}" class="btn btn-outline-secondary w-100 justify-content-start">
-                    Ir al login del ecommerce
-                </a>
-            </div>
-
-            <div class="auth-screen__footer-note">
-                El tenant se crea siempre en DEMO. La promocion a PRODUCTION continua siendo una accion posterior y controlada.
-            </div>
         </div>
     </div>
 </section>
