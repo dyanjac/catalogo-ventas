@@ -439,13 +439,13 @@ class InventoryDocumentService
                     'idempotency_key' => $idempotencyKey,
                     'payload_hash' => $payloadHash,
                     'document_type' => InventoryDocumentType::Compensation->value,
-                    'status' => InventoryDocumentStatus::Confirmed->value,
+                    'status' => InventoryDocumentStatus::Draft->value,
                     'branch_id' => $original->branch_id,
                     'warehouse_id' => $original->warehouse_id,
                     'reversal_of_id' => $original->id,
                     'reason' => $canonicalReason,
                     'issued_at' => now(),
-                    'confirmed_at' => now(),
+                    'confirmed_at' => null,
                     'created_by' => $actorId,
                     'confirmed_by' => $actorId,
                     'meta' => ['original_document_code' => $original->code],
@@ -470,6 +470,11 @@ class InventoryDocumentService
                         'meta' => ['reversal_of_movement_id' => $movement->id],
                     ]);
                 }
+
+                $reversal->forceFill([
+                    'status' => InventoryDocumentStatus::Confirmed->value,
+                    'confirmed_at' => now(),
+                ])->save();
 
                 return $reversal->load(['items.movement', 'reversalOf']);
             }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));

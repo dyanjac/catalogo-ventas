@@ -4,25 +4,30 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Security\Models\SecurityRole;
 use Tests\TestCase;
 
 class AdminAccessTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->createRoles();
+    }
+
     public function test_guest_is_redirected_when_accessing_admin_dashboard(): void
     {
         $response = $this->get(route('admin.dashboard'));
 
-        $response->assertRedirect('/login');
+        $response->assertRedirect(route('admin.login'));
     }
 
     public function test_customer_cannot_access_admin_dashboard(): void
     {
-        $customer = User::factory()->create([
-            'role' => 'customer',
-            'is_active' => true,
-        ]);
+        $customer = $this->userWithRole('customer');
 
         $response = $this->actingAs($customer)->get(route('admin.dashboard'));
 
@@ -31,10 +36,7 @@ class AdminAccessTest extends TestCase
 
     public function test_super_admin_can_access_admin_dashboard(): void
     {
-        $superAdmin = User::factory()->create([
-            'role' => 'super_admin',
-            'is_active' => true,
-        ]);
+        $superAdmin = $this->userWithRole('super_admin');
 
         $response = $this->actingAs($superAdmin)->get(route('admin.dashboard'));
 
@@ -43,13 +45,40 @@ class AdminAccessTest extends TestCase
 
     public function test_customer_cannot_access_admin_orders_index(): void
     {
-        $customer = User::factory()->create([
-            'role' => 'customer',
-            'is_active' => true,
-        ]);
+        $customer = $this->userWithRole('customer');
 
         $response = $this->actingAs($customer)->get(route('admin.orders.index'));
 
         $response->assertForbidden();
+    }
+
+    private function userWithRole(string $roleCode): User
+    {
+        $user = User::factory()->create([
+            'role' => $roleCode,
+            'is_active' => true,
+        ]);
+        $role = SecurityRole::query()->where('code', $roleCode)->firstOrFail();
+        $user->roles()->attach($role->id, [
+            'scope' => 'all',
+            'is_active' => true,
+            'context' => null,
+        ]);
+
+        return $user;
+    }
+
+    private function createRoles(): void
+    {
+        SecurityRole::query()->create([
+            'code' => 'super_admin',
+            'name' => 'Super administrador',
+            'is_active' => true,
+        ]);
+        SecurityRole::query()->create([
+            'code' => 'customer',
+            'name' => 'Cliente',
+            'is_active' => true,
+        ]);
     }
 }

@@ -89,6 +89,8 @@ class InventoryWarehouseOperationsTest extends TestCase
 
         $this->assertSame($reversal->id, $replayed->id);
         $this->assertSame($draft->id, $reversal->reversal_of_id);
+        $this->assertSame(InventoryDocumentStatus::Confirmed, $reversal->status);
+        $this->assertCount(1, $reversal->items);
         $this->assertSame(10, $scope['source_balance']->fresh()->physical_stock);
         $this->assertSame(InventoryDocumentStatus::Confirmed, $draft->fresh()->status);
         $this->assertSame(1, InventoryMovement::query()->whereNotNull('reversal_of_id')->count());

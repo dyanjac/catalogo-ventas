@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Services\OrganizationContextService;
 use Illuminate\Support\Facades\Schema;
 use Modules\Security\Models\SecurityAuthSetting;
+use Throwable;
 
 class SecurityAuthSettingsService
 {
@@ -22,11 +23,15 @@ class SecurityAuthSettingsService
     {
         $defaults = $this->defaults();
 
-        if (! Schema::hasTable('security_auth_settings')) {
+        try {
+            if (! Schema::hasTable('security_auth_settings')) {
+                return $defaults;
+            }
+
+            $setting = $this->currentSetting();
+        } catch (Throwable) {
             return $defaults;
         }
-
-        $setting = $this->currentSetting();
 
         if (! $setting) {
             return $defaults;

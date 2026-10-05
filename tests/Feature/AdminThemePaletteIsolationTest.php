@@ -13,7 +13,7 @@ class AdminThemePaletteIsolationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_suspended_tenant_cannot_update_or_reset_admin_palette(): void
+    public function test_suspended_tenant_session_is_terminated_before_palette_changes(): void
     {
         $organization = Organization::query()->create([
             'code' => 'SUSP',
@@ -65,8 +65,10 @@ class AdminThemePaletteIsolationTest extends TestCase
 
         $this->actingAs($user)
             ->put(route('admin.theme.update'), $payload)
-            ->assertRedirect(route('admin.theme.edit'))
+            ->assertRedirect(route('admin.login'))
             ->assertSessionHas('error');
+
+        $this->assertGuest();
 
         $this->assertDatabaseHas('admin_theme_settings', [
             'organization_id' => $organization->id,
@@ -75,8 +77,10 @@ class AdminThemePaletteIsolationTest extends TestCase
 
         $this->actingAs($user)
             ->delete(route('admin.theme.reset'))
-            ->assertRedirect(route('admin.theme.edit'))
+            ->assertRedirect(route('admin.login'))
             ->assertSessionHas('error');
+
+        $this->assertGuest();
 
         $this->assertDatabaseHas('admin_theme_settings', [
             'organization_id' => $organization->id,
