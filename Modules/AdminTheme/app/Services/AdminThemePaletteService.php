@@ -40,7 +40,7 @@ class AdminThemePaletteService
         $payload = [];
 
         foreach (array_keys($defaults) as $key) {
-            $payload[$key] = $this->normalizeColor($data[$key] ?? null, $defaults[$key]);
+            $payload[$key] = $this->normalizeColor($data[$key] ?? null, $defaults[$key], $key);
         }
 
         if ($organizationId && $this->supportsOrganizationScope()) {
@@ -108,7 +108,7 @@ class AdminThemePaletteService
 
     private function cacheKey(?int $organizationId): string
     {
-        return 'admin_theme_palette_v1:' . ($organizationId ?: 'default');
+        return 'admin_theme_palette_v2:'.($organizationId ?: 'default');
     }
 
     private function supportsOrganizationScope(): bool
@@ -118,7 +118,7 @@ class AdminThemePaletteService
         return $supportsOrganizationScope ??= Schema::hasColumn('admin_theme_settings', 'organization_id');
     }
 
-    private function normalizeColor(mixed $value, string $fallback): string
+    private function normalizeColor(mixed $value, string $fallback, string $key): string
     {
         if (! is_string($value)) {
             return $fallback;
@@ -126,7 +126,11 @@ class AdminThemePaletteService
 
         $value = strtoupper(trim($value));
 
-        if (! preg_match('/^#[0-9A-F]{6}$/', $value)) {
+        $pattern = in_array($key, ['card_border', 'focus_ring'], true)
+            ? '/^#[0-9A-F]{6}([0-9A-F]{2})?$/'
+            : '/^#[0-9A-F]{6}$/';
+
+        if (! preg_match($pattern, $value)) {
             return $fallback;
         }
 

@@ -5,7 +5,7 @@
 @section('content')
 <div class="py-2">
     <div class="container-fluid">
-        <x-admin.page-header title="Paleta de colores AdminLTE">
+        <x-admin.page-header title="Paleta del panel administrativo">
             <x-slot:actions>
                 <a href="{{ route('admin.dashboard') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
             </x-slot:actions>
@@ -59,27 +59,40 @@
                         @endphp
 
                         @foreach($labels as $key => $label)
+                            @php
+                                $colorValue = old($key, $palette[$key] ?? '#000000');
+                                $allowsAlpha = in_array($key, ['card_border', 'focus_ring'], true);
+                            @endphp
                             <div class="col-md-4">
-                                <label class="form-label">{{ $label }}</label>
+                                <label class="form-label" for="{{ $key }}">{{ $label }}</label>
                                 <div class="d-flex align-items-center gap-2">
                                     <input
                                         type="color"
+                                        id="{{ $key }}_picker"
+                                        aria-label="Seleccionar {{ $label }}"
                                         class="form-control form-control-color p-1"
-                                        value="{{ old($key, $palette[$key] ?? '#000000') }}"
-                                        onchange="document.getElementById('{{ $key }}').value = this.value.toUpperCase()"
+                                        value="{{ substr($colorValue, 0, 7) }}"
+                                        onchange="document.getElementById('{{ $key }}').value = this.value.toUpperCase() + document.getElementById('{{ $key }}').value.slice(7, 9)"
                                         @disabled($isSuspended)
                                     >
                                     <input
                                         type="text"
                                         id="{{ $key }}"
                                         name="{{ $key }}"
+                                        oninput="if (/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(this.value)) document.getElementById('{{ $key }}_picker').value = this.value.slice(0, 7)"
                                         class="form-control"
                                         value="{{ old($key, $palette[$key] ?? '#000000') }}"
-                                        pattern="^#[0-9A-Fa-f]{6}$"
+                                        pattern="{{ $allowsAlpha ? '^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$' : '^#[0-9A-Fa-f]{6}$' }}"
                                         @disabled($isSuspended)
                                         required
                                     >
                                 </div>
+                                @if($allowsAlpha)
+                                    <small class="text-muted">Admite #RRGGBB o #RRGGBBAA (transparencia).</small>
+                                @endif
+                                @error($key)
+                                    <div class="text-danger small">{{ $message }}</div>
+                                @enderror
                             </div>
                         @endforeach
                     </div>

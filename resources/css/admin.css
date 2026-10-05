@@ -16,7 +16,7 @@ body.admin-shell {
     background:
         radial-gradient(circle at top left, color-mix(in srgb, var(--admin-active-link-bg) 14%, transparent) 0, transparent 32%),
         radial-gradient(circle at top right, color-mix(in srgb, var(--admin-primary-button) 18%, transparent) 0, transparent 28%),
-        linear-gradient(180deg, #f7f7f3 0%, #eef2e8 100%);
+        linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
     --color-accent: var(--admin-primary-button);
     --color-accent-content: var(--admin-primary-button);
     --color-accent-foreground: #fff;
@@ -30,7 +30,7 @@ body.auth-shell {
     background:
         radial-gradient(circle at top left, color-mix(in srgb, var(--admin-primary-button) 18%, transparent) 0, transparent 30%),
         radial-gradient(circle at bottom right, color-mix(in srgb, var(--admin-active-link-bg) 20%, transparent) 0, transparent 34%),
-        linear-gradient(180deg, #f8fbff 0%, #eef3ea 100%);
+        linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
 }
 
 .auth-screen {
@@ -248,15 +248,15 @@ body.auth-shell {
 }
 
 .auth-form__submit {
-    background: linear-gradient(135deg, var(--admin-primary-button) 0%, color-mix(in srgb, var(--admin-active-link-bg) 36%, var(--admin-primary-button)) 100%);
-    color: var(--admin-active-link-text, #fff);
+    background: linear-gradient(135deg, var(--admin-primary-button) 0%, var(--admin-primary-button-hover) 100%);
+    color: #fff;
     border-color: transparent;
     box-shadow: 0 18px 34px color-mix(in srgb, var(--admin-primary-button) 28%, transparent);
 }
 
 .auth-form__submit:hover,
 .auth-form__submit:focus-visible {
-    background: linear-gradient(135deg, var(--admin-primary-button-hover) 0%, color-mix(in srgb, var(--admin-active-link-bg) 42%, var(--admin-primary-button-hover)) 100%);
+    background: var(--admin-primary-button-hover);
 }
 
 .auth-divider {
@@ -1179,7 +1179,7 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 
 .btn-close:focus {
     outline: 0;
-    box-shadow: 0 0 0 .2rem var(--admin-focus-ring);
+    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--admin-focus-ring) 28%, transparent);
     opacity: 1;
 }
 

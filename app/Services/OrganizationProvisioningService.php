@@ -18,12 +18,10 @@ use RuntimeException;
 
 class OrganizationProvisioningService
 {
-    public function __construct(private readonly OrganizationEntitlementService $entitlements)
-    {
-    }
+    public function __construct(private readonly OrganizationEntitlementService $entitlements) {}
 
     /**
-     * @param array<string,mixed> $data
+     * @param  array<string,mixed>  $data
      * @return array{organization:Organization,branch:SecurityBranch,admin:User,password:string}
      */
     public function provisionDemoOrganization(array $data): array
@@ -147,7 +145,7 @@ class OrganizationProvisioningService
     }
 
     /**
-     * @param array<string,mixed> $data
+     * @param  array<string,mixed>  $data
      */
     public function updateOrganizationProfile(Organization $organization, array $data): Organization
     {
@@ -471,7 +469,7 @@ class OrganizationProvisioningService
             return;
         }
 
-        AdminThemeSetting::query()->updateOrCreate(
+        AdminThemeSetting::query()->firstOrCreate(
             ['organization_id' => $organizationId],
             array_merge(['organization_id' => $organizationId], $defaults)
         );

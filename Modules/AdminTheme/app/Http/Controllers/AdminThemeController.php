@@ -14,8 +14,7 @@ class AdminThemeController extends Controller
     public function __construct(
         private readonly AdminThemePaletteService $paletteService,
         private readonly OrganizationContextService $organizationContext
-    ) {
-    }
+    ) {}
 
     public function edit(): View
     {
@@ -40,7 +39,10 @@ class AdminThemeController extends Controller
         $rules = [];
 
         foreach ($keys as $key) {
-            $rules[$key] = ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'];
+            $pattern = in_array($key, ['card_border', 'focus_ring'], true)
+                ? '/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/'
+                : '/^#[0-9A-Fa-f]{6}$/';
+            $rules[$key] = ['required', 'regex:'.$pattern];
         }
 
         $data = $request->validate($rules);

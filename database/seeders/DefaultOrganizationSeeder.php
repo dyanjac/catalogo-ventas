@@ -110,7 +110,7 @@ class DefaultOrganizationSeeder extends Seeder
             ]
         );
 
-        AdminThemeSetting::query()->updateOrCreate(
+        AdminThemeSetting::query()->firstOrCreate(
             ['organization_id' => $organization->id],
             array_merge(['organization_id' => $organization->id], config('admintheme.defaults', []))
         );
