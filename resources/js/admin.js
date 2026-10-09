@@ -6,16 +6,11 @@ const applySidebarState = (collapsed) => {
     document.documentElement.dataset.adminSidebarCollapsed = collapsed ? 'true' : 'false';
 
     document.querySelectorAll('[data-admin-sidebar-toggle]').forEach((button) => {
-        const label = button.querySelector('[data-admin-sidebar-toggle-label]');
-        const text = collapsed ? 'Mostrar menú' : 'Ocultar menú';
+        const accessibilityLabel = collapsed ? 'Mostrar menú lateral' : 'Ocultar menú lateral';
 
         button.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
-        button.setAttribute('aria-label', text + ' lateral');
-        button.setAttribute('title', text + ' lateral');
-
-        if (label) {
-            label.textContent = text;
-        }
+        button.setAttribute('aria-label', accessibilityLabel);
+        button.setAttribute('title', 'Menú lateral');
     });
 };
 

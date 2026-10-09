@@ -78,6 +78,25 @@ class AdminNavigationMarkupTest extends TestCase
         $this->assertStringContainsString('admin-topbar__build', $contents);
     }
 
+    public function test_desktop_sidebar_toggle_is_icon_only(): void
+    {
+        $contents = (string) file_get_contents(self::repositoryPath('resources/views/admin/partials/header.blade.php'));
+
+        $this->assertStringContainsString('data-admin-sidebar-toggle', $contents);
+        $this->assertStringContainsString('admin-topbar__collapse-icon', $contents);
+        $this->assertStringNotContainsString('data-admin-sidebar-toggle-label', $contents);
+    }
+
+    public function test_sidebar_navigation_owns_a_subtle_scrollbar(): void
+    {
+        $contents = (string) file_get_contents(self::repositoryPath('resources/css/admin.css'));
+
+        $this->assertStringContainsString('[data-flux-sidebar-nav]', $contents);
+        $this->assertStringContainsString('overflow-y: auto', $contents);
+        $this->assertStringContainsString('scrollbar-width: thin', $contents);
+        $this->assertStringContainsString('::-webkit-scrollbar', $contents);
+    }
+
     public function test_build_version_persists_across_livewire_navigation(): void
     {
         $contents = (string) file_get_contents(self::repositoryPath('resources/views/layouts/admin.blade.php'));
