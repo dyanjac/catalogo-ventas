@@ -509,7 +509,51 @@ body.auth-shell {
     border-inline-end: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 24px 0 60px rgba(15, 23, 42, 0.12);
     color: var(--admin-sidebar-text);
+    overflow: hidden !important;
+    overscroll-behavior: contain;
     transition: transform 0.24s ease, opacity 0.24s ease, margin 0.24s ease, visibility 0.24s ease;
+}
+
+.admin-sidebar [data-flux-sidebar-header],
+.admin-sidebar__profile,
+.admin-sidebar__footer {
+    flex: 0 0 auto;
+}
+
+.admin-sidebar [data-flux-sidebar-nav] {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.1rem 0.3rem 0.1rem 0;
+    scrollbar-color: transparent transparent;
+    scrollbar-width: thin;
+}
+
+.admin-sidebar [data-flux-sidebar-nav]:hover,
+.admin-sidebar [data-flux-sidebar-nav]:focus-within {
+    scrollbar-color: rgba(226, 232, 240, 0.38) transparent;
+}
+
+.admin-sidebar [data-flux-sidebar-nav]::-webkit-scrollbar {
+    width: 0.38rem;
+}
+
+.admin-sidebar [data-flux-sidebar-nav]::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.admin-sidebar [data-flux-sidebar-nav]::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    background-clip: padding-box;
+}
+
+.admin-sidebar [data-flux-sidebar-nav]:hover::-webkit-scrollbar-thumb,
+.admin-sidebar [data-flux-sidebar-nav]:focus-within::-webkit-scrollbar-thumb {
+    background-color: rgba(226, 232, 240, 0.38);
 }
 
 .admin-brand {
@@ -706,14 +750,14 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 .admin-topbar__collapse {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
     border: 1px solid rgba(148, 163, 184, 0.32);
     background: rgba(255, 255, 255, 0.82);
     color: var(--admin-topbar-text);
-    border-radius: 999px;
-    padding: 0.7rem 1rem;
-    font-size: 0.86rem;
-    font-weight: 700;
+    border-radius: 0.9rem;
+    padding: 0;
     line-height: 1;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
     transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
