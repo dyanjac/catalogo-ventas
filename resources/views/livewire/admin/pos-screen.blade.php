@@ -77,8 +77,7 @@
                     <div class="alert alert-danger mb-0">{{ $message }}</div>
                 @enderror
 
-                @if ($currentStep === 0)
-                    <div class="row g-4 pos-workspace">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-products" @if ($currentStep !== 0) hidden @endif>
                         <div class="col-lg-8 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
@@ -196,8 +195,7 @@
                             </div>
                         </div>
                     </div>
-                @elseif ($currentStep === 1)
-                    <div class="row g-4 pos-workspace">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-customer" @if ($currentStep !== 1) hidden @endif>
                         <div class="col-lg-8 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
@@ -267,8 +265,7 @@
                             </div>
                         </div>
                     </div>
-                @else
-                    <div class="row g-4 pos-workspace">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-payment" @if ($currentStep !== 2) hidden @endif>
                         <div class="col-lg-7 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
@@ -377,8 +374,6 @@
                             </div>
                         </div>
                     </div>
-                @endif
-
                 <div class="wizard-nav">
                     <button type="button" class="btn btn-outline-secondary" wire:click="goPrev" @disabled($currentStep === 0)>
                         Anterior

@@ -116,6 +116,10 @@
     margin: 0;
 }
 
+.pos-screen .pos-workspace[hidden] {
+    display: none;
+}
+
 .pos-screen .pos-workspace > [class*="col-"] {
     flex: none;
     width: auto;
