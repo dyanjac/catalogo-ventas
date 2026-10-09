@@ -22,6 +22,7 @@
                 <span class="admin-brand__subtitle">{{ $commerce['tagline'] ?: ($commerce['support_email'] ?: 'Operaciones comerciales') }}</span>
             </span>
         </a>
+        <flux:sidebar.toggle class="admin-sidebar__close" icon="x-mark" aria-label="Cerrar menú lateral" />
     </flux:sidebar.header>
 
     <div class="admin-sidebar__profile">
@@ -166,7 +167,7 @@
                 Volver a tienda
             </flux:button>
         @endif
-        <div class="admin-sidebar__version" data-build-version>
+        <div class="admin-sidebar__version" data-build-version aria-label="Versión de la aplicación">
             Versión {{ config('app.version') }}
         </div>
     </div>
