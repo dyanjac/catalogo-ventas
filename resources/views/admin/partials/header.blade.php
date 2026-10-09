@@ -38,6 +38,9 @@
                 <div class="admin-topbar__title">
                     <div class="admin-topbar__eyebrow">
                         <span class="admin-topbar__eyebrow-badge">{{ $commerce['brand_name'] }}</span>
+                        <span class="admin-topbar__eyebrow-badge admin-topbar__build" data-build-version title="Versión de la aplicación">
+                            Build {{ config('app.version') }}
+                        </span>
                         @if($isDemo)
                             <span class="admin-topbar__eyebrow-badge admin-topbar__eyebrow-badge--demo">
                                 Entorno {{ $environment }}
@@ -59,10 +62,6 @@
         </div>
 
         <div class="admin-topbar__actions">
-            <span class="admin-topbar__build" data-build-version title="Versión de la aplicación">
-                v{{ config('app.version') }}
-            </span>
-
             @if($commerce['support_phone_digits'])
                 <flux:button
                     href="tel:{{ $commerce['support_phone_digits'] }}"

@@ -819,7 +819,8 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 }
 
 .admin-topbar__build {
-    color: color-mix(in srgb, var(--admin-topbar-text) 62%, transparent);
+    background: #e2e8f0;
+    color: #334155;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
