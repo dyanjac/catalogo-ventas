@@ -4,7 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\OrganizationContextService;
+use App\Services\SharedNavigationCache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Modules\Commerce\Entities\SaasCapability;
 use Modules\Commerce\Entities\SaasPlan;
 use Modules\Commerce\Services\OrganizationEntitlementService;
@@ -118,6 +122,53 @@ class OrganizationEntitlementServiceTest extends TestCase
         $this->actingAs($user)
             ->get(route('checkout.show'))
             ->assertForbidden();
+    }
+
+    public function test_shared_capabilities_are_reused_and_invalidated_across_service_instances(): void
+    {
+        config([
+            'cache.navigation.enabled' => true,
+            'cache.navigation.store' => 'array',
+            'cache.navigation.ttl_seconds' => 300,
+            'commerce.entitlements.schema_checks_enabled' => false,
+        ]);
+        Cache::store('array')->flush();
+
+        $organization = $this->createOrganization('SHAREDENT');
+        $firstService = $this->newEntitlementService();
+        $firstService->assignDefaultPlan($organization);
+        $this->assertTrue($firstService->hasCapability('sales.orders', $organization));
+
+        $queries = 0;
+        $listening = false;
+        DB::listen(function () use (&$queries, &$listening): void {
+            if ($listening) {
+                $queries++;
+            }
+        });
+
+        $listening = true;
+        $this->assertTrue($this->newEntitlementService()->hasCapability('sales.orders', $organization));
+        $listening = false;
+
+        $this->assertSame(0, $queries);
+
+        $firstService->setOverride(
+            $organization,
+            SaasCapability::query()->where('code', 'sales.orders')->firstOrFail(),
+            'disabled',
+            'Prueba de invalidación compartida.'
+        );
+
+        $this->assertFalse($this->newEntitlementService()->hasCapability('sales.orders', $organization));
+    }
+
+    private function newEntitlementService(): OrganizationEntitlementService
+    {
+        return new OrganizationEntitlementService(
+            app(OrganizationContextService::class),
+            app(SharedNavigationCache::class)
+        );
     }
 
     private function createOrganization(string $code): Organization

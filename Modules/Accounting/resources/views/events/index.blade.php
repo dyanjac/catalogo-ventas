@@ -18,7 +18,7 @@
         <tbody>@forelse($events as $event)<tr>
             <td>{{ $event->id }}</td><td>{{ $event->occurred_at?->format('d/m/Y H:i') }}</td><td>{{ $event->event_type->label() }}</td><td>{{ $event->source_code ?: $event->source_id }}</td>
             <td><span class="badge text-bg-{{ $event->status->value === 'processed' ? 'success' : ($event->status->value === 'error' ? 'danger' : 'secondary') }}">{{ $event->status->label() }}</span></td>
-            <td>{{ $event->attempts }}</td><td>{{ $event->entry?->reference ?? '—' }}</td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.accounting.events.show', $event) }}">Detalle</a></td>
+            <td>{{ $event->attempts }}</td><td>{{ $event->entry?->reference ?? '—' }}</td><td><a wire:navigate class="btn btn-sm btn-outline-primary" href="{{ route('admin.accounting.events.show', $event) }}">Detalle</a></td>
         </tr>@empty<tr><td colspan="8" class="text-center py-4">No hay eventos económicos.</td></tr>@endforelse</tbody>
     </table></div><div class="card-footer">{{ $events->links() }}</div></div>
 </div>

@@ -10,8 +10,8 @@
 <div class="billing-operation-types-page py-2">
     <x-admin.page-header title="Catálogo SUNAT 51 - Tipo de operación">
         <x-slot:actions>
-            <a href="{{ route('admin.billing.settings.edit') }}" class="btn btn-light border rounded-pill px-4">Volver a configuración</a>
-            <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
+            <a wire:navigate href="{{ route('admin.billing.settings.edit') }}" class="btn btn-light border rounded-pill px-4">Volver a configuración</a>
+            <a wire:navigate href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
         </x-slot:actions>
     </x-admin.page-header>
 

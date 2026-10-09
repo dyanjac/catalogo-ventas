@@ -14,7 +14,7 @@ Aplicación ERP SaaS para organizaciones con catálogo, ventas/POS, pedidos e-co
 ## Stack confirmado
 
 - PHP 8.2+ requerido; CLI disponible: PHP 8.4.0.
-- Laravel 12, Livewire 4, Vite y Bootstrap/AdminLTE.
+- Laravel 12, Livewire 4, Vite, Bootstrap y Flux.
 - Base de datos relacional; motor de la instancia real: **NO CONFIRMADO**.
 - `nwidart/laravel-modules` 12 para modularidad.
 - Facturación electrónica: `greenter/greenter` y proveedores intercambiables.

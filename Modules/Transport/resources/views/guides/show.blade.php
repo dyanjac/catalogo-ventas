@@ -8,7 +8,7 @@
 <div class="py-2">
     <x-admin.page-header title="GRE {{ $guide->formattedNumber() }}">
         <x-slot:actions>
-            <a href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Volver</a>
+            <a wire:navigate href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Volver</a>
             @if(in_array($guide->status->value, ['ready','error']) && $transportAuthorization->hasPermission(auth()->user(), 'transport.guides.submit'))
                 <form method="POST" action="{{ route('admin.transport.guides.submit', $guide) }}" class="d-inline">@csrf<button class="btn btn-primary">Enviar</button></form>
             @endif

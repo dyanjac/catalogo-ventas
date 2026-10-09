@@ -7,7 +7,7 @@
     <div class="container-fluid">
         <x-admin.page-header title="Paleta del panel administrativo">
             <x-slot:actions>
-                <a href="{{ route('admin.dashboard') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                <a wire:navigate href="{{ route('admin.dashboard') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
             </x-slot:actions>
         </x-admin.page-header>
 
@@ -99,7 +99,7 @@
 
                     <div class="mt-4 d-flex gap-2 flex-wrap">
                         <button class="btn btn-primary rounded-pill px-4" @disabled($isSuspended)>Guardar paleta</button>
-                        <a href="{{ route('admin.theme.edit') }}" class="btn btn-light border rounded-pill px-4">Recargar</a>
+                        <a wire:navigate href="{{ route('admin.theme.edit') }}" class="btn btn-light border rounded-pill px-4">Recargar</a>
                     </div>
                 </form>
 

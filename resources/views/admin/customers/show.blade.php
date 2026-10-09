@@ -11,8 +11,8 @@
         >
             <x-slot:actions>
                 <x-admin.action-bar>
-                    <a href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" class="btn btn-outline-primary rounded-pill px-4">Gestion RBAC</a>
-                    <a href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                    <a wire:navigate href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" class="btn btn-outline-primary rounded-pill px-4">Gestion RBAC</a>
+                    <a wire:navigate href="{{ route('admin.customers.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
                 </x-admin.action-bar>
             </x-slot:actions>
         </x-admin.page-header>
@@ -87,7 +87,7 @@
                 <x-admin.info-card title="Pedidos recientes" class="h-100">
                     <div class="list-group list-group-flush">
                         @forelse($customer->orders as $order)
-                            <a href="{{ route('admin.orders.show', $order) }}" class="list-group-item list-group-item-action px-0">
+                            <a wire:navigate href="{{ route('admin.orders.show', $order) }}" class="list-group-item list-group-item-action px-0">
                                 <x-admin.detail-grid
                                     :items="[
                                         ['label' => 'Pedido', 'value' => $order->series . '-' . str_pad((string) $order->order_number, 8, '0', STR_PAD_LEFT), 'class' => 'col-8'],

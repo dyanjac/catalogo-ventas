@@ -106,6 +106,8 @@ class UserRoleAssignmentsScreen extends Component
             'branch_id' => $branch?->id,
         ])->save();
 
+        $authorization->forgetUser($user);
+
         $audit->log(
             eventType: 'authorization',
             eventCode: 'security.user.roles.updated',

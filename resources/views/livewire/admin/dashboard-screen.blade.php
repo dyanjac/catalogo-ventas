@@ -41,10 +41,10 @@
         description="Resumen operativo del comercio, ventas recientes y alertas del catálogo."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.orders.index') }}" variant="primary" icon="receipt-percent">
+            <flux:button wire:navigate href="{{ route('admin.orders.index') }}" variant="primary" icon="receipt-percent">
                 Revisar pedidos
             </flux:button>
-            <flux:button href="{{ route('admin.customers.index') }}" variant="outline" icon="users">
+            <flux:button wire:navigate href="{{ route('admin.customers.index') }}" variant="outline" icon="users">
                 Ver clientes
             </flux:button>
         </x-slot:actions>
@@ -78,7 +78,7 @@
                             <h3 class="dashboard-panel__title">Pedidos recientes</h3>
                             <p class="dashboard-panel__meta">Monitorea las últimas operaciones registradas en el panel.</p>
                         </div>
-                        <flux:button href="{{ route('admin.orders.index') }}" variant="outline" size="sm" icon="arrow-up-right">
+                        <flux:button wire:navigate href="{{ route('admin.orders.index') }}" variant="outline" size="sm" icon="arrow-up-right">
                             Ver todos
                         </flux:button>
                     </div>
@@ -107,7 +107,7 @@
                                         <td><span class="badge badge-secondary">{{ strtoupper($order->payment_status) }}</span></td>
                                         <td>{{ $order->currency }} {{ number_format((float) $order->total, 2) }}</td>
                                         <td class="text-end">
-                                            <flux:button href="{{ route('admin.orders.show', $order) }}" variant="primary" size="sm">
+                                            <flux:button wire:navigate href="{{ route('admin.orders.show', $order) }}" variant="primary" size="sm">
                                                 Abrir
                                             </flux:button>
                                         </td>
@@ -153,14 +153,14 @@
                                 <h3 class="dashboard-panel__title">Stock bajo</h3>
                                 <p class="dashboard-panel__meta">Prioriza reposicion y control comercial.</p>
                             </div>
-                            <flux:button href="{{ route('admin.products.index') }}" variant="outline" size="sm" icon="cube">
+                            <flux:button wire:navigate href="{{ route('admin.products.index') }}" variant="outline" size="sm" icon="cube">
                                 Catalogo
                             </flux:button>
                         </div>
 
                         <div class="dashboard-stock-list">
                             @forelse ($lowStockProducts as $stock)
-                                <a href="{{ route('admin.products.edit', $stock->product) }}" class="dashboard-stock-item">
+                                <a wire:navigate href="{{ route('admin.products.edit', $stock->product) }}" class="dashboard-stock-item">
                                     <div>
                                         <div class="fw-semibold text-slate-900">{{ $stock->product?->name ?? 'Producto sin referencia' }}</div>
                                         <div class="text-sm text-slate-500">

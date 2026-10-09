@@ -11,7 +11,7 @@
         description="Define el acceso por modulo, navegacion y permisos operativos de cada rol del sistema."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.security.users.index') }}" variant="outline" icon="users">
+            <flux:button wire:navigate href="{{ route('admin.security.users.index') }}" variant="outline" icon="users">
                 Accesos de usuarios
             </flux:button>
         </x-slot:actions>

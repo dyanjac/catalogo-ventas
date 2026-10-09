@@ -31,11 +31,13 @@
   - Admin products/categories/unit measures/customers/orders
   - Protected with `auth` + `EnsureSuperAdmin`
 
-## Admin UI Stack (Frozen)
-- AdminLTE `3.2.x`
+## Admin UI Stack
 - Bootstrap `4.6.x`
 - jQuery `3.7.x`
 - FontAwesome
+
+AdminLTE fue retirado porque no tenía importaciones ni recursos activos. El
+panel se compone con `resources/css/admin.css`, Flux y componentes propios.
 
 Rule: do not introduce Bootstrap 5 admin classes.  
 If needed, add compatibility only in `resources/css/admin.css`.

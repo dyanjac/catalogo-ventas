@@ -8,7 +8,7 @@
         description="Registra pedido POS, boleta o factura con un flujo guiado."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.billing.documents.index') }}" variant="outline" icon="document-text">
+            <flux:button wire:navigate href="{{ route('admin.billing.documents.index') }}" variant="outline" icon="document-text">
                 Ver docs electronicos
             </flux:button>
         </x-slot:actions>

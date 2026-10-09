@@ -8,7 +8,7 @@
         <x-slot:actions>
             <div class="flex flex-wrap gap-2">
                 @if($canViewInventoryWarehouses)
-                    <flux:button href="{{ route('admin.inventory.warehouses.index') }}" variant="outline" icon="building-office-2">
+                    <flux:button wire:navigate href="{{ route('admin.inventory.warehouses.index') }}" variant="outline" icon="building-office-2">
                         Almacenes
                     </flux:button>
                 @endif

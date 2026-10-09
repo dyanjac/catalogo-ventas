@@ -14,10 +14,10 @@
         description="Asigna roles operativos y una sucursal base a cada cuenta. El alcance branch se resuelve usando branch_id real."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.security.roles.index') }}" variant="outline" icon="shield-check">
+            <flux:button wire:navigate href="{{ route('admin.security.roles.index') }}" variant="outline" icon="shield-check">
                 Roles y permisos
             </flux:button>
-            <flux:button href="{{ route('admin.security.branches.index') }}" variant="outline" icon="building-storefront">
+            <flux:button wire:navigate href="{{ route('admin.security.branches.index') }}" variant="outline" icon="building-storefront">
                 Sucursales
             </flux:button>
         </x-slot:actions>

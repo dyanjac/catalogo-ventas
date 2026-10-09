@@ -18,10 +18,10 @@
         description="Monitorea comprobantes emitidos, filtra por proveedor y entra al detalle operativo de cada envio."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.billing.settings.edit') }}" variant="outline" icon="cog-6-tooth">
+            <flux:button wire:navigate href="{{ route('admin.billing.settings.edit') }}" variant="outline" icon="cog-6-tooth">
                 Configuracion
             </flux:button>
-            <flux:button href="{{ route('admin.electronic-documents.templates.index') }}" variant="outline" icon="document-text">
+            <flux:button wire:navigate href="{{ route('admin.electronic-documents.templates.index') }}" variant="outline" icon="document-text">
                 Plantillas PDF
             </flux:button>
         </x-slot:actions>
@@ -155,10 +155,10 @@
                                 <span wire:loading.remove wire:target="redeclareSelected">Re-declarar</span>
                                 <span wire:loading wire:target="redeclareSelected">Procesando...</span>
                             </flux:button>
-                            <flux:button href="{{ route('admin.billing.documents.show', $selectedDocument) }}" variant="outline" icon="eye">
+                            <flux:button wire:navigate href="{{ route('admin.billing.documents.show', $selectedDocument) }}" variant="outline" icon="eye">
                                 Detalle
                             </flux:button>
-                            <flux:button href="{{ route('admin.billing.documents.history', $selectedDocument) }}" variant="outline" icon="clock">
+                            <flux:button wire:navigate href="{{ route('admin.billing.documents.history', $selectedDocument) }}" variant="outline" icon="clock">
                                 Historial
                             </flux:button>
                             <flux:button href="{{ $selectedHasXml ? route('admin.billing.documents.download.xml', $selectedDocument) : '#' }}" variant="outline" icon="code-bracket-square" :disabled="! $selectedHasXml">

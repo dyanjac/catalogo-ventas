@@ -5,6 +5,7 @@ namespace Modules\Security\Providers;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use LdapRecord\Models\OpenLDAP\User as LdapOpenLdapUser;
+use Modules\Security\Services\SecurityAuthorizationService;
 use Modules\Security\Services\SecurityAuthSettingsService;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
@@ -32,16 +33,13 @@ class SecurityServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SecurityAuthSettingsService::class);
+        $this->app->scoped(SecurityAuthorizationService::class);
         $this->app->register(RouteServiceProvider::class);
     }
 
-    protected function registerCommands(): void
-    {
-    }
+    protected function registerCommands(): void {}
 
-    protected function registerCommandSchedules(): void
-    {
-    }
+    protected function registerCommandSchedules(): void {}
 
     public function registerTranslations(): void
     {

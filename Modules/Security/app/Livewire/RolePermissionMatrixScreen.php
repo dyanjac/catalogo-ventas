@@ -151,6 +151,7 @@ class RolePermissionMatrixScreen extends Component
 
         $role->permissions()->sync(collect($validated['selectedPermissionIds'] ?? [])->map(fn ($id) => (int) $id)->all());
         $role->modules()->sync($moduleSync);
+        $authorization->forgetAll();
 
         $audit->log(
             eventType: 'authorization',

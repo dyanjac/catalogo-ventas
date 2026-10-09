@@ -7,7 +7,7 @@
     <div class="container-fluid">
         <x-admin.page-header :title="'Preview: ' . $template->name">
             <x-slot:actions>
-                <a href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                <a wire:navigate href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
             </x-slot:actions>
         </x-admin.page-header>
 
@@ -21,4 +21,3 @@
     </div>
 </div>
 @endsection
-

@@ -6,7 +6,7 @@
 <div class="py-2">
     <div class="container-fluid">
         <x-admin.page-header title="Nueva Organización Demo" description="Alta rápida de un tenant nuevo. La organización nace en DEMO y queda lista para operar con configuración mínima.">
-            <a href="{{ route('admin.organizations.index') }}" class="btn btn-light border rounded-pill px-4">
+            <a wire:navigate href="{{ route('admin.organizations.index') }}" class="btn btn-light border rounded-pill px-4">
                 Volver al listado
             </a>
         </x-admin.page-header>

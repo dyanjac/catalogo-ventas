@@ -6,7 +6,7 @@
 <div class="py-2">
     <div class="container-fluid">
         <x-admin.page-header :title="$organization->name" description="Detalle de la organización provisionada.">
-            <a href="{{ route('admin.organizations.index') }}" class="btn btn-light border rounded-pill px-4">
+            <a wire:navigate href="{{ route('admin.organizations.index') }}" class="btn btn-light border rounded-pill px-4">
                 Volver al listado
             </a>
         </x-admin.page-header>

@@ -3,6 +3,7 @@
 return [
     'name' => 'Commerce',
     'entitlements' => [
+        'schema_checks_enabled' => env('ENTITLEMENTS_SCHEMA_CHECKS_ENABLED', true),
         'module_capabilities' => [
             'sales' => 'sales.orders',
             'pos' => 'sales.pos',

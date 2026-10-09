@@ -38,9 +38,15 @@ class AdminAccessTest extends TestCase
     {
         $superAdmin = $this->userWithRole('super_admin');
 
-        $response = $this->actingAs($superAdmin)->get(route('admin.dashboard'));
+        $response = $this
+            ->withHeader('X-Livewire-Navigate', '1')
+            ->actingAs($superAdmin)
+            ->get(route('admin.dashboard'));
 
-        $response->assertOk();
+        $response
+            ->assertOk()
+            ->assertSee('wire:navigate', false)
+            ->assertDontSee('wire:navigate.hover', false);
     }
 
     public function test_customer_cannot_access_admin_orders_index(): void

@@ -14,8 +14,8 @@
 <div class="billing-settings-page py-2">
     <x-admin.page-header title="Facturación electrónica Perú">
         <x-slot:actions>
-            <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
-            <a href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Plantillas PDF</a>
+            <a wire:navigate href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Ver documentos</a>
+            <a wire:navigate href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Plantillas PDF</a>
         </x-slot:actions>
     </x-admin.page-header>
 
@@ -350,41 +350,4 @@
         }
     }
 </style>
-@endpush
-
-@push('scripts')
-<script>
-    (function () {
-        var providerSelect = document.getElementById('provider');
-        var modeSelect = document.getElementById('dispatch_mode');
-        var providerPanels = document.querySelectorAll('[data-provider-panel]');
-
-        if (!modeSelect || !providerSelect) {
-            return;
-        }
-
-        var queueFields = document.querySelectorAll('.queue-field input');
-
-        function applyProviderState() {
-            var selectedProvider = providerSelect.value;
-
-            providerPanels.forEach(function (panel) {
-                panel.classList.toggle('is-active', panel.getAttribute('data-provider-panel') === selectedProvider);
-            });
-        }
-
-        function applyQueueState() {
-            var isQueue = modeSelect.value === 'queue';
-            queueFields.forEach(function (input) {
-                input.disabled = !isQueue;
-                input.closest('.queue-field').classList.toggle('opacity-50', !isQueue);
-            });
-        }
-
-        providerSelect.addEventListener('change', applyProviderState);
-        modeSelect.addEventListener('change', applyQueueState);
-        applyProviderState();
-        applyQueueState();
-    })();
-</script>
 @endpush

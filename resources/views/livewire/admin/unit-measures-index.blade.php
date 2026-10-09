@@ -4,7 +4,7 @@
         description="Mantén consistencia operativa para inventario, ventas y facturación."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.unit-measures.create') }}" variant="primary" icon="plus">
+            <flux:button wire:navigate href="{{ route('admin.unit-measures.create') }}" variant="primary" icon="plus">
                 Nueva unidad
             </flux:button>
         </x-slot:actions>
@@ -28,7 +28,7 @@
                                 <td>{{ $unitMeasure->products_count }}</td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-2">
-                                        <flux:button href="{{ route('admin.unit-measures.edit', $unitMeasure) }}" variant="primary" size="sm">
+                                        <flux:button wire:navigate href="{{ route('admin.unit-measures.edit', $unitMeasure) }}" variant="primary" size="sm">
                                             Editar
                                         </flux:button>
                                         <form method="POST" action="{{ route('admin.unit-measures.destroy', $unitMeasure) }}" onsubmit="return confirm('¿Eliminar esta unidad?')">

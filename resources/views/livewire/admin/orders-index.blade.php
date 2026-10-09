@@ -4,7 +4,7 @@
         description="Consulta operaciones, filtra por estado y entra al detalle comercial de cada orden."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.dashboard') }}" variant="outline" icon="home">
+            <flux:button wire:navigate href="{{ route('admin.dashboard') }}" variant="outline" icon="home">
                 Dashboard
             </flux:button>
         </x-slot:actions>
@@ -84,7 +84,7 @@
                                         <flux:button href="{{ route('admin.orders.download.pdf', $order) }}" variant="outline" size="sm" icon="document-duplicate">
                                             PDF
                                         </flux:button>
-                                        <flux:button href="{{ route('admin.orders.show', $order) }}" variant="primary" size="sm">
+                                        <flux:button wire:navigate href="{{ route('admin.orders.show', $order) }}" variant="primary" size="sm">
                                             Gestionar
                                         </flux:button>
                                     </div>

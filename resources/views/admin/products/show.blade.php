@@ -8,8 +8,8 @@
         <x-admin.page-header :title="$product->name">
             <x-slot:actions>
                 <x-admin.action-bar>
-                    <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-primary rounded-pill px-4">Editar</a>
-                    <a href="{{ route('admin.products.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                    <a wire:navigate href="{{ route('admin.products.edit', $product) }}" class="btn btn-primary rounded-pill px-4">Editar</a>
+                    <a wire:navigate href="{{ route('admin.products.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
                 </x-admin.action-bar>
             </x-slot:actions>
         </x-admin.page-header>
