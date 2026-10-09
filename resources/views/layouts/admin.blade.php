@@ -64,6 +64,12 @@
         </div>
     </div>
 
+    @persist('application-build-version')
+        <div class="admin-build-stamp" data-build-version aria-label="Versión de la aplicación">
+            Build {{ config('app.version') }}
+        </div>
+    @endpersist
+
     @fluxScripts
     @livewireScripts
     @stack('scripts')

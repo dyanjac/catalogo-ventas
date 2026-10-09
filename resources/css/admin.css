@@ -604,6 +604,24 @@ body.auth-shell {
     text-align: center;
 }
 
+.admin-build-stamp {
+    position: fixed;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    z-index: 60;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.2);
+    color: #f8fafc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+    pointer-events: none;
+}
+
 .admin-sidebar [data-flux-sidebar-item][data-current],
 .admin-sidebar [data-flux-menu-item][data-current] {
     background: color-mix(in srgb, var(--admin-active-link-bg) 86%, white 14%) !important;

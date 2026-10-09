@@ -78,6 +78,15 @@ class AdminNavigationMarkupTest extends TestCase
         $this->assertStringContainsString('admin-topbar__build', $contents);
     }
 
+    public function test_build_version_persists_across_livewire_navigation(): void
+    {
+        $contents = (string) file_get_contents(self::repositoryPath('resources/views/layouts/admin.blade.php'));
+
+        $this->assertStringContainsString("@persist('application-build-version')", $contents);
+        $this->assertStringContainsString("config('app.version')", $contents);
+        $this->assertStringContainsString('admin-build-stamp', $contents);
+    }
+
     /** @return array<string,array{string}> */
     public static function adminBladeFiles(): array
     {
