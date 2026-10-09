@@ -69,6 +69,15 @@ class AdminNavigationMarkupTest extends TestCase
         $this->assertStringContainsString('data-build-version', $contents);
     }
 
+    public function test_build_version_is_visible_in_the_fixed_admin_header(): void
+    {
+        $contents = (string) file_get_contents(self::repositoryPath('resources/views/admin/partials/header.blade.php'));
+
+        $this->assertStringContainsString("config('app.version')", $contents);
+        $this->assertStringContainsString('data-build-version', $contents);
+        $this->assertStringContainsString('admin-topbar__build', $contents);
+    }
+
     /** @return array<string,array{string}> */
     public static function adminBladeFiles(): array
     {

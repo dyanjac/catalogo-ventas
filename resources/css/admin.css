@@ -818,6 +818,15 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
     justify-content: flex-end;
 }
 
+.admin-topbar__build {
+    color: color-mix(in srgb, var(--admin-topbar-text) 62%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
 .admin-user-menu [data-flux-profile] {
     padding: 0.35rem 0.45rem;
     border-radius: 999px;

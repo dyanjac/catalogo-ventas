@@ -59,6 +59,10 @@
         </div>
 
         <div class="admin-topbar__actions">
+            <span class="admin-topbar__build" data-build-version title="Versión de la aplicación">
+                v{{ config('app.version') }}
+            </span>
+
             @if($commerce['support_phone_digits'])
                 <flux:button
                     href="tel:{{ $commerce['support_phone_digits'] }}"
