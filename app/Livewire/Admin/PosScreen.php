@@ -24,11 +24,11 @@ class PosScreen extends Component
 
     public string $idempotencyKey = '';
 
-    public float $taxRate = 0.18;
+    public string $taxRate = '0.18';
 
-    public float $discount = 0.0;
+    public string $discount = '0';
 
-    public float $shipping = 0.0;
+    public string $shipping = '0';
 
     public string $observations = '';
 
@@ -50,7 +50,7 @@ class PosScreen extends Component
     public array $items = [];
 
     /**
-     * @var array<int, array{id:int,name:string,sku:string,stock:int,price:float,label:string}>
+     * @var array<int, array{id:int,name:string,sku:string,stock:int,price:float,label:string,tracks_inventory:bool}>
      */
     public array $productIndex = [];
 
@@ -84,6 +84,7 @@ class PosScreen extends Component
                     'sku' => (string) ($product->sku ?: 'SIN-SKU'),
                     'stock' => $stock,
                     'price' => round($price, 2),
+                    'tracks_inventory' => $product->tracksInventory(),
                     'label' => (string) ($product->name.' ('.($product->sku ?: 'SIN-SKU').')'),
                 ];
             })
@@ -96,9 +97,9 @@ class PosScreen extends Component
         $this->paymentMethod = old('payment_method', 'cash');
         $this->paymentStatus = old('payment_status', 'pending');
         $this->idempotencyKey = (string) old('idempotency_key', Str::uuid());
-        $this->taxRate = (float) old('tax_rate', config('sales.default_tax_rate', 0.18));
-        $this->discount = (float) old('discount', 0);
-        $this->shipping = (float) old('shipping', 0);
+        $this->taxRate = trim((string) old('tax_rate', config('sales.default_tax_rate', 0.18)));
+        $this->discount = trim((string) old('discount', 0));
+        $this->shipping = trim((string) old('shipping', 0));
         $this->observations = (string) old('observations', '');
         $this->customer = [
             'name' => (string) old('customer.name', ''),
@@ -110,15 +111,15 @@ class PosScreen extends Component
         ];
 
         $oldItems = old('items', [
-            ['product_id' => '', 'quantity' => 1, 'unit_price' => 0],
+            ['product_id' => '', 'quantity' => '1', 'unit_price' => ''],
         ]);
 
         $this->items = collect($oldItems)
             ->map(function (array $item): array {
                 return [
                     'product_id' => (string) ($item['product_id'] ?? ''),
-                    'quantity' => (float) ($item['quantity'] ?? 1),
-                    'unit_price' => round((float) ($item['unit_price'] ?? 0), 2),
+                    'quantity' => trim((string) ($item['quantity'] ?? '1')),
+                    'unit_price' => trim((string) ($item['unit_price'] ?? '')),
                 ];
             })
             ->values()
@@ -129,7 +130,6 @@ class PosScreen extends Component
         }
 
         $this->syncDocumentRules();
-        $this->normalizeItems();
     }
 
     public function setDocumentType(string $type): void
@@ -142,8 +142,8 @@ class PosScreen extends Component
     {
         $this->items[] = [
             'product_id' => '',
-            'quantity' => 1,
-            'unit_price' => 0,
+            'quantity' => '1',
+            'unit_price' => '',
         ];
     }
 
@@ -167,11 +167,17 @@ class PosScreen extends Component
         }
 
         $this->resetErrorBag('productSearch');
-        $this->items[] = [
+        $newItem = [
             'product_id' => (string) $product['id'],
-            'quantity' => 1,
-            'unit_price' => $product['price'],
+            'quantity' => '1',
+            'unit_price' => number_format($product['price'], 2, '.', ''),
         ];
+        $emptyIndex = collect($this->items)->search(fn (array $item): bool => (string) ($item['product_id'] ?? '') === '');
+        if ($emptyIndex === false) {
+            $this->items[] = $newItem;
+        } else {
+            $this->items[$emptyIndex] = $newItem;
+        }
         $this->productSearch = '';
     }
 
@@ -214,6 +220,10 @@ class PosScreen extends Component
     {
         $step = max(0, min(2, $step));
 
+        if ($step > $this->currentStep + 1) {
+            $step = $this->currentStep + 1;
+        }
+
         if ($step > $this->currentStep && ! $this->canAdvanceFromCurrentStep()) {
             return;
         }
@@ -241,27 +251,34 @@ class PosScreen extends Component
             $index = (int) explode('.', $key)[0];
             $product = $this->getProductById((string) ($this->items[$index]['product_id'] ?? ''));
 
-            if ($product && (! isset($this->items[$index]['unit_price']) || (float) $this->items[$index]['unit_price'] <= 0)) {
-                $this->items[$index]['unit_price'] = $product['price'];
-            }
+            $this->items[$index]['unit_price'] = $product
+                ? number_format($product['price'], 2, '.', '')
+                : '';
         }
-
-        $this->normalizeItems();
     }
 
     public function updatedTaxRate(): void
     {
-        $this->taxRate = max(0, (float) $this->taxRate);
+        $this->resetErrorBag('taxRate');
+        if (! preg_match('/^(?:0(?:\.\d{1,4})?|1(?:\.0{1,4})?)$/', trim($this->taxRate))) {
+            $this->addError('taxRate', 'La tasa IGV debe estar entre 0 y 1, con hasta cuatro decimales.');
+        }
     }
 
     public function updatedDiscount(): void
     {
-        $this->discount = max(0, (float) $this->discount);
+        $this->resetErrorBag('discount');
+        if ($this->discount !== '' && ! preg_match('/^\d{1,8}(?:\.\d{1,2})?$/', trim($this->discount))) {
+            $this->addError('discount', 'El descuento debe ser positivo y tener como máximo dos decimales.');
+        }
     }
 
     public function updatedShipping(): void
     {
-        $this->shipping = max(0, (float) $this->shipping);
+        $this->resetErrorBag('shipping');
+        if ($this->shipping !== '' && ! preg_match('/^\d{1,8}(?:\.\d{1,2})?$/', trim($this->shipping))) {
+            $this->addError('shipping', 'El envío debe ser positivo y tener como máximo dos decimales.');
+        }
     }
 
     public function render()
@@ -285,19 +302,19 @@ class PosScreen extends Component
     {
         return round(collect($this->items)->sum(function (array $item): float {
             return (string) ($item['product_id'] ?? '') === '' ? 0 : (float) ($item['quantity'] ?? 0);
-        }), 2);
+        }), 3);
     }
 
     public function taxAmount(): float
     {
-        $base = max($this->subtotal() - $this->discount, 0);
+        $base = max($this->subtotal() - (float) $this->discount, 0);
 
         return round($base * max((float) $this->taxRate, 0), 2);
     }
 
     public function totalAmount(): float
     {
-        $base = max($this->subtotal() - $this->discount, 0);
+        $base = max($this->subtotal() - (float) $this->discount, 0);
 
         return round($base + $this->taxAmount() + max((float) $this->shipping, 0), 2);
     }
@@ -339,9 +356,29 @@ class PosScreen extends Component
     {
         $this->resetErrorBag('wizard');
 
-        if ($this->currentStep === 0 && ! collect($this->items)->contains(fn (array $item) => (string) ($item['product_id'] ?? '') !== '')) {
-            $this->addError('wizard', 'Debes seleccionar al menos un producto antes de continuar.');
-            return false;
+        if ($this->currentStep === 0) {
+            foreach ($this->items as $item) {
+                $product = $this->getProductById((string) ($item['product_id'] ?? ''));
+                $quantity = trim((string) ($item['quantity'] ?? ''));
+                $price = trim((string) ($item['unit_price'] ?? ''));
+
+                if (! $product) {
+                    $this->addError('wizard', 'Selecciona un producto en cada ítem o quita las filas vacías.');
+                    return false;
+                }
+                if (! preg_match('/^\d{1,9}(?:\.\d{1,3})?$/', $quantity) || (float) $quantity < 0.001) {
+                    $this->addError('wizard', 'La cantidad debe ser positiva y tener como máximo tres decimales escritos con punto.');
+                    return false;
+                }
+                if (($product['tracks_inventory'] ?? false) && floor((float) $quantity) !== (float) $quantity) {
+                    $this->addError('wizard', "{$product['name']} requiere una cantidad entera porque controla inventario.");
+                    return false;
+                }
+                if ($price !== '' && ! preg_match('/^\d{1,8}(?:\.\d{1,2})?$/', $price)) {
+                    $this->addError('wizard', 'El precio debe tener como máximo dos decimales escritos con punto.');
+                    return false;
+                }
+            }
         }
 
         if ($this->currentStep === 1) {
@@ -366,29 +403,6 @@ class PosScreen extends Component
         }
 
         return true;
-    }
-
-    private function normalizeItems(): void
-    {
-        $this->items = collect($this->items)
-            ->map(function (array $item): array {
-                $productId = (string) ($item['product_id'] ?? '');
-                $product = $this->getProductById($productId);
-                $quantity = max((float) ($item['quantity'] ?? 1), 0.01);
-                $unitPrice = round((float) ($item['unit_price'] ?? 0), 2);
-
-                if ($product && $unitPrice <= 0) {
-                    $unitPrice = $product['price'];
-                }
-
-                return [
-                    'product_id' => $productId,
-                    'quantity' => $quantity,
-                    'unit_price' => $unitPrice,
-                ];
-            })
-            ->values()
-            ->all();
     }
 
     private function findProductByTerm(string $term): ?array

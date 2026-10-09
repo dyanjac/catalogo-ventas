@@ -6,10 +6,12 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Livewire\Admin\PosScreen;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Services\BillingCreditNoteService;
 use Modules\Billing\Services\ElectronicBillingService;
@@ -246,6 +248,128 @@ class SalesInventoryWorkflowTest extends TestCase
         $this->assertSame(10, $scope['balance']->fresh()->physical_stock);
         $this->assertSame(3, $scope['balance']->fresh()->reserved_stock);
         $this->assertSame($scope['movement_count'], InventoryMovement::query()->count());
+    }
+
+    public function test_pos_preserves_typed_fractional_service_quantity_and_zero_price(): void
+    {
+        $scope = $this->scope('pos');
+        $service = Product::query()->create([
+            'organization_id' => $scope['organization']->id,
+            'category_id' => $scope['category']->id,
+            'name' => 'Servicio fraccionable',
+            'sku' => 'F6-S-'.uniqid(),
+            'slug' => 'servicio-f6-'.uniqid(),
+            'tax_affectation' => 'Gravado',
+            'product_type' => ProductType::Service->value,
+            'accounting_treatment' => ProductAccountingTreatment::Inherit->value,
+            'price' => 20,
+            'sale_price' => 20,
+            'stock' => 0,
+            'min_stock' => 0,
+            'is_active' => true,
+        ]);
+
+        $this->storePos($scope['user'], [
+            'document_type' => 'order',
+            'currency' => 'PEN',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'idempotency_key' => 'pos-service-fraction',
+            'tax_rate' => 0,
+            'customer' => ['name' => 'Cliente servicio'],
+            'items' => [
+                ['product_id' => $service->id, 'quantity' => '0.5', 'unit_price' => '12.50'],
+                ['product_id' => $scope['product']->id, 'quantity' => '1', 'unit_price' => '0'],
+            ],
+        ]);
+
+        $order = Order::query()->with('items')->firstOrFail();
+        $serviceLine = $order->items->firstWhere('product_id', $service->id);
+        $physicalLine = $order->items->firstWhere('product_id', $scope['product']->id);
+        $this->assertSame(0.5, (float) $serviceLine->quantity);
+        $this->assertSame(6.25, (float) $serviceLine->line_total);
+        $this->assertSame(0.0, (float) $physicalLine->unit_price);
+        $this->assertSame(0.0, (float) $physicalLine->line_total);
+        $this->assertSame(1, $scope['balance']->fresh()->reserved_stock);
+    }
+
+    public function test_pos_rejects_fractional_quantity_for_inventory_product(): void
+    {
+        $scope = $this->scope('pos');
+
+        $this->expectException(ValidationException::class);
+        $this->storePos($scope['user'], [
+            'document_type' => 'order',
+            'currency' => 'PEN',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'idempotency_key' => 'pos-physical-fraction',
+            'customer' => ['name' => 'Cliente inventario'],
+            'items' => [
+                ['product_id' => $scope['product']->id, 'quantity' => '0.5', 'unit_price' => '12.50'],
+                ['product_id' => $scope['product']->id, 'quantity' => '0.5', 'unit_price' => '12.50'],
+            ],
+        ]);
+    }
+
+    public function test_pos_uses_catalog_price_when_manual_price_is_empty(): void
+    {
+        $scope = $this->scope('pos');
+
+        $this->storePos($scope['user'], [
+            'document_type' => 'order',
+            'currency' => 'PEN',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'idempotency_key' => 'pos-empty-manual-price',
+            'customer' => ['name' => 'Cliente POS'],
+            'items' => [
+                ['product_id' => $scope['product']->id, 'quantity' => '1', 'unit_price' => ''],
+            ],
+        ]);
+
+        $this->assertSame(12.5, (float) Order::query()->firstOrFail()->items()->firstOrFail()->unit_price);
+    }
+
+    public function test_pos_screen_validates_quantities_and_renders_all_steps(): void
+    {
+        $scope = $this->scope('pos');
+        config()->set('app.key', str_repeat('x', 32));
+
+        Livewire::actingAs($scope['user'])
+            ->test(PosScreen::class)
+            ->assertSee('Seleccion de productos')
+            ->set('productIndex', [[
+                'id' => $scope['product']->id,
+                'name' => $scope['product']->name,
+                'sku' => $scope['product']->sku,
+                'label' => $scope['product']->name,
+                'stock' => 10,
+                'price' => 12.5,
+                'tracks_inventory' => true,
+            ]])
+            ->set('items.0.product_id', (string) $scope['product']->id)
+            ->assertSet('items.0.unit_price', '12.50')
+            ->set('items.0.quantity', '0.5')
+            ->call('goNext')
+            ->assertSet('currentStep', 0)
+            ->assertHasErrors(['wizard'])
+            ->set('items.0.quantity', '1')
+            ->call('goNext')
+            ->assertSet('currentStep', 1)
+            ->assertSee('Informacion del cliente')
+            ->set('customer.name', 'Cliente POS')
+            ->call('goNext')
+            ->assertSet('currentStep', 2)
+            ->assertSee('Pago y cierre')
+            ->set('taxRate', 'abc')
+            ->assertHasErrors(['taxRate'])
+            ->set('taxRate', '0.18')
+            ->assertHasNoErrors(['taxRate'])
+            ->set('discount', '12.50')
+            ->assertSet('discount', '12.50')
+            ->set('shipping', '0.25')
+            ->assertSet('shipping', '0.25');
     }
 
     public function test_mixed_checkout_reserves_only_inventory_products(): void

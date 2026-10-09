@@ -2,8 +2,9 @@
     $meta = $this->documentMeta();
 @endphp
 
-<div class="space-y-6">
+<div class="space-y-6 pos-screen">
     <x-admin.page-header
+        class="pos-page-header"
         title="Punto de venta"
         description="Registra pedido POS, boleta o factura con un flujo guiado."
     >
@@ -46,6 +47,7 @@
                                 type="button"
                                 wire:click="setDocumentType('{{ $type }}')"
                                 @class(['document-chip', 'is-active' => $documentType === $type])
+                                aria-pressed="{{ $documentType === $type ? 'true' : 'false' }}"
                             >
                                 {{ $label }}
                             </button>
@@ -63,6 +65,7 @@
                                 'is-active' => $currentStep === $step,
                                 'is-complete' => $currentStep > $step,
                             ])
+                            aria-current="{{ $currentStep === $step ? 'step' : 'false' }}"
                         >
                             <span class="wizard-step-index">{{ $step + 1 }}</span>
                             <span>{{ $label }}</span>
@@ -74,25 +77,20 @@
                     <div class="alert alert-danger mb-0">{{ $message }}</div>
                 @enderror
 
-                <div class="alert alert-light border mb-0">
-                    {{ $meta['help'] }}
-                </div>
-
-                @if ($currentStep === 0)
-                    <div class="row g-4">
-                        <div class="col-lg-8">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-products" @if ($currentStep !== 0) hidden @endif>
+                        <div class="col-lg-8 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
                                     <div>
                                         <h3>1. Seleccion de productos</h3>
                                         <p>Busca por nombre o SKU y arma la venta antes de completar datos adicionales.</p>
                                     </div>
-                                    <button type="button" class="btn btn-primary" wire:click="addItem">Agregar item</button>
+                                    <button type="button" class="btn btn-primary" wire:click="addItem">Agregar ítem</button>
                                 </div>
 
                                 <div class="product-search-box">
                                     <label for="product_search" class="font-weight-semibold">Busqueda rapida</label>
-                                    <div class="input-group">
+                                    <div class="input-group pos-search-controls">
                                         <input wire:model.live="productSearch" type="text" id="product_search" class="form-control" list="product-search-list" placeholder="Buscar producto por nombre o SKU">
                                         <button type="button" class="btn btn-outline-primary" wire:click="addItemBySearch">Agregar producto buscado</button>
                                     </div>
@@ -106,16 +104,17 @@
                                     @enderror
                                 </div>
 
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
+                                <div class="table-responsive pos-items-container">
+                                    <p class="small text-muted mb-2">Escribe los decimales con punto. Por ahora, los servicios admiten hasta 3 decimales en cantidad, los productos con inventario requieren unidades enteras y el precio admite hasta 2 decimales.</p>
+                                    <table class="table table-hover align-middle mb-0 pos-items-table">
                                         <thead>
                                             <tr>
-                                                <th style="min-width: 320px;">Producto</th>
-                                                <th style="width: 90px;">Stock</th>
-                                                <th style="width: 120px;">Cantidad</th>
-                                                <th style="width: 140px;">Precio unit.</th>
-                                                <th style="width: 130px;">Subtotal</th>
-                                                <th style="width: 80px;"></th>
+                                                <th>Producto</th>
+                                                <th>Stock</th>
+                                                <th>Cantidad</th>
+                                                <th>Precio unit.</th>
+                                                <th>Subtotal</th>
+                                                <th><span class="sr-only">Acciones</span></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -125,11 +124,12 @@
                                                     $lineSubtotal = ((float) $item['quantity']) * ((float) $item['unit_price']);
                                                 @endphp
                                                 <tr wire:key="pos-item-{{ $index }}">
-                                                    <td>
+                                                    <td data-label="Producto">
                                                         <select
                                                             wire:model.live="items.{{ $index }}.product_id"
                                                             name="items[{{ $index }}][product_id]"
                                                             class="form-control product-select"
+                                                            aria-label="Producto del ítem {{ $index + 1 }}"
                                                         >
                                                             <option value="">Seleccionar...</option>
                                                             @foreach ($productIndex as $option)
@@ -137,29 +137,32 @@
                                                             @endforeach
                                                         </select>
                                                     </td>
-                                                    <td>{{ $product['stock'] ?? 0 }}</td>
-                                                    <td>
+                                                    <td data-label="Stock">{{ $product['stock'] ?? 0 }}</td>
+                                                    <td data-label="Cantidad">
                                                         <input
-                                                            wire:model.live="items.{{ $index }}.quantity"
-                                                            type="number"
-                                                            min="0.01"
-                                                            step="0.01"
+                                                            wire:model.blur="items.{{ $index }}.quantity"
+                                                            type="text"
+                                                            inputmode="decimal"
+                                                            autocomplete="off"
                                                             name="items[{{ $index }}][quantity]"
-                                                            class="form-control"
+                                                            class="form-control pos-decimal-input"
+                                                            aria-label="Cantidad del ítem {{ $index + 1 }}"
                                                         >
                                                     </td>
-                                                    <td>
+                                                    <td data-label="Precio unit.">
                                                         <input
-                                                            wire:model.live="items.{{ $index }}.unit_price"
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
+                                                            wire:model.blur="items.{{ $index }}.unit_price"
+                                                            type="text"
+                                                            inputmode="decimal"
+                                                            autocomplete="off"
+                                                            placeholder="0.00"
                                                             name="items[{{ $index }}][unit_price]"
-                                                            class="form-control"
+                                                            class="form-control pos-decimal-input"
+                                                            aria-label="Precio unitario del ítem {{ $index + 1 }}"
                                                         >
                                                     </td>
-                                                    <td>{{ number_format($lineSubtotal, 2) }}</td>
-                                                    <td class="text-end">
+                                                    <td data-label="Subtotal">{{ number_format($lineSubtotal, 2) }}</td>
+                                                    <td class="text-end pos-item-actions">
                                                         <button type="button" class="btn btn-outline-danger btn-sm" wire:click="removeItem({{ $index }})">
                                                             Quitar
                                                         </button>
@@ -172,12 +175,12 @@
                             </div>
                         </div>
 
-                        <div class="col-lg-4">
+                        <div class="col-lg-4 pos-workspace__summary">
                             <div class="summary-card">
                                 <p class="summary-kicker">Resumen parcial</p>
                                 <div class="summary-line">
                                     <span>Items</span>
-                                    <strong>{{ number_format($this->itemCount(), 2) }}</strong>
+                                    <strong>{{ rtrim(rtrim(number_format($this->itemCount(), 3, '.', ','), '0'), '.') }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Subtotal</span>
@@ -192,9 +195,8 @@
                             </div>
                         </div>
                     </div>
-                @elseif ($currentStep === 1)
-                    <div class="row g-4">
-                        <div class="col-lg-8">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-customer" @if ($currentStep !== 1) hidden @endif>
+                        <div class="col-lg-8 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
                                     <div>
@@ -203,7 +205,7 @@
                                     </div>
                                 </div>
 
-                                <div class="form-row">
+                                <div class="form-row pos-field-grid pos-field-grid--customer">
                                     <div class="form-group col-md-6">
                                         <label for="customer_name">Cliente</label>
                                         <input wire:model.live="customer.name" type="text" class="form-control" id="customer_name" name="customer[name]" placeholder="Nombre o razon social">
@@ -218,7 +220,7 @@
                                     </div>
                                     <div class="form-group col-md-3">
                                         <label for="customer_document_number">Doc. nro</label>
-                                        <div class="input-group">
+                                        <div class="input-group pos-lookup-controls">
                                             <input wire:model.live="customer.document_number" type="text" class="form-control" id="customer_document_number" name="customer[document_number]">
                                             <button type="button" class="btn btn-outline-primary" wire:click="lookupCustomerDocument" wire:loading.attr="disabled">
                                                 Consultar
@@ -230,7 +232,7 @@
                                     </div>
                                 </div>
 
-                                <div class="form-row">
+                                <div class="form-row pos-field-grid pos-field-grid--address">
                                     <div class="form-group col-md-5">
                                         <label for="customer_address">Direccion <span class="text-muted">(opcional)</span></label>
                                         <input wire:model.live="customer.address" type="text" class="form-control" id="customer_address" name="customer[address]">
@@ -247,7 +249,7 @@
                             </div>
                         </div>
 
-                        <div class="col-lg-4">
+                        <div class="col-lg-4 pos-workspace__summary">
                             <div class="summary-card">
                                 <p class="summary-kicker">Cliente</p>
                                 <div class="summary-block">
@@ -263,9 +265,8 @@
                             </div>
                         </div>
                     </div>
-                @else
-                    <div class="row g-4">
-                        <div class="col-lg-7">
+                    <div class="row g-4 pos-workspace" wire:key="pos-step-payment" @if ($currentStep !== 2) hidden @endif>
+                        <div class="col-lg-7 pos-workspace__primary">
                             <div class="wizard-card">
                                 <div class="wizard-card-header">
                                     <div>
@@ -274,7 +275,7 @@
                                     </div>
                                 </div>
 
-                                <div class="form-row">
+                                <div class="form-row pos-field-grid pos-field-grid--payment">
                                     <div class="form-group col-md-4">
                                         <label for="currency">Moneda</label>
                                         <select wire:model.live="currency" class="form-control" id="currency" name="currency">
@@ -296,24 +297,25 @@
                                         <select wire:model.live="paymentStatus" class="form-control" id="payment_status" name="payment_status">
                                             <option value="pending">Pendiente</option>
                                             <option value="paid">Pagado</option>
-                                            <option value="failed">Fallido</option>
-                                            <option value="refunded">Reembolsado</option>
                                         </select>
                                     </div>
                                 </div>
 
-                                <div class="form-row">
+                                <div class="form-row pos-field-grid pos-field-grid--adjustments">
                                     <div class="form-group col-md-4">
-                                        <label for="tax_rate">IGV (%)</label>
-                                        <input wire:model.live="taxRate" type="number" min="0" step="0.01" class="form-control" id="tax_rate" name="tax_rate">
+                                        <label for="tax_rate">IGV (tasa: 0.18 = 18%)</label>
+                                        <input wire:model.blur="taxRate" type="text" inputmode="decimal" autocomplete="off" class="form-control pos-decimal-input" id="tax_rate" name="tax_rate">
+                                        @error('taxRate') <small class="text-danger d-block mt-1">{{ $message }}</small> @enderror
                                     </div>
                                     <div class="form-group col-md-4">
                                         <label for="discount">Descuento</label>
-                                        <input wire:model.live="discount" type="number" min="0" step="0.01" class="form-control" id="discount" name="discount">
+                                        <input wire:model.blur="discount" type="text" inputmode="decimal" autocomplete="off" class="form-control pos-decimal-input" id="discount" name="discount">
+                                        @error('discount') <small class="text-danger d-block mt-1">{{ $message }}</small> @enderror
                                     </div>
                                     <div class="form-group col-md-4">
                                         <label for="shipping">Envio</label>
-                                        <input wire:model.live="shipping" type="number" min="0" step="0.01" class="form-control" id="shipping" name="shipping">
+                                        <input wire:model.blur="shipping" type="text" inputmode="decimal" autocomplete="off" class="form-control pos-decimal-input" id="shipping" name="shipping">
+                                        @error('shipping') <small class="text-danger d-block mt-1">{{ $message }}</small> @enderror
                                     </div>
                                 </div>
 
@@ -324,7 +326,7 @@
                             </div>
                         </div>
 
-                        <div class="col-lg-5">
+                        <div class="col-lg-5 pos-workspace__summary">
                             <div class="summary-card summary-card-strong">
                                 <p class="summary-kicker">Cierre de venta</p>
                                 <div class="summary-line">
@@ -337,7 +339,7 @@
                                 </div>
                                 <div class="summary-line">
                                     <span>Items</span>
-                                    <strong>{{ number_format($this->itemCount(), 2) }}</strong>
+                                    <strong>{{ rtrim(rtrim(number_format($this->itemCount(), 3, '.', ','), '0'), '.') }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Metodo pago</span>
@@ -354,11 +356,11 @@
                                 </div>
                                 <div class="summary-line">
                                     <span>Descuento</span>
-                                    <strong>{{ number_format($discount, 2) }}</strong>
+                                    <strong>{{ number_format((float) $discount, 2) }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Envio</span>
-                                    <strong>{{ number_format($shipping, 2) }}</strong>
+                                    <strong>{{ number_format((float) $shipping, 2) }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>IGV</span>
@@ -372,8 +374,6 @@
                             </div>
                         </div>
                     </div>
-                @endif
-
                 <div class="wizard-nav">
                     <button type="button" class="btn btn-outline-secondary" wire:click="goPrev" @disabled($currentStep === 0)>
                         Anterior
@@ -387,145 +387,3 @@
         </div>
     </form>
 </div>
-
-@once
-    @push('styles')
-        <style>
-            .pos-shell { border-radius: 20px; }
-            .pos-kicker,
-            .summary-kicker {
-                text-transform: uppercase;
-                letter-spacing: .08em;
-                font-size: .75rem;
-                font-weight: 700;
-                color: #6c7a89;
-            }
-            .pos-title {
-                font-size: 2rem;
-                font-weight: 700;
-            }
-            .document-switcher {
-                display: flex;
-                gap: .75rem;
-                flex-wrap: wrap;
-                justify-content: flex-end;
-            }
-            .document-chip {
-                border: 1px solid #dbe1ea;
-                background: #fff;
-                color: #334155;
-                border-radius: 999px;
-                padding: .7rem 1rem;
-                font-weight: 600;
-                min-width: 132px;
-            }
-            .document-chip.is-active {
-                background: linear-gradient(135deg, #0d6efd, #3f8cff);
-                border-color: #0d6efd;
-                color: #fff;
-                box-shadow: 0 10px 24px rgba(13, 110, 253, .18);
-            }
-            .wizard-steps {
-                display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: .75rem;
-            }
-            .wizard-step {
-                border: 1px solid #dbe1ea;
-                background: #fff;
-                border-radius: 16px;
-                padding: .9rem 1rem;
-                display: flex;
-                align-items: center;
-                gap: .75rem;
-                font-weight: 600;
-                color: #334155;
-            }
-            .wizard-step.is-active,
-            .wizard-step.is-complete {
-                border-color: #0d6efd;
-                background: rgba(13, 110, 253, .08);
-            }
-            .wizard-step-index {
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                background: #eef2f7;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: 700;
-            }
-            .wizard-step.is-active .wizard-step-index,
-            .wizard-step.is-complete .wizard-step-index {
-                background: #0d6efd;
-                color: #fff;
-            }
-            .wizard-card,
-            .summary-card {
-                border: 1px solid #e4e8ef;
-                border-radius: 18px;
-                background: #fff;
-                padding: 1.25rem;
-                height: 100%;
-            }
-            .wizard-card-header {
-                display: flex;
-                justify-content: space-between;
-                gap: 1rem;
-                align-items: flex-start;
-                margin-bottom: 1rem;
-            }
-            .wizard-card-header h3 {
-                margin: 0 0 .25rem 0;
-                font-size: 1.25rem;
-                font-weight: 700;
-            }
-            .wizard-card-header p,
-            .summary-caption { color: #6c7a89; }
-            .product-search-box {
-                margin-bottom: 1rem;
-                padding: 1rem;
-                border-radius: 16px;
-                background: #f8fafc;
-                border: 1px solid #e8edf3;
-            }
-            .summary-card {
-                position: sticky;
-                top: 1rem;
-            }
-            .summary-card-strong { background: linear-gradient(180deg, #ffffff, #f8fbff); }
-            .summary-line {
-                display: flex;
-                justify-content: space-between;
-                gap: 1rem;
-                align-items: center;
-                margin-bottom: .85rem;
-            }
-            .summary-line.total {
-                font-size: 1.15rem;
-                font-weight: 700;
-            }
-            .summary-block { margin-bottom: 1rem; }
-            .summary-label {
-                display: block;
-                color: #6c7a89;
-                font-size: .85rem;
-                margin-bottom: .2rem;
-            }
-            .wizard-nav {
-                display: flex;
-                justify-content: space-between;
-                gap: 1rem;
-            }
-            @media (max-width: 991.98px) {
-                .wizard-card-header { flex-direction: column; }
-                .document-switcher {
-                    width: 100%;
-                    justify-content: flex-start;
-                }
-                .wizard-steps { grid-template-columns: 1fr; }
-            }
-        </style>
-    @endpush
-@endonce

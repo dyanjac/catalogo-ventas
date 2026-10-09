@@ -98,8 +98,8 @@ class SalesPosController extends Controller
             'customer.document_number' => ['nullable', 'string', 'max:20'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.quantity' => ['required', 'regex:/^\d{1,9}(?:\.\d{1,3})?$/', 'numeric', 'min:0.001'],
+            'items.*.unit_price' => ['nullable', 'regex:/^\d{1,8}(?:\.\d{1,2})?$/', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -135,7 +135,7 @@ class SalesPosController extends Controller
             'customer' => $data['customer'],
             'items' => collect($data['items'])->map(fn (array $item) => [
                 'product_id' => (int) $item['product_id'],
-                'quantity' => (int) $item['quantity'],
+                'quantity' => round((float) $item['quantity'], 3),
                 'unit_price' => isset($item['unit_price']) ? round((float) $item['unit_price'], 2) : null,
             ])->sortBy('product_id')->values()->all(),
             'tax_rate' => $taxRate,
@@ -391,10 +391,20 @@ class SalesPosController extends Controller
     /**
      * @param  Collection<int,array<string,mixed>>  $items
      * @param  Collection<int,Product>  $products
-     * @return Collection<int,array{product:Product,quantity:int,unit_price:float,line_subtotal:float}>
+     * @return Collection<int,array{product:Product,quantity:float,unit_price:float,line_subtotal:float}>
      */
     private function normalizeItems(Collection $items, Collection $products, int $branchId): Collection
     {
+        foreach ($items as $line) {
+            $product = $products->get((int) $line['product_id']);
+            $quantity = (float) $line['quantity'];
+            if ($product?->tracksInventory() && floor($quantity) !== $quantity) {
+                throw ValidationException::withMessages([
+                    'items' => ["{$product->name} requiere una cantidad entera porque controla inventario."],
+                ]);
+            }
+        }
+
         $items = $items->groupBy(fn (array $item) => (int) $item['product_id'])->map(function (Collection $lines): array {
             $prices = $lines->pluck('unit_price')->filter(fn ($price) => $price !== null && $price !== '')->map(fn ($price) => round((float) $price, 2))->unique();
             if ($prices->count() > 1) {
@@ -403,14 +413,14 @@ class SalesPosController extends Controller
 
             return [
                 'product_id' => (int) $lines->first()['product_id'],
-                'quantity' => (int) $lines->sum('quantity'),
+                'quantity' => round((float) $lines->sum('quantity'), 3),
                 'unit_price' => $prices->first(),
             ];
         })->values();
 
         return $items->map(function (array $item) use ($products, $branchId): array {
             $product = $products->get((int) $item['product_id']);
-            $quantity = (int) $item['quantity'];
+            $quantity = (float) $item['quantity'];
 
             if (! $product || ! $product->is_active) {
                 throw ValidationException::withMessages([
@@ -428,7 +438,7 @@ class SalesPosController extends Controller
                 ]);
             }
 
-            $unitPrice = isset($item['unit_price']) && (float) $item['unit_price'] > 0
+            $unitPrice = isset($item['unit_price']) && $item['unit_price'] !== ''
                 ? round((float) $item['unit_price'], 2)
                 : round((float) ($product->sale_price ?? $product->price ?? 0), 2);
 
