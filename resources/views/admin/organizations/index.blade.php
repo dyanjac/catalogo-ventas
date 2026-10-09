@@ -6,7 +6,7 @@
 <div class="py-2">
     <div class="container-fluid">
         <x-admin.page-header title="Organizaciones SaaS" description="Provisiona nuevas organizaciones en entorno DEMO y revisa su estado inicial.">
-            <a href="{{ route('admin.organizations.create') }}" class="btn btn-primary rounded-pill px-4">
+            <a wire:navigate href="{{ route('admin.organizations.create') }}" class="btn btn-primary rounded-pill px-4">
                 Nueva organización demo
             </a>
         </x-admin.page-header>
@@ -43,7 +43,7 @@
                                     <td>{{ optional($organization->users()->orderBy('id')->first())->email ?: '-' }}</td>
                                     <td>{{ optional($organization->created_at)->format('d/m/Y H:i') }}</td>
                                     <td class="text-end">
-                                        <a href="{{ route('admin.organizations.show', $organization) }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                                        <a wire:navigate href="{{ route('admin.organizations.show', $organization) }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                                             Ver detalle
                                         </a>
                                     </td>

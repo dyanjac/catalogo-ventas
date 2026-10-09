@@ -17,8 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(OrganizationContextService::class);
-        $this->app->singleton(CommerceSettingsService::class);
+        $this->app->scoped(OrganizationContextService::class);
+        $this->app->scoped(CommerceSettingsService::class);
     }
 
     /**
@@ -38,11 +38,19 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
-        View::composer('*', function (\Illuminate\View\View $view): void {
-            if (request()->routeIs('home', 'saas.register.*', 'admin.login')) {
-                return;
-            }
-
+        View::composer([
+            'layouts.admin',
+            'layouts.app',
+            'layouts.app-home',
+            'layouts.auth',
+            'cart.view',
+            'catalog.*',
+            'contacto.index',
+            'nosotros.index',
+            'orders.show',
+            'products.*',
+            'storefront.home',
+        ], function (\Illuminate\View\View $view): void {
             $organizationContext = $this->app->make(OrganizationContextService::class);
 
             $view->with('organizationContext', $organizationContext->forView());

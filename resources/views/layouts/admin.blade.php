@@ -15,6 +15,10 @@
         $palette = array_merge(config('admintheme.defaults', []), $adminPalette ?? []);
     @endphp
     <style>
+        :root {
+            --livewire-progress-bar-color: {{ $palette['primary_button'] ?? '#0F766E' }};
+        }
+
         .admin-shell {
             --admin-sidebar-bg: {{ $palette['sidebar_bg'] ?? '#1E293B' }};
             --admin-sidebar-gradient-to: {{ $palette['sidebar_gradient_to'] ?? '#334155' }};
@@ -65,4 +69,3 @@
     @stack('scripts')
 </body>
 </html>
-

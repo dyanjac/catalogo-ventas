@@ -33,7 +33,7 @@
                 <td>{{ $run->cutoff_at?->format('d/m/Y') }} — {{ $run->captured_through_at?->format('d/m/Y H:i') }}</td>
                 <td><span class="badge text-bg-{{ $run->status === 'completed' ? 'success' : (in_array($run->status, ['blocked','failed']) ? 'danger' : 'secondary') }}">{{ $run->status }}</span></td>
                 <td>{{ $run->eligible_count }}</td><td>{{ $run->existing_count }}</td><td>{{ $run->error_count }}</td><td>{{ $run->processed_count }}</td>
-                <td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.accounting.activations.show', $run) }}">Detalle</a></td>
+                <td><a wire:navigate class="btn btn-sm btn-outline-primary" href="{{ route('admin.accounting.activations.show', $run) }}">Detalle</a></td>
             </tr>@empty<tr><td colspan="8" class="text-center py-4">Todavía no existen simulaciones históricas.</td></tr>@endforelse</tbody>
         </table></div>
         <div class="card-footer">{{ $runs->links() }}</div>

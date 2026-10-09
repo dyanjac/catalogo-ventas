@@ -105,4 +105,10 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    'navigation' => [
+        'enabled' => env('NAVIGATION_SHARED_CACHE_ENABLED', false),
+        'store' => env('NAVIGATION_SHARED_CACHE_STORE', 'redis'),
+        'ttl_seconds' => (int) env('NAVIGATION_SHARED_CACHE_TTL', 300),
+    ],
+
 ];

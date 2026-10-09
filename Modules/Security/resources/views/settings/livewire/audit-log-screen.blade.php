@@ -4,7 +4,7 @@
         description="Consulta cambios de accesos, autenticacion, pruebas LDAP y eventos relevantes del modulo Security."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.security.roles.index') }}" variant="outline" icon="shield-check">
+            <flux:button wire:navigate href="{{ route('admin.security.roles.index') }}" variant="outline" icon="shield-check">
                 Roles y permisos
             </flux:button>
         </x-slot:actions>

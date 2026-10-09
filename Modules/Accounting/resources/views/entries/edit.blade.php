@@ -7,7 +7,7 @@
     <div class="container-fluid">
         <x-admin.page-header :title="'Editar asiento #' . $entry->id">
             <x-slot:actions>
-                <a href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                <a wire:navigate href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
             </x-slot:actions>
         </x-admin.page-header>
 
@@ -93,7 +93,7 @@
                                     </td>
                                     <td><input type="text" name="lines[{{ $index }}][line_description]" class="form-control" value="{{ $line['line_description'] ?? '' }}"></td>
                                     <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)">Quitar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-accounting-line-remove>Quitar</button>
                                     </td>
                                 </tr>
                             @endforeach
@@ -101,7 +101,7 @@
                     </table>
                 </div>
 
-                <button type="button" class="btn btn-light border rounded-pill px-4" onclick="addLine()">Agregar línea</button>
+                <button type="button" class="btn btn-light border rounded-pill px-4" data-accounting-line-add>Agregar línea</button>
 
                 <hr class="my-4">
 
@@ -132,41 +132,10 @@
 
             <div class="card-footer d-flex gap-2">
                 <button class="btn btn-primary rounded-pill px-4">Guardar asiento</button>
-                <a href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Cancelar</a>
+                <a wire:navigate href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Cancelar</a>
             </div>
         </form>
     </div>
 </div>
 
-<script>
-    function removeLine(button) {
-        const row = button.closest('tr');
-        if (row) row.remove();
-    }
-
-    function addLine() {
-        const tableBody = document.querySelector('#entry-lines-table tbody');
-        const index = tableBody.querySelectorAll('tr').length;
-        const row = document.createElement('tr');
-
-        row.innerHTML = `
-            <td><input type="text" name="lines[${index}][account_code]" class="form-control" required></td>
-            <td><input type="text" name="lines[${index}][account_name]" class="form-control"></td>
-            <td><input type="number" step="0.01" min="0" name="lines[${index}][debit]" class="form-control text-end" value="0"></td>
-            <td><input type="number" step="0.01" min="0" name="lines[${index}][credit]" class="form-control text-end" value="0"></td>
-            <td>
-                <select name="lines[${index}][cost_center_id]" class="form-select">
-                    <option value="">-</option>
-                    @foreach($costCenters as $center)
-                        <option value="{{ $center->id }}">{{ $center->code }} - {{ $center->name }}</option>
-                    @endforeach
-                </select>
-            </td>
-            <td><input type="text" name="lines[${index}][line_description]" class="form-control"></td>
-            <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)">Quitar</button></td>
-        `;
-
-        tableBody.appendChild(row);
-    }
-</script>
 @endsection

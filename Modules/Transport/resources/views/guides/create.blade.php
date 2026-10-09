@@ -5,7 +5,7 @@
 @section('content')
 <div class="py-2">
     <x-admin.page-header title="Preparar guia de remision">
-        <x-slot:actions><a href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Volver</a></x-slot:actions>
+        <x-slot:actions><a wire:navigate href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Volver</a></x-slot:actions>
     </x-admin.page-header>
     @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <form method="POST" action="{{ route('admin.transport.guides.store') }}" class="card border-0 shadow-sm"><div class="card-body">
@@ -51,7 +51,7 @@
             <div class="col-md-4"><label class="form-label">RUC emisor externo</label><input name="external_sender[issuer_ruc]" class="form-control" maxlength="11" value="{{ old('external_sender.issuer_ruc') }}"></div>
             <input type="hidden" name="external_sender[document_type]" value="09">
         </div>
-        <hr><div class="d-flex justify-content-between align-items-center"><h5>Bienes</h5><button type="button" id="add-item" class="btn btn-sm btn-outline-primary">Agregar linea</button></div>
+        <hr><div class="d-flex justify-content-between align-items-center"><h5>Bienes</h5><button type="button" id="add-item" data-transport-item-add class="btn btn-sm btn-outline-primary">Agregar linea</button></div>
         <div id="items"><div class="row g-2 item-row mb-2">
             <div class="col-md-3"><select name="items[0][product_id]" class="form-select"><option value="">Bien externo</option>@foreach($products as $product)<option value="{{ $product->id }}">{{ $product->sku }} - {{ $product->name }}</option>@endforeach</select></div>
             <div class="col-md-2"><input name="items[0][code]" class="form-control" placeholder="Codigo" required></div>
@@ -63,18 +63,3 @@
     </div><div class="card-footer text-end"><button class="btn btn-primary">Preparar GRE</button></div></form>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.getElementById('add-item')?.addEventListener('click', () => {
-    const container = document.getElementById('items');
-    const row = container.querySelector('.item-row').cloneNode(true);
-    const index = container.querySelectorAll('.item-row').length;
-    row.querySelectorAll('input,select').forEach(field => {
-        field.name = field.name.replace(/items\[\d+\]/, `items[${index}]`);
-        if (field.tagName === 'INPUT' && !field.name.endsWith('[unit_code]')) field.value = '';
-    });
-    container.appendChild(row);
-});
-</script>
-@endpush

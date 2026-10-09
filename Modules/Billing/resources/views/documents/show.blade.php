@@ -62,7 +62,7 @@
     <div class="container-fluid">
         <x-admin.page-header :title="'Detalle ' . $document->series . '-' . $document->number">
             <x-slot:actions>
-                <a href="{{ route('admin.billing.documents.history', $document) }}" class="btn btn-light border rounded-pill px-4">Historial</a>
+                <a wire:navigate href="{{ route('admin.billing.documents.history', $document) }}" class="btn btn-light border rounded-pill px-4">Historial</a>
                 <form method="POST" action="{{ route('admin.billing.documents.redeclare', $document) }}" class="d-inline">
                     @csrf
                     <button type="submit" class="btn btn-warning border rounded-pill px-4" onclick="return confirm('¿Re-declarar este comprobante al proveedor configurado?')">
@@ -72,7 +72,7 @@
                 <a href="{{ $hasXml ? route('admin.billing.documents.download.xml', $document) : '#' }}" class="btn btn-light border rounded-pill px-4 {{ $hasXml ? '' : 'disabled' }}">XML</a>
                 <a href="{{ $hasCdr ? route('admin.billing.documents.download.cdr', $document) : '#' }}" class="btn btn-light border rounded-pill px-4 {{ $hasCdr ? '' : 'disabled' }}">CDR</a>
                 <a href="{{ route('admin.billing.documents.download.pdf', $document) }}" class="btn btn-light border rounded-pill px-4">PDF</a>
-                <a href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
+                <a wire:navigate href="{{ route('admin.billing.documents.index') }}" class="btn btn-light border rounded-pill px-4">Volver</a>
             </x-slot:actions>
         </x-admin.page-header>
 

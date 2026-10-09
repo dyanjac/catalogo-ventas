@@ -74,6 +74,10 @@ services:
       # CACHE
       # ------------------------------------------------------
       CACHE_STORE: ${CACHE_STORE:-database}
+      NAVIGATION_SHARED_CACHE_ENABLED: ${NAVIGATION_SHARED_CACHE_ENABLED:-false}
+      NAVIGATION_SHARED_CACHE_STORE: ${NAVIGATION_SHARED_CACHE_STORE:-redis}
+      NAVIGATION_SHARED_CACHE_TTL: ${NAVIGATION_SHARED_CACHE_TTL:-300}
+      ENTITLEMENTS_SCHEMA_CHECKS_ENABLED: ${ENTITLEMENTS_SCHEMA_CHECKS_ENABLED:-false}
 
       # ------------------------------------------------------
       # QUEUE
@@ -121,8 +125,11 @@ services:
       # ------------------------------------------------------
       REDIS_CLIENT: ${REDIS_CLIENT:-phpredis}
       REDIS_HOST: ${REDIS_HOST:-}
+      REDIS_USERNAME: ${REDIS_USERNAME:-}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-null}
       REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_CACHE_DB: ${REDIS_CACHE_DB:-1}
 
       # ------------------------------------------------------
       # MAIL

@@ -29,7 +29,7 @@
 
     <div class="card"><div class="card-header fw-semibold">Historial de conciliaciones</div><div class="table-responsive"><table class="table table-hover align-middle mb-0">
         <thead><tr><th>ID</th><th>Inicio</th><th>Disparador</th><th>Estado</th><th>Revisados</th><th>Hallazgos</th><th></th></tr></thead>
-        <tbody>@forelse($runs as $run)<tr><td>{{ $run->id }}</td><td>{{ $run->started_at?->format('d/m/Y H:i') }}</td><td>{{ $run->trigger }}</td><td>{{ $run->status }}</td><td>{{ $run->checked_inventory_balances + $run->checked_inventory_documents + $run->checked_economic_events + $run->checked_accounting_entries }}</td><td>{{ $run->issue_count }}</td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.operations.runs.show', $run) }}">Detalle</a></td></tr>@empty<tr><td colspan="7" class="text-center py-4">No hay ejecuciones registradas.</td></tr>@endforelse</tbody>
+        <tbody>@forelse($runs as $run)<tr><td>{{ $run->id }}</td><td>{{ $run->started_at?->format('d/m/Y H:i') }}</td><td>{{ $run->trigger }}</td><td>{{ $run->status }}</td><td>{{ $run->checked_inventory_balances + $run->checked_inventory_documents + $run->checked_economic_events + $run->checked_accounting_entries }}</td><td>{{ $run->issue_count }}</td><td><a wire:navigate class="btn btn-sm btn-outline-primary" href="{{ route('admin.operations.runs.show', $run) }}">Detalle</a></td></tr>@empty<tr><td colspan="7" class="text-center py-4">No hay ejecuciones registradas.</td></tr>@endforelse</tbody>
     </table></div><div class="card-footer">{{ $runs->links() }}</div></div>
 </div>
 @endsection

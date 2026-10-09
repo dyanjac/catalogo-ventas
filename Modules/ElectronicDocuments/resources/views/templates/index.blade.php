@@ -7,7 +7,7 @@
     <div class="container-fluid">
         <x-admin.page-header title="Plantillas XSLT para comprobantes" description="Las plantillas se administran por organización y no se comparten entre tenants.">
             <x-slot:actions>
-                <a href="{{ route('admin.electronic-documents.templates.create') }}" class="btn btn-primary rounded-pill px-4">Nueva plantilla</a>
+                <a wire:navigate href="{{ route('admin.electronic-documents.templates.create') }}" class="btn btn-primary rounded-pill px-4">Nueva plantilla</a>
             </x-slot:actions>
         </x-admin.page-header>
 
@@ -75,7 +75,7 @@
                                         <i class="fas fa-power-off"></i>
                                     </button>
                                 </form>
-                                <a href="{{ route('admin.electronic-documents.templates.edit', $template) }}" class="btn btn-sm btn-light border">
+                                <a wire:navigate href="{{ route('admin.electronic-documents.templates.edit', $template) }}" class="btn btn-sm btn-light border">
                                     <i class="fas fa-pen"></i>
                                 </a>
                                 <form action="{{ route('admin.electronic-documents.templates.destroy', $template) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar plantilla?')">

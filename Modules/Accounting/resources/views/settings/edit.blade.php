@@ -70,7 +70,7 @@
 
                     <div class="col-12 d-flex gap-2">
                         <button class="btn btn-primary rounded-pill px-4">Guardar configuración</button>
-                        <a href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Ver asientos</a>
+                        <a wire:navigate href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Ver asientos</a>
                     </div>
                 </form>
             </div>

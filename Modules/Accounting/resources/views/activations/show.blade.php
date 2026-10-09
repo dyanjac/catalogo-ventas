@@ -6,7 +6,7 @@
 <div class="container-fluid py-2">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div><h1 class="h3 mb-1">Activación histórica #{{ $run->id }}</h1><div class="text-muted">Corte inclusivo {{ $run->cutoff_at?->format('d/m/Y H:i') }} · captura {{ $run->captured_through_at?->format('d/m/Y H:i') }} UTC</div></div>
-        <a href="{{ route('admin.accounting.activations.index') }}" class="btn btn-light border">Volver</a>
+        <a wire:navigate href="{{ route('admin.accounting.activations.index') }}" class="btn btn-light border">Volver</a>
     </div>
 
     @if($run->error_message)<div class="alert alert-danger"><strong>{{ $run->error_code }}</strong> · {{ $run->error_message }}</div>@endif

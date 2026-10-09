@@ -3,19 +3,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: erp-app
+    image: ${ERP_APP_IMAGE:-erp-app}
     container_name: erp-app
     ports:
       - "8080:80"
     env_file:
-      - .env.docker
+      - ${ERP_ENV_FILE:-.env.docker}
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
+      CACHE_STORE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       RUN_MIGRATIONS: "true"
       RUN_SEEDERS: "true"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/health/ready || exit 1"]
@@ -23,6 +28,35 @@ services:
       timeout: 5s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.10-alpine
+    container_name: erp-redis
+    user: redis
+    env_file:
+      - ${ERP_ENV_FILE:-.env.docker}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        test -n "$${REDIS_USERNAME:-}"
+        test -n "$${REDIS_PASSWORD:-}"
+        umask 077
+        printf 'user default off\nuser %s on >%s ~* &* +@all\n' "$${REDIS_USERNAME}" "$${REDIS_PASSWORD}" > /tmp/users.acl
+        exec redis-server \
+          --aclfile /tmp/users.acl \
+          --save "" \
+          --appendonly no \
+          --maxmemory "$${REDIS_MAXMEMORY:-128mb}" \
+          --maxmemory-policy allkeys-lru
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --user \"$$REDIS_USERNAME\" --pass \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   mysql:
@@ -35,7 +69,7 @@ services:
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
       MYSQL_ROOT_HOST: "%"
     volumes:
-      - "C:/DOCKER/MYSQL/VOLUMEN:/var/lib/mysql"
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 10s
@@ -58,3 +92,6 @@ services:
       mysql:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -6,11 +6,11 @@
         <x-slot:actions>
             <div class="flex flex-wrap gap-2">
                 @if($canManageBranches)
-                    <flux:button href="{{ route('admin.security.branches.index') }}" variant="outline" icon="building-storefront">
+                    <flux:button wire:navigate href="{{ route('admin.security.branches.index') }}" variant="outline" icon="building-storefront">
                         Sucursales
                     </flux:button>
                 @endif
-                <flux:button href="{{ route('admin.products.index') }}" variant="outline" icon="cube">
+                <flux:button wire:navigate href="{{ route('admin.products.index') }}" variant="outline" icon="cube">
                     Productos
                 </flux:button>
                 @if($canManageWarehouses)
@@ -71,7 +71,7 @@
                                         </td>
                                         <td class="text-end">
                                             <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
-                                                <flux:button href="{{ route('admin.inventory.index', ['branch_id' => $warehouse->branch_id, 'warehouse_id' => $warehouse->id]) }}" variant="outline" size="sm">
+                                                <flux:button wire:navigate href="{{ route('admin.inventory.index', ['branch_id' => $warehouse->branch_id, 'warehouse_id' => $warehouse->id]) }}" variant="outline" size="sm">
                                                     Ver stock
                                                 </flux:button>
                                                 <flux:button type="button" wire:click="selectWarehouse({{ $warehouse->id }})" variant="{{ $selectedWarehouseId === $warehouse->id ? 'primary' : 'outline' }}" size="sm">

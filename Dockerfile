@@ -48,6 +48,9 @@ RUN npm run build
 FROM php:8.4-apache AS app
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+ARG PHPREDIS_VERSION=6.3.0
+ARG APP_VERSION=development
+ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /var/www/html
 
@@ -83,7 +86,10 @@ RUN apt-get update \
         sockets \
         xsl \
         zip \
+    && pecl install redis-${PHPREDIS_VERSION} \
+    && docker-php-ext-enable redis \
     && a2enmod rewrite headers expires \
+    && rm -rf /tmp/pear \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf

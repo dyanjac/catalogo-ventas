@@ -29,9 +29,9 @@ class CommerceServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->singleton(OrganizationEntitlementService::class);
-        $this->app->singleton(StorefrontRouteService::class);
-        $this->app->singleton(StorefrontCartService::class);
+        $this->app->scoped(OrganizationEntitlementService::class);
+        $this->app->scoped(StorefrontRouteService::class);
+        $this->app->scoped(StorefrontCartService::class);
         $this->app->register(EventServiceProvider::class);
         $this->app->register(RouteServiceProvider::class);
     }

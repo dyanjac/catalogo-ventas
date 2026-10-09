@@ -62,5 +62,5 @@
 
 <div class="mt-3 d-flex gap-2">
     <button class="btn btn-primary rounded-pill px-4">Guardar plantilla</button>
-    <a href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Cancelar</a>
+    <a wire:navigate href="{{ route('admin.electronic-documents.templates.index') }}" class="btn btn-light border rounded-pill px-4">Cancelar</a>
 </div>

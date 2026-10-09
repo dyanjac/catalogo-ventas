@@ -7,8 +7,8 @@
     <div class="container-fluid">
         <x-admin.page-header title="Asientos contables por periodo">
             <x-slot:actions>
-                <a href="{{ route('admin.accounting.settings.edit') }}" class="btn btn-light border rounded-pill px-4">Configuración</a>
-                <a href="{{ route('admin.accounting.events.index') }}" class="btn btn-light border rounded-pill px-4">Eventos económicos</a>
+                <a wire:navigate href="{{ route('admin.accounting.settings.edit') }}" class="btn btn-light border rounded-pill px-4">Configuración</a>
+                <a wire:navigate href="{{ route('admin.accounting.events.index') }}" class="btn btn-light border rounded-pill px-4">Eventos económicos</a>
             </x-slot:actions>
         </x-admin.page-header>
 
@@ -38,7 +38,7 @@
                     </div>
                     <div class="col-md-2 d-flex align-items-end gap-2">
                         <button class="btn btn-primary rounded-pill px-4">Filtrar</button>
-                        <a href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Limpiar</a>
+                        <a wire:navigate href="{{ route('admin.accounting.entries.index') }}" class="btn btn-light border rounded-pill px-4">Limpiar</a>
                     </div>
                 </form>
             </div>
@@ -72,7 +72,7 @@
                                 <td class="text-end">{{ number_format((float) $entry->total_credit, 2) }}</td>
                                 <td class="text-center">{{ $entry->lines_count }}</td>
                                 <td class="text-end">
-                                    <a href="{{ route('admin.accounting.entries.edit', $entry) }}" class="btn btn-sm btn-primary rounded-pill px-3">Editar</a>
+                                    <a wire:navigate href="{{ route('admin.accounting.entries.edit', $entry) }}" class="btn btn-sm btn-primary rounded-pill px-3">Editar</a>
                                 </td>
                             </tr>
                         @empty

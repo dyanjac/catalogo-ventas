@@ -546,7 +546,7 @@ class TransportGuideService
         if (! $organization || ! $organization->isActiveStatus()) {
             throw ValidationException::withMessages(['organization_id' => 'La organizacion no esta operativa.']);
         }
-        if (! $this->entitlements->hasCapability('transport.gre', $organization)) {
+        if (! $this->entitlements->hasCapability('transport.gre', $organization, fresh: true)) {
             throw ValidationException::withMessages(['plan' => 'La organizacion no tiene habilitada la capacidad transport.gre.']);
         }
     }

@@ -110,7 +110,7 @@
                         {{ $user?->email }}
                     </flux:menu.item>
 
-                    <flux:menu.item href="{{ route('admin.dashboard') }}" wire:navigate.hover icon="home">
+                    <flux:menu.item href="{{ route('admin.dashboard') }}" wire:navigate icon="home">
                         Dashboard
                     </flux:menu.item>
 

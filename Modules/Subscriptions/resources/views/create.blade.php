@@ -15,6 +15,6 @@
     <div class="col-md-2"><label class="form-label">Subtotal</label><input type="number" step="0.01" min="0.01" name="recurring_subtotal" class="form-control" required></div>
     <div class="col-md-2"><label class="form-label">Impuesto</label><input type="number" step="0.01" min="0" name="recurring_tax" class="form-control" value="0"></div>
     <div class="col-md-6"><label class="form-label">Comprobante anticipado emitido</label><select name="billing_document_id" class="form-select" required><option value="">Seleccione...</option>@foreach($billingDocuments as $document)<option value="{{ $document->id }}">{{ $document->series }}-{{ $document->number }} Â· {{ $document->currency }} {{ number_format($document->total, 2) }}</option>@endforeach</select><small class="text-muted">Debe contener el mismo producto e importes del contrato.</small></div>
-    <div class="col-12"><button class="btn btn-primary rounded-pill px-4">Activar y programar</button> <a href="{{ route('admin.subscriptions.index') }}" class="btn btn-light border rounded-pill">Cancelar</a></div>
+    <div class="col-12"><button class="btn btn-primary rounded-pill px-4">Activar y programar</button> <a wire:navigate href="{{ route('admin.subscriptions.index') }}" class="btn btn-light border rounded-pill">Cancelar</a></div>
 </div></form></div>
 @endsection

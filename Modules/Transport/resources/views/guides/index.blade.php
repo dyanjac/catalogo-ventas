@@ -9,10 +9,10 @@
     <x-admin.page-header title="Guias de remision electronicas">
         <x-slot:actions>
             @if($transportAuthorization->hasPermission(auth()->user(), 'transport.guides.create'))
-                <a href="{{ route('admin.transport.guides.create') }}" class="btn btn-primary">Nueva GRE</a>
+                <a wire:navigate href="{{ route('admin.transport.guides.create') }}" class="btn btn-primary">Nueva GRE</a>
             @endif
             @if($transportAuthorization->hasPermission(auth()->user(), 'transport.settings.configure'))
-                <a href="{{ route('admin.transport.settings.edit') }}" class="btn btn-outline-secondary">Configuracion</a>
+                <a wire:navigate href="{{ route('admin.transport.settings.edit') }}" class="btn btn-outline-secondary">Configuracion</a>
             @endif
         </x-slot:actions>
     </x-admin.page-header>
@@ -29,7 +29,7 @@
                         <td>{{ $guide->branch?->name }}</td>
                         <td><span class="badge text-bg-secondary">{{ $guide->status->value }}</span></td>
                         <td>{{ $guide->transfer_at?->format('d/m/Y H:i') }}</td>
-                        <td><a href="{{ route('admin.transport.guides.show', $guide) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
+                        <td><a wire:navigate href="{{ route('admin.transport.guides.show', $guide) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="text-center text-muted py-4">No hay guias registradas.</td></tr>

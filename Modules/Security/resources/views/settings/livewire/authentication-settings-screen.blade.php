@@ -5,7 +5,7 @@
         description="Centraliza la configuracion del acceso administrativo, sesiones, LDAP y proveedores OAuth del panel."
     >
         <div class="flex gap-2">
-            <flux:button href="{{ route('admin.security.audit.index') }}" variant="outline" icon="document-text">
+            <flux:button wire:navigate href="{{ route('admin.security.audit.index') }}" variant="outline" icon="document-text">
                 Ver auditoria
             </flux:button>
             <flux:button href="{{ route('admin.login') }}" variant="outline" icon="arrow-right-end-on-rectangle">

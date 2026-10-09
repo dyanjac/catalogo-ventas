@@ -4,7 +4,7 @@
         description="Gestiona la base de clientes, perfiles de acceso y estado operativo de cada usuario."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.security.users.index') }}" variant="outline" icon="shield-check">
+            <flux:button wire:navigate href="{{ route('admin.security.users.index') }}" variant="outline" icon="shield-check">
                 Accesos RBAC
             </flux:button>
         </x-slot:actions>
@@ -85,10 +85,10 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-2">
-                                        <flux:button href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" variant="outline" size="sm">
+                                        <flux:button wire:navigate href="{{ route('admin.security.users.index', ['search' => $customer->email]) }}" variant="outline" size="sm">
                                             RBAC
                                         </flux:button>
-                                        <flux:button href="{{ route('admin.customers.show', $customer) }}" variant="primary" size="sm">
+                                        <flux:button wire:navigate href="{{ route('admin.customers.show', $customer) }}" variant="primary" size="sm">
                                             Gestionar
                                         </flux:button>
                                     </div>

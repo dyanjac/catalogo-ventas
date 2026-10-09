@@ -11,19 +11,35 @@ class CommerceSettingsService
 {
     public const CACHE_TTL_SECONDS = 900;
 
-    public function __construct(private readonly OrganizationContextService $organizationContext)
-    {
-    }
+    private array $viewDataByCacheKey = [];
+
+    public function __construct(private readonly OrganizationContextService $organizationContext) {}
 
     public function getForView(): array
     {
-        return Cache::remember($this->cacheKey(), self::CACHE_TTL_SECONDS, fn () => $this->build());
+        $cacheKey = $this->cacheKey();
+
+        if (! array_key_exists($cacheKey, $this->viewDataByCacheKey)) {
+            $this->viewDataByCacheKey[$cacheKey] = Cache::remember(
+                $cacheKey,
+                self::CACHE_TTL_SECONDS,
+                fn () => $this->build()
+            );
+        }
+
+        return $this->viewDataByCacheKey[$cacheKey];
     }
 
     public function forgetCache(): void
     {
-        Cache::forget($this->cacheKey());
+        $cacheKey = $this->cacheKey();
+
+        Cache::forget($cacheKey);
         Cache::forget('commerce.settings.view.default');
+        unset(
+            $this->viewDataByCacheKey[$cacheKey],
+            $this->viewDataByCacheKey['commerce.settings.view.default']
+        );
     }
 
     private function build(): array

@@ -3,7 +3,7 @@
 @section('title', 'Configuracion GRE')
 
 @section('content')
-<div class="py-2"><x-admin.page-header title="Configuracion de transporte y GRE"><x-slot:actions><a href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Ver guias</a></x-slot:actions></x-admin.page-header>
+<div class="py-2"><x-admin.page-header title="Configuracion de transporte y GRE"><x-slot:actions><a wire:navigate href="{{ route('admin.transport.guides.index') }}" class="btn btn-outline-secondary">Ver guias</a></x-slot:actions></x-admin.page-header>
 @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 <form method="POST" action="{{ route('admin.transport.settings.update') }}" class="card border-0 shadow-sm"><div class="card-body">@csrf @method('PUT')
     <div class="alert alert-info">La simulacion es el modo predeterminado. Produccion permanece bloqueada hasta validar las credenciales GRE actuales.</div>

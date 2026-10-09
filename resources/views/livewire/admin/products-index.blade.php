@@ -4,13 +4,13 @@
         description="Controla catalogo, stock y cobertura operativa por sucursal y almacen desde una sola pantalla."
     >
         <x-slot:actions>
-            <flux:button href="{{ route('admin.inventory.warehouses.index') }}" variant="outline" icon="building-office-2">
+            <flux:button wire:navigate href="{{ route('admin.inventory.warehouses.index') }}" variant="outline" icon="building-office-2">
                 Almacenes
             </flux:button>
-            <flux:button href="{{ route('admin.inventory.index') }}" variant="outline" icon="archive-box">
+            <flux:button wire:navigate href="{{ route('admin.inventory.index') }}" variant="outline" icon="archive-box">
                 Ver inventario
             </flux:button>
-            <flux:button href="{{ route('admin.products.create') }}" variant="primary" icon="plus">
+            <flux:button wire:navigate href="{{ route('admin.products.create') }}" variant="primary" icon="plus">
                 Nuevo producto
             </flux:button>
         </x-slot:actions>
@@ -129,10 +129,10 @@
                                                         Cobertura
                                                     </flux:button>
                                                 @endif
-                                                <flux:button href="{{ route('admin.products.show', $product) }}" variant="outline" size="sm">
+                                                <flux:button wire:navigate href="{{ route('admin.products.show', $product) }}" variant="outline" size="sm">
                                                     Ver
                                                 </flux:button>
-                                                <flux:button href="{{ route('admin.products.edit', $product) }}" variant="primary" size="sm">
+                                                <flux:button wire:navigate href="{{ route('admin.products.edit', $product) }}" variant="primary" size="sm">
                                                     Editar
                                                 </flux:button>
                                                 <form action="{{ route('admin.products.destroy', $product) }}" method="POST" onsubmit="return confirm('Eliminar este producto?')">
@@ -192,7 +192,7 @@
                                                     <input type="checkbox" wire:model="assignmentBranchStates.{{ $branch->id }}" class="mt-1">
                                                     <span>
                                                         <span class="d-block fw-semibold text-slate-900">{{ $branch->name }}</span>
-                                                        <span class="text-sm text-muted">{{ $branch->code }} · habilita el producto para la sucursal.</span>
+                                                        <span class="text-sm text-muted">{{ $branch->code }} Â· habilita el producto para la sucursal.</span>
                                                     </span>
                                                 </label>
                                                 <div>
@@ -210,7 +210,7 @@
                                                                 <input type="checkbox" wire:model="assignmentWarehouseStates.{{ $warehouse->id }}" class="mt-1">
                                                                 <span>
                                                                     <span class="d-block fw-semibold text-slate-900">{{ $warehouse->name }}</span>
-                                                                    <span class="text-sm text-muted">{{ $warehouse->code }} · stock y kardex operan desde este almacen.</span>
+                                                                    <span class="text-sm text-muted">{{ $warehouse->code }} Â· stock y kardex operan desde este almacen.</span>
                                                                 </span>
                                                             </label>
                                                             <div>
@@ -250,4 +250,3 @@
         </div>
     </div>
 </div>
-

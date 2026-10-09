@@ -15,7 +15,7 @@
     </div></div>
     @if($event->entry)<div class="card border border-secondary rounded-3 mb-4"><div class="card-header">Asiento {{ $event->entry->reference }}</div><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Cuenta</th><th>Detalle</th><th class="text-end">Debe</th><th class="text-end">Haber</th></tr></thead><tbody>@foreach($event->entry->lines as $line)<tr><td>{{ $line->account_code }} · {{ $line->account_name }}</td><td>{{ $line->line_description }}</td><td class="text-end">{{ number_format((float)$line->debit, 2) }}</td><td class="text-end">{{ number_format((float)$line->credit, 2) }}</td></tr>@endforeach</tbody></table></div></div>@endif
     <div class="d-flex gap-2">
-        <a href="{{ route('admin.accounting.events.index') }}" class="btn btn-light border">Volver</a>
+        <a wire:navigate href="{{ route('admin.accounting.events.index') }}" class="btn btn-light border">Volver</a>
         @if(in_array($event->status->value, ['pending','error']))<form method="POST" action="{{ route('admin.accounting.events.process', $event) }}">@csrf<button class="btn btn-primary">Procesar / reintentar</button></form>@endif
         @if($event->status->value === 'processed')<form method="POST" action="{{ route('admin.accounting.events.reverse', $event) }}" class="d-flex gap-2">@csrf<input type="text" name="idempotency_key" class="form-control" value="event:{{ $event->id }}:reversal:1" required><button class="btn btn-outline-danger">Crear reversión</button></form>@endif
     </div>
