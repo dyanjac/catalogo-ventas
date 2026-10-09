@@ -504,6 +504,9 @@ body.auth-shell {
 }
 
 .admin-sidebar {
+    height: 100vh;
+    height: 100dvh;
+    max-width: calc(100vw - 3rem);
     background:
         linear-gradient(180deg, color-mix(in srgb, var(--admin-sidebar-bg) 94%, #0f172a) 0%, color-mix(in srgb, var(--admin-sidebar-gradient-to) 92%, #0f172a) 100%);
     border-inline-end: 1px solid rgba(255, 255, 255, 0.12);
@@ -561,11 +564,13 @@ body.auth-shell {
     align-items: center;
     gap: 0.9rem;
     width: 100%;
+    min-width: 0;
     text-decoration: none;
     color: inherit;
 }
 
 .admin-brand__logo-wrap {
+    flex-shrink: 0;
     width: 3rem;
     height: 3rem;
     display: inline-flex;
@@ -594,6 +599,7 @@ body.auth-shell {
     font-weight: 800;
     color: #fff;
     line-height: 1.1;
+    overflow-wrap: anywhere;
 }
 
 .admin-brand__subtitle {
@@ -638,21 +644,13 @@ body.auth-shell {
 .admin-sidebar__footer {
     margin-top: auto;
     padding: 0.75rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 .admin-sidebar__version {
-    margin-top: 0.65rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    opacity: 0.68;
-    text-align: center;
-}
-
-.admin-build-stamp {
-    position: fixed;
-    right: max(1rem, env(safe-area-inset-right));
-    bottom: max(1rem, env(safe-area-inset-bottom));
-    z-index: 60;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.65rem auto 0;
     padding: 0.45rem 0.7rem;
     border: 1px solid rgba(148, 163, 184, 0.5);
     border-radius: 999px;
@@ -663,7 +661,8 @@ body.auth-shell {
     font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.025em;
-    pointer-events: none;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
 
 .admin-sidebar [data-flux-sidebar-item][data-current],
@@ -734,21 +733,30 @@ body.auth-shell {
 }
 
 
-html[data-admin-sidebar-collapsed="true"] .admin-layout {
-    grid-template-columns: 0 minmax(0, 1fr);
-}
+/* Keep desktop preferences separate from Flux's mobile drawer state. */
+@media (min-width: 1024px) {
+    html[data-admin-sidebar-collapsed="true"] .admin-layout {
+        grid-template-columns: 0 minmax(0, 1fr);
+    }
 
-html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
-    transform: translateX(calc(-100% - 1.5rem));
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
-    margin-inline-end: -100%;
-    box-shadow: none;
+    html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
+        transform: translateX(calc(-100% - 1.5rem));
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+        margin-inline-end: -100%;
+        box-shadow: none;
+    }
+
+    .admin-topbar__mobile-toggle,
+    .admin-sidebar__close {
+        display: none;
+    }
 }
 
 .admin-topbar__collapse {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     width: 2.75rem;
@@ -816,7 +824,8 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 .admin-topbar {
     position: sticky;
     top: 0;
-    z-index: 30;
+    /* Flux's mobile drawer and backdrop use layer 20. */
+    z-index: 10;
     padding: 1rem 1.5rem 0;
     width: 100%;
 }
@@ -878,16 +887,6 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
     flex: 0 0 auto;
     flex-wrap: wrap;
     justify-content: flex-end;
-}
-
-.admin-topbar__build {
-    background: #e2e8f0;
-    color: #334155;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.72rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.025em;
-    white-space: nowrap;
 }
 
 .admin-user-menu [data-flux-profile] {
@@ -959,6 +958,8 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 }
 
 .admin-topbar__title {
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -966,6 +967,7 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 
 .admin-topbar__eyebrow {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     font-size: 0.74rem;
@@ -1006,6 +1008,7 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
 
 .admin-topbar__demo-banner {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 0.7rem;
@@ -1480,13 +1483,20 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
         grid-template-columns: 1fr;
     }
 
+}
+
+/* Match Flux's mobile/desktop breakpoint, including 992–1023px tablets. */
+@media (max-width: 1023.98px) {
     .admin-layout {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: "main";
     }
 
+    .admin-topbar__collapse {
+        display: none;
+    }
 
-.admin-topbar {
+    .admin-topbar {
         padding: 0.9rem 0.9rem 0;
     }
 
@@ -1494,6 +1504,15 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
         padding: 0.95rem 1rem;
         border-radius: 1.2rem;
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-topbar__actions {
+        min-width: 0;
+    }
+
+    .admin-user-menu {
+        max-width: 100%;
+        min-width: 0;
     }
 }
 
@@ -1504,8 +1523,12 @@ html[data-admin-sidebar-collapsed="true"] .admin-sidebar {
         align-items: flex-start;
     }
 
-    .admin-topbar__surface {
-        flex-direction: column;
+    .admin-topbar__brand {
+        gap: 0.65rem;
+    }
+
+    .admin-topbar__brand-mark {
+        display: none;
     }
 
     .admin-topbar__actions {

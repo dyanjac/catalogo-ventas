@@ -69,13 +69,19 @@ class AdminNavigationMarkupTest extends TestCase
         $this->assertStringContainsString('data-build-version', $contents);
     }
 
-    public function test_build_version_is_visible_in_the_fixed_admin_header(): void
+    public function test_build_version_is_only_in_the_sidebar_footer(): void
     {
-        $contents = (string) file_get_contents(self::repositoryPath('resources/views/admin/partials/header.blade.php'));
+        $sidebar = (string) file_get_contents(self::repositoryPath('resources/views/admin/partials/sidebar.blade.php'));
 
-        $this->assertStringContainsString("config('app.version')", $contents);
-        $this->assertStringContainsString('data-build-version', $contents);
-        $this->assertStringContainsString('admin-topbar__build', $contents);
+        $this->assertMatchesRegularExpression('/admin-sidebar__footer[\s\S]*data-build-version/', $sidebar);
+        $this->assertSame(1, substr_count($sidebar, 'data-build-version'));
+
+        foreach (['resources/views/admin/partials/header.blade.php', 'resources/views/layouts/admin.blade.php'] as $path) {
+            $contents = (string) file_get_contents(self::repositoryPath($path));
+
+            $this->assertStringNotContainsString('data-build-version', $contents);
+            $this->assertStringNotContainsString("config('app.version')", $contents);
+        }
     }
 
     public function test_desktop_sidebar_toggle_is_icon_only(): void
@@ -95,15 +101,6 @@ class AdminNavigationMarkupTest extends TestCase
         $this->assertStringContainsString('overflow-y: auto', $contents);
         $this->assertStringContainsString('scrollbar-width: thin', $contents);
         $this->assertStringContainsString('::-webkit-scrollbar', $contents);
-    }
-
-    public function test_build_version_persists_across_livewire_navigation(): void
-    {
-        $contents = (string) file_get_contents(self::repositoryPath('resources/views/layouts/admin.blade.php'));
-
-        $this->assertStringContainsString("@persist('application-build-version')", $contents);
-        $this->assertStringContainsString("config('app.version')", $contents);
-        $this->assertStringContainsString('admin-build-stamp', $contents);
     }
 
     /** @return array<string,array{string}> */

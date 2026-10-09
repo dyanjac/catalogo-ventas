@@ -15,11 +15,11 @@
 <header class="admin-topbar">
     <div class="admin-topbar__surface">
         <div class="admin-topbar__group">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-3" />
+            <flux:sidebar.toggle class="admin-topbar__mobile-toggle" icon="bars-3" aria-label="Abrir menú lateral" />
 
             <button
                 type="button"
-                class="admin-topbar__collapse d-none d-lg-inline-flex"
+                class="admin-topbar__collapse"
                 data-admin-sidebar-toggle
                 aria-pressed="false"
                 aria-label="Menú lateral"
@@ -37,9 +37,6 @@
                 <div class="admin-topbar__title">
                     <div class="admin-topbar__eyebrow">
                         <span class="admin-topbar__eyebrow-badge">{{ $commerce['brand_name'] }}</span>
-                        <span class="admin-topbar__eyebrow-badge admin-topbar__build" data-build-version title="Versión de la aplicación">
-                            Build {{ config('app.version') }}
-                        </span>
                         @if($isDemo)
                             <span class="admin-topbar__eyebrow-badge admin-topbar__eyebrow-badge--demo">
                                 Entorno {{ $environment }}
