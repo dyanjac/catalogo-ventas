@@ -49,8 +49,6 @@ FROM php:8.4-apache AS app
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 ARG PHPREDIS_VERSION=6.3.0
-ARG APP_VERSION=development
-ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /var/www/html
 
@@ -95,6 +93,9 @@ RUN apt-get update \
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint-app
+
+ARG APP_VERSION=development
+ENV APP_VERSION=${APP_VERSION}
 
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
