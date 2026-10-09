@@ -379,8 +379,9 @@ cumplida; esta medición adicional solo aumentaría la precisión del contraste.
 
 ## Fase 6.1 — Segunda iteración de rendimiento de navegador
 
-**Estado:** diagnóstico y primera corrección aplicados el 9 de octubre de 2026;
-pendiente de comprobación visual en la instancia local.
+**Estado:** cerrada el 9 de octubre de 2026. La validación visual manual en la
+instancia candidata confirmó una navegación sensiblemente más fluida y sin
+precarga al pasar el cursor por el menú.
 
 La validación manual mostró que la candidata ya es más rápida que el dominio
 público, pero que su carga inicial de 3 a 5 segundos sigue siendo alta. El
@@ -432,10 +433,13 @@ perfil dentro del contenedor separó el origen del tiempo:
    `Cache-Control: public, max-age=31536000, immutable` de los assets con hash,
    antes de cualquier despliegue.
 
-La fase 7 queda pausada hasta validar estas optimizaciones y fijar un objetivo
-de carga inicial a partir de un waterfall de navegador.
+Los cambios anteriores quedan como backlog de rendimiento; no bloquearon el
+despliegue porque la validación manual de la candidata resolvió el problema
+percibido de lentitud.
 
 ## Fase 7 — Despliegue gradual y observación
+
+**Estado:** completada el 9 de octubre de 2026.
 
 1. Crear una etiqueta de imagen inmutable y conservar la imagen anterior.
 2. Ejecutar el preflight y `operations:launch-check --skip-runtime`.
@@ -450,6 +454,17 @@ de carga inicial a partir de un waterfall de navegador.
    - aciertos/fallos de caché si se activa la fase 4;
    - reinicios del servicio.
 7. Mantener la imagen anterior hasta cerrar la observación.
+
+### Resultado
+
+- Preflight `operations:launch-check --skip-runtime` aprobado con la
+  configuración de producción.
+- Se publicó la imagen inmutable `erp-app:9df65ef`, construida desde el commit
+  `9df65ef`; la imagen anterior `erp-app:a2a9d35` se conserva para rollback.
+- Swarm completó la actualización `start-first` sin rollback.
+- Durante 30 minutos, `/up` y `/health/ready` respondieron `200`, `/admin`
+  redirigió correctamente a login, la única tarea permaneció en ejecución y
+  los logs no registraron errores 5xx ni excepciones.
 
 ### Condiciones de rollback
 
