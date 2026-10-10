@@ -74,8 +74,8 @@
 
 <script>
     function normalizeQtyProducts(input) {
-        const raw = parseInt(input?.value ?? '1', 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+        const raw = String(input?.value ?? '1').trim();
+        return /^\d{1,14}(?:\.\d{1,4})?$/.test(raw) && Number(raw) > 0 ? raw : '1';
     }
 
     function syncProductQty(context, productId) {

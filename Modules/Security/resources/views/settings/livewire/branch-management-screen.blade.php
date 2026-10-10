@@ -121,6 +121,16 @@
                             @error('address') <small class="text-danger">{{ $message }}</small> @enderror
                         </div>
 
+                        <div>
+                            <label class="form-label">Redondeo de importes</label>
+                            <select wire:model="rounding_mode" class="form-select">
+                                <option value="">Usar configuracion general</option>
+                                <option value="half_up">Simetrico (Half-Up)</option>
+                                <option value="half_even">Bancario (Half-Even)</option>
+                            </select>
+                            @error('rounding_mode') <small class="text-danger">{{ $message }}</small> @enderror
+                        </div>
+
                         <div class="grid gap-3 md:grid-cols-2">
                             <label class="rounded-4 border border-slate-200 p-3 flex items-start gap-3">
                                 <input type="checkbox" wire:model="is_active" class="mt-1">

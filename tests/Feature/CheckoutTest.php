@@ -16,6 +16,24 @@ class CheckoutTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_checkout_preview_preserves_fractional_quantity_and_six_decimal_price(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->createProduct([
+            'price' => '9999.999999', 'sale_price' => '9999.999999', 'stock' => 10,
+        ]);
+        $this->assignBranchStock($user, $product, 10);
+
+        $response = $this->actingAs($user)->withSession([
+            'cart' => [(string) $product->id => ['id' => (string) $product->id, 'quantity' => '0.0005']],
+        ])->get(route('checkout.show'));
+
+        $response->assertOk()
+            ->assertViewHas('totals', fn (array $totals): bool => $totals['subtotal'] === '5.00'
+                && $totals['tax'] === '0.90' && $totals['total'] === '5.90')
+            ->assertSee('0.0005 x S/ 9999.999999');
+    }
+
     public function test_authenticated_user_can_complete_checkout(): void
     {
         $user = User::factory()->create([
@@ -126,12 +144,12 @@ class CheckoutTest extends TestCase
     private function createProduct(array $attributes = []): Product
     {
         $category = Category::query()->create([
-            'name' => 'Categoria ' . uniqid(),
-            'slug' => 'categoria-' . uniqid(),
+            'name' => 'Categoria '.uniqid(),
+            'slug' => 'categoria-'.uniqid(),
         ]);
 
         $unitMeasure = UnitMeasure::query()->create([
-            'name' => 'Unidad ' . uniqid(),
+            'name' => 'Unidad '.uniqid(),
         ]);
 
         return Product::factory()->create(array_merge([

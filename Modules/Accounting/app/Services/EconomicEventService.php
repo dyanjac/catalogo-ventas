@@ -3,6 +3,8 @@
 namespace Modules\Accounting\Services;
 
 use App\Models\Organization;
+use App\Services\RoundingPolicy;
+use App\Support\Decimal;
 use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,7 @@ class EconomicEventService
     public function __construct(
         private readonly OrganizationEntitlementService $entitlements,
         private readonly ProductAccountingConfigurationResolver $productAccounting,
+        private readonly RoundingPolicy $roundingPolicy,
     ) {}
 
     public function recordInvoice(Order $order, BillingDocument $document, ?int $actorId = null): AccountingEconomicEvent
@@ -238,8 +241,8 @@ class EconomicEventService
     /**
      * Valida y calcula un asiento sin persistir evento, asiento ni trabajo en cola.
      *
-     * @param array<string,mixed> $payload
-     * @return array{lines:array<int,array<string,mixed>>,configuration_snapshot:array<string,mixed>,total_debit:float,total_credit:float}
+     * @param  array<string,mixed>  $payload
+     * @return array{lines:array<int,array<string,mixed>>,configuration_snapshot:array<string,mixed>,total_debit:string,total_credit:string}
      */
     public function preview(
         int $organizationId,
@@ -270,9 +273,9 @@ class EconomicEventService
         if ($lines === []) {
             throw new DomainException('El evento no produjo líneas contables configuradas.');
         }
-        $debit = round(array_sum(array_column($lines, 'debit')), 2);
-        $credit = round(array_sum(array_column($lines, 'credit')), 2);
-        if ($debit <= 0 || abs($debit - $credit) > 0.0001) {
+        $debit = $this->sumLines($lines, 'debit');
+        $credit = $this->sumLines($lines, 'credit');
+        if (Decimal::compare($debit, 0, 2) <= 0 || Decimal::compare($debit, $credit, 2) !== 0) {
             throw new DomainException('El asiento económico no cuadra en partida doble.');
         }
 
@@ -362,9 +365,9 @@ class EconomicEventService
         if ($lines === []) {
             throw new DomainException('El evento no produjo líneas contables configuradas.');
         }
-        $debit = round(array_sum(array_column($lines, 'debit')), 2);
-        $credit = round(array_sum(array_column($lines, 'credit')), 2);
-        if ($debit <= 0 || abs($debit - $credit) > 0.0001) {
+        $debit = $this->sumLines($lines, 'debit');
+        $credit = $this->sumLines($lines, 'credit');
+        if (Decimal::compare($debit, 0, 2) <= 0 || Decimal::compare($debit, $credit, 2) !== 0) {
             throw new DomainException('El asiento económico no cuadra en partida doble.');
         }
 
@@ -473,18 +476,18 @@ class EconomicEventService
                 throw new DomainException("El producto {$product->id} no tiene tratamiento contable automático.");
             }
             $receivable ??= $this->account($event, 'receivable', $config->account('receivable'));
-            $total = round((float) $item['line_total'], 2);
-            $tax = round((float) $item['tax_amount'], 2);
-            $revenue = round($total - $tax, 2);
-            if ($revenue > 0) {
+            $total = Decimal::assertScale($item['line_total'], 2);
+            $tax = Decimal::assertScale($item['tax_amount'], 2);
+            $revenue = Decimal::sub($total, $tax, 2);
+            if (Decimal::compare($revenue, 0, 2) > 0) {
                 $this->addLine($lines, $this->account($event, 'revenue', $config->account('revenue')), 0, $revenue, 'Ingreso por venta', $product->id);
             }
-            if ($tax > 0) {
+            if (Decimal::compare($tax, 0, 2) > 0) {
                 $this->addLine($lines, $this->account($event, 'tax', $config->account('tax')), 0, $tax, 'IGV por pagar', $product->id);
             }
         }
-        $credit = round(array_sum(array_column($lines, 'credit')), 2);
-        if ($credit > 0 && $receivable) {
+        $credit = $this->sumLines($lines, 'credit');
+        if (Decimal::compare($credit, 0, 2) > 0 && $receivable) {
             $this->addLine($lines, $receivable, $credit, 0, 'Cuenta por cobrar');
         }
 
@@ -496,18 +499,18 @@ class EconomicEventService
     {
         $product = $this->product($event, (int) ($event->payload['product_id'] ?? 0));
         $accounts = (array) ($event->payload['accounts'] ?? []);
-        $amount = round(((int) ($event->payload['amount_minor'] ?? 0)) / 100, 2);
-        if ($amount === 0.0) {
+        $amount = Decimal::div((int) ($event->payload['amount_minor'] ?? 0), '100', 2);
+        if (Decimal::compare($amount, 0, 2) === 0) {
             throw new DomainException('El devengamiento debe tener un importe distinto de cero.');
         }
         $deferred = $this->account($event, 'deferred_revenue', $accounts['deferred_revenue'] ?? null);
         $revenue = $this->account($event, 'revenue', $accounts['revenue'] ?? null);
         $lines = [];
-        if ($amount > 0) {
+        if (Decimal::compare($amount, 0, 2) > 0) {
             $this->addLine($lines, $deferred, $amount, 0, 'LiberaciÃ³n de ingreso diferido', $product->id);
             $this->addLine($lines, $revenue, 0, $amount, 'Ingreso por suscripciÃ³n devengado', $product->id);
         } else {
-            $value = abs($amount);
+            $value = Decimal::absolute($amount);
             $this->addLine($lines, $revenue, $value, 0, 'Ajuste de ingreso por suscripciÃ³n', $product->id);
             $this->addLine($lines, $deferred, 0, $value, 'ReposiciÃ³n de ingreso diferido', $product->id);
         }
@@ -528,8 +531,8 @@ class EconomicEventService
         }
         $product = $this->product($event, (int) ($event->payload['product_id'] ?? 0));
         $accounts = (array) ($event->payload['accounts'] ?? []);
-        $amount = round(((int) ($event->payload['amount_minor'] ?? 0)) / 100, 2);
-        if ($amount <= 0) {
+        $amount = Decimal::div((int) ($event->payload['amount_minor'] ?? 0), '100', 2);
+        if (Decimal::compare($amount, 0, 2) <= 0) {
             throw new DomainException('El ingreso a diferir debe ser positivo.');
         }
         $revenue = $this->account($event, 'revenue', $accounts['revenue'] ?? null);
@@ -546,8 +549,8 @@ class EconomicEventService
         $lines = [];
         $snapshot = ['products' => []];
         foreach ($event->payload['items'] ?? [] as $item) {
-            $cost = round((float) $item['total_cost'], 2);
-            if ($cost <= 0) {
+            $cost = $this->roundingPolicy->money($item['total_cost'], (int) $event->organization_id, $event->branch_id);
+            if (Decimal::compare($cost, 0, 2) <= 0) {
                 continue;
             }
             $product = $this->product($event, (int) $item['product_id']);
@@ -575,7 +578,7 @@ class EconomicEventService
 
     private function buildPaymentLines(AccountingEconomicEvent $event): array
     {
-        $amount = round((float) ($event->payload['amount'] ?? 0), 2);
+        $amount = Decimal::assertScale($event->payload['amount'] ?? 0, 2);
         $settings = AccountingSetting::query()->where('organization_id', $event->organization_id)->first();
         $receivableCode = $settings?->default_account_receivable;
         if (! $receivableCode) {
@@ -608,19 +611,19 @@ class EconomicEventService
             throw new DomainException('La nota de crédito requiere el asiento del comprobante original.');
         }
         $original->load('entry.lines');
-        $originalTotal = round((float) $original->entry->total_debit, 2);
-        $creditTotal = round((float) ($event->payload['total'] ?? 0), 2);
-        if ($originalTotal <= 0 || $creditTotal <= 0 || $creditTotal > $originalTotal) {
+        $originalTotal = Decimal::assertScale($original->entry->total_debit, 2);
+        $creditTotal = Decimal::assertScale($event->payload['total'] ?? 0, 2);
+        if (Decimal::compare($originalTotal, 0, 2) <= 0 || Decimal::compare($creditTotal, 0, 2) <= 0 || Decimal::compare($creditTotal, $originalTotal, 2) > 0) {
             throw new DomainException('El importe de la nota de crédito no es válido para el asiento original.');
         }
-        $ratio = $creditTotal / $originalTotal;
+        $ratio = Decimal::div($creditTotal, $originalTotal, 12);
         $lines = [];
         foreach ($original->entry->lines as $source) {
             $this->addLine(
                 $lines,
                 (object) ['code' => $source->account_code, 'name' => $source->account_name],
-                round((float) $source->credit * $ratio, 2),
-                round((float) $source->debit * $ratio, 2),
+                $this->roundingPolicy->money(Decimal::mul($source->credit, $ratio, 12), (int) $event->organization_id, $event->branch_id),
+                $this->roundingPolicy->money(Decimal::mul($source->debit, $ratio, 12), (int) $event->organization_id, $event->branch_id),
                 'Nota de crédito · '.$source->line_description,
                 $source->product_id,
             );
@@ -639,8 +642,8 @@ class EconomicEventService
         $lines = $original->entry->lines->map(fn ($source) => [
             'account_code' => $source->account_code,
             'account_name' => $source->account_name,
-            'debit' => round((float) $source->credit, 2),
-            'credit' => round((float) $source->debit, 2),
+            'debit' => Decimal::assertScale($source->credit, 2),
+            'credit' => Decimal::assertScale($source->debit, 2),
             'line_description' => 'Reversión · '.$source->line_description,
             'product_id' => $source->product_id,
         ])->all();
@@ -654,7 +657,7 @@ class EconomicEventService
         $items = $document->items->map(fn ($item) => [
             'product_id' => (int) $item->product_id,
             'movement_id' => $item->inventory_movement_id ? (int) $item->inventory_movement_id : null,
-            'quantity' => (int) $item->quantity,
+            'quantity' => Decimal::assertScale($item->quantity, 4),
             'total_cost' => (string) ($item->movement?->total_cost ?? $item->line_total ?? 0),
         ])->values()->all();
 
@@ -709,32 +712,37 @@ class EconomicEventService
         return Product::withTrashed()->where('organization_id', $event->organization_id)->findOrFail($productId);
     }
 
-    private function addLine(array &$lines, object $account, float $debit, float $credit, string $description, ?int $productId = null): void
+    private function addLine(array &$lines, object $account, int|float|string $debit, int|float|string $credit, string $description, ?int $productId = null): void
     {
         $key = $account->code.'|'.$description.'|'.($productId ?? 0);
         if (! isset($lines[$key])) {
             $lines[$key] = $this->line($account, 0, 0, $description, $productId);
         }
-        $lines[$key]['debit'] = round($lines[$key]['debit'] + $debit, 2);
-        $lines[$key]['credit'] = round($lines[$key]['credit'] + $credit, 2);
+        $lines[$key]['debit'] = Decimal::add($lines[$key]['debit'], Decimal::assertScale($debit, 2), 2);
+        $lines[$key]['credit'] = Decimal::add($lines[$key]['credit'], Decimal::assertScale($credit, 2), 2);
     }
 
-    private function line(object $account, float $debit, float $credit, string $description, ?int $productId = null): array
+    private function line(object $account, int|float|string $debit, int|float|string $credit, string $description, ?int $productId = null): array
     {
-        return ['account_code' => $account->code, 'account_name' => $account->name, 'debit' => $debit, 'credit' => $credit, 'line_description' => $description, 'product_id' => $productId];
+        return ['account_code' => $account->code, 'account_name' => $account->name, 'debit' => Decimal::assertScale($debit, 2), 'credit' => Decimal::assertScale($credit, 2), 'line_description' => $description, 'product_id' => $productId];
     }
 
     private function correctRounding(array &$lines): void
     {
-        $difference = round(array_sum(array_column($lines, 'debit')) - array_sum(array_column($lines, 'credit')), 2);
-        if (abs($difference) <= 0.01 && $difference !== 0.0) {
+        $difference = Decimal::sub($this->sumLines($lines, 'debit'), $this->sumLines($lines, 'credit'), 2);
+        if (Decimal::compare(Decimal::absolute($difference), '0.01', 2) <= 0 && Decimal::compare($difference, 0, 2) !== 0) {
             $key = array_key_last($lines);
-            if ($difference > 0) {
-                $lines[$key]['credit'] = round($lines[$key]['credit'] + $difference, 2);
+            if (Decimal::compare($difference, 0, 2) > 0) {
+                $lines[$key]['credit'] = Decimal::add($lines[$key]['credit'], $difference, 2);
             } else {
-                $lines[$key]['debit'] = round($lines[$key]['debit'] + abs($difference), 2);
+                $lines[$key]['debit'] = Decimal::add($lines[$key]['debit'], Decimal::absolute($difference), 2);
             }
         }
+    }
+
+    private function sumLines(array $lines, string $column): string
+    {
+        return array_reduce($lines, fn (string $sum, array $line): string => Decimal::add($sum, $line[$column], 2), '0');
     }
 
     private function assertReplay(AccountingEconomicEvent $event, string $hash, EconomicEventType $type, string $sourceType, int $sourceId): AccountingEconomicEvent

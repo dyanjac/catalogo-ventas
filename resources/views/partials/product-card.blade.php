@@ -5,7 +5,9 @@
     $primaryImage = $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png');
     $unitName = $product->unitMeasure?->name ?? 'UNIDAD';
     $categoryName = $product->category?->name ?? 'Sin categoria';
-    $isLowStock = $product->stock <= $product->min_stock;
+    $isLowStock = \App\Support\Decimal::compare($product->stock, $product->min_stock, 4) <= 0;
+    $doubleMinimum = \App\Support\Decimal::mul($product->min_stock, 2, 4);
+    $highStockThreshold = \App\Support\Decimal::compare($doubleMinimum, 5, 4) > 0 ? $doubleMinimum : '5';
     $promoBadges = [];
 
     if (\Illuminate\Support\Str::startsWith($context, 'home')) {
@@ -13,11 +15,11 @@
             $promoBadges[] = 'Mayorista';
         }
 
-        if ($product->average_price && (float) $product->display_price < (float) $product->average_price) {
+        if ($product->average_price && \App\Support\Decimal::compare($product->display_price, $product->average_price, 6) < 0) {
             $promoBadges[] = 'Oferta';
         }
 
-        if ($product->stock > max(5, (int) $product->min_stock * 2)) {
+        if (\App\Support\Decimal::compare($product->stock, $highStockThreshold, 4) > 0) {
             $promoBadges[] = 'Alta rotacion';
         }
     }
@@ -55,7 +57,7 @@
         <div class="mp-price-row">
             <div>
                 <span class="mp-price-label">Precio venta</span>
-                <div class="mp-price-value">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }}</div>
+                <div class="mp-price-value">S/ {{ \App\Support\Decimal::unitPriceForInput($product->display_price ?? 0) }}</div>
             </div>
             <div class="text-end">
                 <span class="mp-price-label">Stock</span>
@@ -69,7 +71,7 @@
             </a>
             <div class="input-group input-group-sm mp-qty-group">
                 <span class="input-group-text">Cant.</span>
-                <input id="{{ $quantityId }}" type="number" min="1" value="1" class="form-control">
+                <input id="{{ $quantityId }}" type="text" inputmode="decimal" value="1" class="form-control">
             </div>
         </div>
 

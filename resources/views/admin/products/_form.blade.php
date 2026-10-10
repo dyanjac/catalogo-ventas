@@ -70,19 +70,19 @@
 
     <div class="col-md-3">
         <label class="form-label">Precio compra</label>
-        <input type="number" step="0.01" min="0" name="purchase_price" class="form-control" value="{{ old('purchase_price', $product->purchase_price) }}">
+        <input type="text" inputmode="decimal" name="purchase_price" class="form-control" value="{{ old('purchase_price', $product->purchase_price) }}">
     </div>
     <div class="col-md-3">
         <label class="form-label">Precio venta</label>
-        <input type="number" step="0.01" min="0" name="sale_price" class="form-control" value="{{ old('sale_price', $product->sale_price) }}">
+        <input type="text" inputmode="decimal" name="sale_price" class="form-control" value="{{ old('sale_price', $product->sale_price) }}">
     </div>
     <div class="col-md-3">
         <label class="form-label">Precio mayor</label>
-        <input type="number" step="0.01" min="0" name="wholesale_price" class="form-control" value="{{ old('wholesale_price', $product->wholesale_price) }}">
+        <input type="text" inputmode="decimal" name="wholesale_price" class="form-control" value="{{ old('wholesale_price', $product->wholesale_price) }}">
     </div>
     <div class="col-md-3">
         <label class="form-label">Stock mínimo</label>
-        <input type="number" min="0" name="min_stock" class="form-control" value="{{ old('min_stock', $product->min_stock ?? 0) }}">
+        <input type="text" inputmode="decimal" name="min_stock" class="form-control" value="{{ old('min_stock', $product->min_stock ?? 0) }}">
     </div>
     <div class="col-md-3">
         <label class="form-label">Cuenta contable</label>

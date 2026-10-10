@@ -8,6 +8,6 @@ final readonly class InventoryReservationItemData
 {
     public function __construct(
         public int $balanceId,
-        public int $quantity,
+        public int|float|string $quantity,
     ) {}
 }

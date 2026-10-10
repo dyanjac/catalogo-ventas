@@ -22,6 +22,7 @@ class CommerceSetting extends Model
         'logo_path',
         'email',
         'support_email',
+        'rounding_mode',
     ];
 
     public function getLogoUrlAttribute(): ?string

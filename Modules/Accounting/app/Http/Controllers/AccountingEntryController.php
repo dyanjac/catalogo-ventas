@@ -4,6 +4,7 @@ namespace Modules\Accounting\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -94,8 +95,8 @@ class AccountingEntryController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.account_code' => ['required', 'string', 'max:40'],
             'lines.*.account_name' => ['nullable', 'string', 'max:160'],
-            'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.debit' => ['nullable', 'numeric', 'min:0', 'regex:/^\d+(?:\.\d{1,2})?$/'],
+            'lines.*.credit' => ['nullable', 'numeric', 'min:0', 'regex:/^\d+(?:\.\d{1,2})?$/'],
             'lines.*.line_description' => ['nullable', 'string', 'max:255'],
             'lines.*.cost_center_id' => ['nullable', Rule::exists('accounting_cost_centers', 'id')->where('organization_id', $organizationId)],
             'attachments' => ['nullable', 'array'],
@@ -120,13 +121,13 @@ class AccountingEntryController extends Controller
                 return [
                     'account_code' => trim((string) $line['account_code']),
                     'account_name' => trim((string) ($line['account_name'] ?? '')) ?: null,
-                    'debit' => round((float) ($line['debit'] ?? 0), 2),
-                    'credit' => round((float) ($line['credit'] ?? 0), 2),
+                    'debit' => Decimal::assertScale($line['debit'] ?? 0, 2),
+                    'credit' => Decimal::assertScale($line['credit'] ?? 0, 2),
                     'line_description' => trim((string) ($line['line_description'] ?? '')) ?: null,
                     'cost_center_id' => ! empty($line['cost_center_id']) ? (int) $line['cost_center_id'] : null,
                 ];
             })
-            ->filter(fn (array $line) => $line['account_code'] !== '' && ($line['debit'] > 0 || $line['credit'] > 0))
+            ->filter(fn (array $line) => $line['account_code'] !== '' && (Decimal::compare($line['debit'], 0, 2) > 0 || Decimal::compare($line['credit'], 0, 2) > 0))
             ->values();
 
         if ($lines->isEmpty()) {
@@ -135,10 +136,10 @@ class AccountingEntryController extends Controller
                 ->withInput();
         }
 
-        $totalDebit = round((float) $lines->sum('debit'), 2);
-        $totalCredit = round((float) $lines->sum('credit'), 2);
+        $totalDebit = $lines->reduce(fn (string $sum, array $line): string => Decimal::add($sum, $line['debit'], 2), '0');
+        $totalCredit = $lines->reduce(fn (string $sum, array $line): string => Decimal::add($sum, $line['credit'], 2), '0');
 
-        if (abs($totalDebit - $totalCredit) > 0.0001) {
+        if (Decimal::compare($totalDebit, $totalCredit, 2) !== 0) {
             return back()
                 ->withErrors(['lines' => 'La partida doble no cuadra. El total Debe debe ser igual al total Haber.'])
                 ->withInput();

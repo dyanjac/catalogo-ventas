@@ -3,7 +3,9 @@
 namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\DocumentTotals;
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -40,6 +42,7 @@ class SalesPosController extends Controller
         private readonly OrderInventoryLifecycleService $inventoryLifecycle,
         private readonly OrderRepositoryInterface $orders,
         private readonly PosLocationService $locations,
+        private readonly DocumentTotals $documentTotals,
     ) {}
 
     public function index(): View
@@ -92,8 +95,8 @@ class SalesPosController extends Controller
             'branch_id' => ['nullable', 'integer'],
             'warehouse_id' => ['nullable', 'integer'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'shipping' => ['nullable', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'regex:/^\d{1,16}(?:\.\d{1,2})?$/', 'numeric', 'min:0'],
+            'shipping' => ['nullable', 'regex:/^\d{1,16}(?:\.\d{1,2})?$/', 'numeric', 'min:0'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.address' => ['nullable', 'string', 'max:200'],
             'customer.city' => ['nullable', 'string', 'max:100'],
@@ -102,8 +105,8 @@ class SalesPosController extends Controller
             'customer.document_number' => ['nullable', 'string', 'max:20'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
-            'items.*.quantity' => ['required', 'regex:/^\d{1,9}(?:\.\d{1,3})?$/', 'numeric', 'min:0.001'],
-            'items.*.unit_price' => ['nullable', 'regex:/^\d{1,8}(?:\.\d{1,2})?$/', 'numeric', 'min:0'],
+            'items.*.quantity' => ['required', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'min:0.0001'],
+            'items.*.unit_price' => ['nullable', 'regex:/^\d{1,12}(?:\.\d{1,6})?$/', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -123,9 +126,9 @@ class SalesPosController extends Controller
             }
         }
 
-        $taxRate = (float) ($data['tax_rate'] ?? config('sales.default_tax_rate', 0.18));
-        $discount = round((float) ($data['discount'] ?? 0), 2);
-        $shipping = round((float) ($data['shipping'] ?? 0), 2);
+        $taxRate = (string) ($data['tax_rate'] ?? config('sales.default_tax_rate', 0.18));
+        $discount = Decimal::assertScale((string) ($data['discount'] ?? '0'), 2);
+        $shipping = Decimal::assertScale((string) ($data['shipping'] ?? '0'), 2);
         $branchId = (int) ($data['branch_id'] ?? $this->branchContext->currentBranchId($request->user()) ?: 0);
         if (isset($data['branch_id'])) {
             $this->locations->assertBranch($request->user(), $branchId);
@@ -149,8 +152,8 @@ class SalesPosController extends Controller
             'customer' => $data['customer'],
             'items' => collect($data['items'])->map(fn (array $item) => [
                 'product_id' => (int) $item['product_id'],
-                'quantity' => round((float) $item['quantity'], 3),
-                'unit_price' => isset($item['unit_price']) ? round((float) $item['unit_price'], 2) : null,
+                'quantity' => Decimal::assertScale((string) $item['quantity'], 4),
+                'unit_price' => isset($item['unit_price']) && $item['unit_price'] !== '' ? Decimal::assertScale((string) $item['unit_price'], 6) : null,
             ])->sortBy('product_id')->values()->all(),
             'tax_rate' => $taxRate,
             'discount' => $discount,
@@ -198,11 +201,11 @@ class SalesPosController extends Controller
                     ->keyBy('id');
 
                 $normalizedItems = $this->normalizeItems($items, $products, $branchId, $warehouseId);
-                $subtotal = round((float) $normalizedItems->sum(fn (array $line) => $line['line_subtotal']), 2);
-                $discountAmount = min($discount, $subtotal);
-                $taxableBase = max(0, $subtotal - $discountAmount);
-                $tax = round($taxableBase * $taxRate, 2);
-                $total = round($taxableBase + $tax + $shipping, 2);
+                $totals = $this->documentTotals->calculate(
+                    $normalizedItems->map(fn (array $line) => ['quantity' => $line['quantity'], 'unit_price' => $line['unit_price']])->values()->all(),
+                    $discount, $shipping, $taxRate, (int) $organizationId, $branchId ?: null,
+                );
+                ['subtotal' => $subtotal, 'discount' => $discountAmount, 'tax' => $tax, 'total' => $total] = $totals;
                 $series = $this->resolveOrderSeries($data['document_type']);
 
                 $nextOrderNumber = $this->orders->nextOrderNumber($series);
@@ -240,14 +243,8 @@ class SalesPosController extends Controller
                     'observations' => $data['observations'] ?? null,
                 ]);
 
-                $discountRatio = $subtotal > 0 ? $discountAmount / $subtotal : 0;
-                $taxRatio = $taxableBase > 0 ? $tax / $taxableBase : 0;
-
-                foreach ($normalizedItems as $line) {
-                    $lineDiscount = round($line['line_subtotal'] * $discountRatio, 2);
-                    $lineTaxable = max(0, $line['line_subtotal'] - $lineDiscount);
-                    $lineTax = round($lineTaxable * $taxRatio, 2);
-                    $lineTotal = round($lineTaxable + $lineTax, 2);
+                foreach ($normalizedItems as $index => $line) {
+                    $lineTotals = $totals['lines'][$index];
 
                     OrderItem::query()->create([
                         'organization_id' => $organizationId,
@@ -256,9 +253,9 @@ class SalesPosController extends Controller
                         'currency' => $data['currency'],
                         'quantity' => $line['quantity'],
                         'unit_price' => $line['unit_price'],
-                        'discount_amount' => $lineDiscount,
-                        'tax_amount' => $lineTax,
-                        'line_total' => $lineTotal,
+                        'discount_amount' => $lineTotals['discount'],
+                        'tax_amount' => $lineTotals['tax'],
+                        'line_total' => $lineTotals['total'],
                     ]);
 
                     if (! $integrated && $line['product']->tracksInventory()) {
@@ -319,6 +316,7 @@ class SalesPosController extends Controller
                     $payload = [
                         'order_id' => $createdOrder->id,
                         'document_type' => $data['document_type'],
+                        'tax_rate' => $taxRate,
                         'series' => $billingSeries,
                         'number' => $billingNumber,
                         'issue_date' => now()->toDateString(),
@@ -338,14 +336,17 @@ class SalesPosController extends Controller
                             'shipping' => $shipping,
                             'total' => $total,
                         ],
-                        'items' => $normalizedItems->map(function (array $line) {
+                        'items' => $normalizedItems->map(function (array $line, int $index) use ($totals) {
                             return [
                                 'product_id' => $line['product']->id,
                                 'sku' => $line['product']->sku,
                                 'name' => $line['product']->name,
                                 'quantity' => $line['quantity'],
                                 'unit_price' => $line['unit_price'],
-                                'line_subtotal' => $line['line_subtotal'],
+                                'line_subtotal' => $totals['lines'][$index]['subtotal'],
+                                'line_discount' => $totals['lines'][$index]['discount'],
+                                'line_tax' => $totals['lines'][$index]['tax'],
+                                'line_total' => $totals['lines'][$index]['total'],
                             ];
                         })->values()->all(),
                     ];
@@ -411,36 +412,26 @@ class SalesPosController extends Controller
     /**
      * @param  Collection<int,array<string,mixed>>  $items
      * @param  Collection<int,Product>  $products
-     * @return Collection<int,array{product:Product,quantity:float,unit_price:float,line_subtotal:float}>
+     * @return Collection<int,array{product:Product,quantity:string,unit_price:string}>
      */
     private function normalizeItems(Collection $items, Collection $products, int $branchId, ?int $warehouseId = null): Collection
     {
-        foreach ($items as $line) {
-            $product = $products->get((int) $line['product_id']);
-            $quantity = (float) $line['quantity'];
-            if ($product?->tracksInventory() && floor($quantity) !== $quantity) {
-                throw ValidationException::withMessages([
-                    'items' => ["{$product->name} requiere una cantidad entera porque controla inventario."],
-                ]);
-            }
-        }
-
         $items = $items->groupBy(fn (array $item) => (int) $item['product_id'])->map(function (Collection $lines): array {
-            $prices = $lines->pluck('unit_price')->filter(fn ($price) => $price !== null && $price !== '')->map(fn ($price) => round((float) $price, 2))->unique();
+            $prices = $lines->pluck('unit_price')->filter(fn ($price) => $price !== null && $price !== '')->map(fn ($price) => Decimal::assertScale((string) $price, 6))->unique();
             if ($prices->count() > 1) {
                 throw ValidationException::withMessages(['items' => 'Un producto repetido no puede usar precios unitarios diferentes.']);
             }
 
             return [
                 'product_id' => (int) $lines->first()['product_id'],
-                'quantity' => round((float) $lines->sum('quantity'), 3),
+                'quantity' => $lines->reduce(fn (string $sum, array $line): string => Decimal::add($sum, (string) $line['quantity'], 4), '0'),
                 'unit_price' => $prices->first(),
             ];
         })->values();
 
         return $items->map(function (array $item) use ($products, $branchId, $warehouseId): array {
             $product = $products->get((int) $item['product_id']);
-            $quantity = (float) $item['quantity'];
+            $quantity = Decimal::assertScale((string) $item['quantity'], 4);
 
             if (! $product || ! $product->is_active) {
                 throw ValidationException::withMessages([
@@ -454,21 +445,20 @@ class SalesPosController extends Controller
                     : $this->inventory->availableStock($product, $branchId))
                 : $quantity;
 
-            if ($product->tracksInventory() && $available < $quantity) {
+            if ($product->tracksInventory() && Decimal::compare($available, $quantity, 4) < 0) {
                 throw ValidationException::withMessages([
                     'items' => ["Stock insuficiente para {$product->name} en ".($warehouseId ? 'el almacén seleccionado' : 'la sucursal').". Disponible: {$available}."],
                 ]);
             }
 
             $unitPrice = isset($item['unit_price']) && $item['unit_price'] !== ''
-                ? round((float) $item['unit_price'], 2)
-                : round((float) ($product->sale_price ?? $product->price ?? 0), 2);
+                ? Decimal::assertScale((string) $item['unit_price'], 6)
+                : Decimal::assertScale((string) ($product->sale_price ?? $product->price ?? 0), 6);
 
             return [
                 'product' => $product,
                 'quantity' => $quantity,
                 'unit_price' => $unitPrice,
-                'line_subtotal' => round($unitPrice * $quantity, 2),
             ];
         });
     }

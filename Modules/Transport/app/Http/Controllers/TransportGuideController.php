@@ -86,7 +86,7 @@ class TransportGuideController extends Controller
             'items.*.product_id' => ['nullable', 'integer'],
             'items.*.code' => ['required', 'string', 'max:60'],
             'items.*.description' => ['required', 'string', 'max:500'],
-            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0', 'regex:/^\d+(?:\.\d{1,4})?$/'],
             'items.*.unit_code' => ['required', 'string', 'max:5'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -97,7 +97,7 @@ class TransportGuideController extends Controller
         );
         $items = array_map(fn (array $item): TransportGuideItemData => new TransportGuideItemData(
             isset($item['product_id']) ? (int) $item['product_id'] : null,
-            (string) $item['code'], (string) $item['description'], (float) $item['quantity'], (string) $item['unit_code'],
+            (string) $item['code'], (string) $item['description'], (string) $item['quantity'], (string) $item['unit_code'],
         ), $data['items']);
         $guide = $service->create(new TransportGuideCommand(
             organizationId: $this->organizationId($context),

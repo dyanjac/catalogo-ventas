@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Orders\Services;
 
+use App\Support\Decimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Services\EconomicEventService;
@@ -92,12 +93,12 @@ class OrderInventoryLifecycleService
                 throw ValidationException::withMessages(['items' => 'Todos los productos fisicos requieren saldo activo en el almacen predeterminado.']);
             }
 
-            $quantities = $inventoryItems->groupBy('product_id')->map(fn ($lines) => (int) $lines->sum('quantity'));
+            $quantities = $inventoryItems->groupBy('product_id')->map(fn ($lines) => Decimal::quantity($lines->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->quantity, 4), '0')));
             $reservationVersion = (int) $locked->reservation_version + 1;
             $reservation = $this->reservations->reserve(new InventoryReservationCommand(
                 organizationId: (int) $locked->organization_id,
                 idempotencyKey: "sales-order:{$locked->id}:reserve:{$reservationVersion}",
-                items: $quantities->map(fn (int $quantity, int|string $productId) => new InventoryReservationItemData(
+                items: $quantities->map(fn (int|string $quantity, int|string $productId) => new InventoryReservationItemData(
                     (int) $balances->get((int) $productId)->id,
                     $quantity,
                 ))->values()->all(),
@@ -164,7 +165,7 @@ class OrderInventoryLifecycleService
                 'created_by' => $actorId,
                 'items' => $reservation->items->groupBy('product_id')->map(fn ($items, $productId) => [
                     'product_id' => (int) $productId,
-                    'quantity' => (int) $items->sum('quantity'),
+                    'quantity' => Decimal::quantity($items->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->quantity, 4), '0')),
                 ])->values()->all(),
                 'meta' => ['order_id' => $locked->id, 'channel' => $locked->sales_channel],
             ]);
@@ -285,7 +286,7 @@ class OrderInventoryLifecycleService
                 ->where('id', $creditNote->related_document_id)
                 ->whereIn('document_type', ['factura', 'boleta'])
                 ->first();
-            if (! $originalDocument || round((float) $creditNote->total, 2) !== round((float) $originalDocument->total, 2)) {
+            if (! $originalDocument || Decimal::compare($creditNote->total, $originalDocument->total, 2) !== 0) {
                 throw ValidationException::withMessages([
                     'credit_note' => 'FASE 06 solo permite devolucion fisica total; una nota parcial requiere lineas y cantidades explicitas.',
                 ]);
@@ -303,8 +304,8 @@ class OrderInventoryLifecycleService
                 'created_by' => $actorId,
                 'items' => $items->map(fn ($item) => [
                     'product_id' => (int) $item->product_id,
-                    'quantity' => (int) $item->dispatched_quantity,
-                    'unit_cost' => (float) ($item->product?->purchase_price ?: $item->product?->average_price ?: 0),
+                    'quantity' => $item->dispatched_quantity,
+                    'unit_cost' => $item->product?->purchase_price ?: $item->product?->average_price ?: 0,
                 ])->values()->all(),
                 'meta' => ['order_id' => $locked->id, 'credit_note_id' => $creditNoteId],
             ]);

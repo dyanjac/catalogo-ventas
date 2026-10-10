@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Services;
 
+use App\Support\Decimal;
 use Illuminate\Support\Facades\DB;
 use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryMovement;
@@ -43,21 +44,21 @@ class InventoryReconciliationService
                             ->orderByDesc('balance_version')
                             ->first();
 
-                        if (! $latest || (int) $latest->stock_after !== (int) $balance->physical_stock || (int) $latest->balance_version !== (int) $balance->version) {
+                        if (! $latest || Decimal::compare($latest->stock_after, $balance->physical_stock, 4) !== 0 || (int) $latest->balance_version !== (int) $balance->version) {
                             $this->issue($run, $balance, 'ledger_balance_mismatch', $latest?->stock_after, $balance->physical_stock);
                         }
 
-                        $expectedReserved = (int) InventoryReservationItem::query()
+                        $expectedReserved = InventoryReservationItem::query()
                             ->join('inventory_reservations', 'inventory_reservations.id', '=', 'inventory_reservation_items.reservation_id')
                             ->where('inventory_reservation_items.organization_id', $balance->organization_id)
                             ->where('inventory_reservation_items.inventory_balance_id', $balance->id)
                             ->where('inventory_reservations.status', InventoryReservationStatus::Active->value)
                             ->sum('inventory_reservation_items.quantity');
-                        if ($expectedReserved !== (int) $balance->reserved_stock) {
+                        if (Decimal::compare(Decimal::round($expectedReserved, 4), $balance->reserved_stock, 4) !== 0) {
                             $this->issue($run, $balance, 'reservation_balance_mismatch', $expectedReserved, $balance->reserved_stock);
                         }
 
-                        $expectedTransit = (int) InventoryTransferItem::query()
+                        $expectedTransit = InventoryTransferItem::query()
                             ->join('inventory_transfers', 'inventory_transfers.id', '=', 'inventory_transfer_items.transfer_id')
                             ->where('inventory_transfer_items.organization_id', $balance->organization_id)
                             ->where('inventory_transfer_items.destination_balance_id', $balance->id)
@@ -67,7 +68,7 @@ class InventoryReconciliationService
                             ])
                             ->selectRaw('COALESCE(SUM(dispatched_quantity - received_quantity), 0) as pending')
                             ->value('pending');
-                        if ($expectedTransit !== (int) $balance->in_transit_stock) {
+                        if (Decimal::compare(Decimal::round($expectedTransit ?? 0, 4), $balance->in_transit_stock, 4) !== 0) {
                             $this->issue($run, $balance, 'transit_balance_mismatch', $expectedTransit, $balance->in_transit_stock);
                         }
 
@@ -79,7 +80,7 @@ class InventoryReconciliationService
                                 ->where('warehouse_id', $balance->warehouse_id)
                                 ->first();
 
-                            if (! $legacyWarehouse || (int) $legacyWarehouse->stock !== (int) $balance->physical_stock) {
+                            if (! $legacyWarehouse || Decimal::compare($legacyWarehouse->stock, $balance->physical_stock, 4) !== 0) {
                                 $this->issue($run, $balance, 'warehouse_legacy_mismatch', $balance->physical_stock, $legacyWarehouse?->stock);
                             }
 
@@ -133,7 +134,7 @@ class InventoryReconciliationService
                     ->where('branch_id', $group->branch_id)
                     ->value('stock');
 
-                if ($legacy === null || (int) $legacy !== (int) $group->stock_total) {
+                if ($legacy === null || Decimal::compare(Decimal::round($legacy, 4), Decimal::round($group->stock_total, 4), 4) !== 0) {
                     $this->issue($run, $group, 'branch_legacy_mismatch', $group->stock_total, $legacy);
                 }
             }
@@ -148,7 +149,7 @@ class InventoryReconciliationService
             foreach ($productGroups as $group) {
                 $legacy = Product::query()->where('organization_id', $organizationId)->whereKey($group->product_id)->value('stock');
 
-                if ($legacy === null || (int) $legacy !== (int) $group->stock_total) {
+                if ($legacy === null || Decimal::compare(Decimal::round($legacy, 4), Decimal::round($group->stock_total, 4), 4) !== 0) {
                     $this->issue($run, $group, 'product_legacy_mismatch', $group->stock_total, $legacy);
                 }
             }

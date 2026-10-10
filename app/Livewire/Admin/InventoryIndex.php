@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -187,9 +188,9 @@ class InventoryIndex extends Component
             'documentNotes' => ['nullable', 'string', 'max:1000'],
             'documentItems' => ['required', 'array', 'min:1'],
             'documentItems.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
-            'documentItems.*.quantity' => [Rule::requiredIf($this->documentType !== 'stock_adjustment'), 'nullable', 'integer', 'min:1'],
-            'documentItems.*.target_quantity' => [Rule::requiredIf($this->documentType === 'stock_adjustment'), 'nullable', 'integer', 'min:0'],
-            'documentItems.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'documentItems.*.quantity' => [Rule::requiredIf($this->documentType !== 'stock_adjustment'), 'nullable', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'gt:0'],
+            'documentItems.*.target_quantity' => [Rule::requiredIf($this->documentType === 'stock_adjustment'), 'nullable', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'min:0'],
+            'documentItems.*.unit_cost' => ['nullable', 'regex:/^\d{1,12}(?:\.\d{1,6})?$/', 'numeric', 'min:0'],
             'documentItems.*.notes' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -225,13 +226,13 @@ class InventoryIndex extends Component
                 return [
                     'product_id' => (int) $item['product_id'],
                     'quantity' => $validated['documentType'] === 'stock_adjustment'
-                        ? (int) $item['target_quantity']
-                        : (int) $item['quantity'],
+                        ? Decimal::assertScale($item['target_quantity'], 4)
+                        : Decimal::assertScale($item['quantity'], 4),
                     'target_quantity' => $validated['documentType'] === 'stock_adjustment'
-                        ? (int) $item['target_quantity']
+                        ? Decimal::assertScale($item['target_quantity'], 4)
                         : null,
                     'unit_cost' => in_array($validated['documentType'], ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) && $item['unit_cost'] !== '' && $item['unit_cost'] !== null
-                        ? round((float) $item['unit_cost'], 4)
+                        ? Decimal::assertScale($item['unit_cost'], 6)
                         : null,
                     'notes' => $item['notes'] ?? null,
                 ];
@@ -309,7 +310,7 @@ class InventoryIndex extends Component
             'transferSourceBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId)],
             'transferDestinationBranchId' => ['required', 'integer', Rule::exists('security_branches', 'id')->where('organization_id', $organizationId), 'different:transferSourceBranchId'],
             'transferProductId' => ['required', 'integer', Rule::exists('products', 'id')->where('organization_id', $organizationId)],
-            'transferQuantity' => ['required', 'integer', 'min:1'],
+            'transferQuantity' => ['required', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'gt:0'],
             'transferNotes' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -329,7 +330,7 @@ class InventoryIndex extends Component
             $product,
             (int) $validated['transferSourceBranchId'],
             (int) $validated['transferDestinationBranchId'],
-            (int) $validated['transferQuantity'],
+            Decimal::assertScale($validated['transferQuantity'], 4),
             [
                 'created_by' => auth()->id(),
                 'idempotency_key' => $this->transferIdempotencyKey,
@@ -377,12 +378,12 @@ class InventoryIndex extends Component
 
         $validated = $this->validate([
             "transferReceiptQuantities.{$transferId}" => ['required', 'array'],
-            "transferReceiptQuantities.{$transferId}.*" => ['nullable', 'integer', 'min:1'],
+            "transferReceiptQuantities.{$transferId}.*" => ['nullable', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'gt:0'],
         ]);
         $rawQuantities = $validated['transferReceiptQuantities'][$transferId] ?? [];
         $quantities = collect($rawQuantities)
             ->reject(fn ($quantity) => $quantity === null || $quantity === '')
-            ->mapWithKeys(fn ($quantity, $itemId) => [(int) $itemId => (int) $quantity])
+            ->mapWithKeys(fn ($quantity, $itemId) => [(int) $itemId => Decimal::assertScale($quantity, 4)])
             ->all();
 
         if ($quantities === []) {

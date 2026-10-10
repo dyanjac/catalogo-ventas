@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,7 @@ use Modules\Catalog\Services\InventoryLedgerRolloutService;
 use Modules\Catalog\Services\InventoryReconciliationService;
 use Modules\Catalog\Services\InventoryReservationService;
 use Modules\Catalog\Services\InventoryTransferService;
+use Modules\Operations\Services\OperationalReconciliationService;
 use Modules\Security\Models\SecurityBranch;
 use Tests\TestCase;
 
@@ -163,6 +165,38 @@ class InventoryWarehouseOperationsTest extends TestCase
         $this->assertSame(0, $scope['destination_balance']->fresh()->in_transit_stock);
         $this->assertSame(10, $scope['source_balance']->fresh()->physical_stock + $scope['destination_balance']->fresh()->physical_stock + $scope['destination_balance']->fresh()->in_transit_stock);
         $this->assertSame(3, InventoryTransferEvent::query()->where('transfer_id', $transfer->id)->whereIn('event_type', ['dispatched', 'received'])->count());
+    }
+
+    public function test_fractional_transfer_preserves_four_decimal_balances_and_reconciles(): void
+    {
+        $scope = $this->scope();
+        $service = app(InventoryTransferService::class);
+        $transfer = $service->create(new InventoryTransferCommand(
+            organizationId: $scope['organization']->id,
+            idempotencyKey: 'fractional-transfer',
+            sourceWarehouseId: $scope['source_warehouse']->id,
+            destinationWarehouseId: $scope['destination_warehouse']->id,
+            items: [new InventoryTransferItemData($scope['product']->id, '0.0005')],
+            actorId: $scope['user']->id,
+        ));
+
+        $service->dispatch($scope['organization']->id, $transfer->id, 'fractional-transfer:dispatch', $scope['user']->id);
+        $this->assertSame('9.9995', $scope['source_balance']->fresh()->physical_stock);
+        $this->assertSame('0.0005', $scope['destination_balance']->fresh()->in_transit_stock);
+
+        $service->receive(new InventoryTransferReceiptCommand(
+            organizationId: $scope['organization']->id,
+            transferId: $transfer->id,
+            idempotencyKey: 'fractional-transfer:receive',
+            quantitiesByItemId: [$transfer->items()->value('id') => '0.0005'],
+            actorId: $scope['user']->id,
+        ));
+
+        $this->assertSame('0.0005', $scope['destination_balance']->fresh()->physical_stock);
+        $this->assertSame(0, $scope['destination_balance']->fresh()->in_transit_stock);
+        $this->assertSame('10', Decimal::add($scope['source_balance']->fresh()->physical_stock, $scope['destination_balance']->fresh()->physical_stock, 4));
+        $this->assertSame('passed', app(InventoryReconciliationService::class)->run($scope['organization']->id)->status);
+        $this->assertSame('passed', app(OperationalReconciliationService::class)->run($scope['organization']->id)->status);
     }
 
     public function test_transfer_rejects_over_receipt_without_partial_effects(): void

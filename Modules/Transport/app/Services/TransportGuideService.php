@@ -6,6 +6,7 @@ namespace Modules\Transport\Services;
 
 use App\Models\Organization;
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -363,7 +364,8 @@ class TransportGuideService
             $description = trim($item->description);
             $code = trim($item->code);
             $unit = strtoupper(trim($item->unitCode));
-            if ($description === '' || $code === '' || $unit === '' || $item->quantity <= 0) {
+            $quantity = Decimal::assertScale($item->quantity, 4);
+            if ($description === '' || $code === '' || $unit === '' || Decimal::compare($quantity, 0, 4) <= 0) {
                 throw ValidationException::withMessages(['items' => 'Cada item requiere codigo, descripcion, unidad y cantidad positiva.']);
             }
 
@@ -371,7 +373,7 @@ class TransportGuideService
                 'product_id' => $item->productId,
                 'code' => $code,
                 'description' => $description,
-                'quantity' => round($item->quantity, 4),
+                'quantity' => $quantity,
                 'unit_code' => $unit,
                 'sunat_product_code' => $item->sunatProductCode,
             ];
@@ -422,7 +424,7 @@ class TransportGuideService
             if (! $document || (int) $document->branch_id !== $command->branchId || ! in_array($document->document_type, [InventoryDocumentType::Dispatch, InventoryDocumentType::CustomerReturn, InventoryDocumentType::SupplierReturn], true)) {
                 throw ValidationException::withMessages(['inventory_document_id' => 'La operacion interna no es un despacho o devolucion valida.']);
             }
-            $this->assertItemsMatch($items, $document->items->map(fn ($item) => ['product_id' => (int) $item->product_id, 'quantity' => (float) $item->quantity])->all(), 'documento de inventario');
+            $this->assertItemsMatch($items, $document->items->map(fn ($item) => ['product_id' => (int) $item->product_id, 'quantity' => (string) $item->quantity])->all(), 'documento de inventario');
         }
         if ($command->inventoryTransferId) {
             $transfer = InventoryTransfer::query()->where('organization_id', $command->organizationId)->with('items')->find($command->inventoryTransferId);
@@ -432,7 +434,7 @@ class TransportGuideService
             if ($command->reasonCode !== '04') {
                 throw ValidationException::withMessages(['reason_code' => 'Una transferencia interna requiere motivo 04.']);
             }
-            $this->assertItemsMatch($items, $transfer->items->map(fn ($item) => ['product_id' => (int) $item->product_id, 'quantity' => (float) $item->quantity])->all(), 'transferencia');
+            $this->assertItemsMatch($items, $transfer->items->map(fn ($item) => ['product_id' => (int) $item->product_id, 'quantity' => (string) $item->quantity])->all(), 'transferencia');
         }
         if ($command->billingDocumentId && ! BillingDocument::query()->where('organization_id', $command->organizationId)->where('branch_id', $command->branchId)->where('status', 'issued')->whereKey($command->billingDocumentId)->exists()) {
             throw ValidationException::withMessages(['billing_document_id' => 'El comprobante relacionado debe pertenecer a la sucursal y estar emitido.']);
@@ -448,7 +450,7 @@ class TransportGuideService
     /** @param array<int, array<string, mixed>> $actual @param array<int, array<string, mixed>> $expected */
     private function assertItemsMatch(array $actual, array $expected, string $source): void
     {
-        $map = fn (array $rows): array => collect($rows)->groupBy('product_id')->map(fn ($group): float => round((float) $group->sum('quantity'), 4))->sortKeys()->all();
+        $map = fn (array $rows): array => collect($rows)->groupBy('product_id')->map(fn ($group): string => $group->reduce(fn (string $sum, array $row): string => Decimal::add($sum, $row['quantity'], 4), '0'))->sortKeys()->all();
         if ($map($actual) !== $map($expected)) {
             throw ValidationException::withMessages(['items' => "Los bienes de la GRE no coinciden con el {$source} vinculado."]);
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,7 +25,7 @@ class InventoryReservationEvent extends Model
         'event_type' => InventoryReservationEventType::class,
         'status_before' => InventoryReservationStatus::class,
         'status_after' => InventoryReservationStatus::class,
-        'quantity_delta' => 'integer',
+        'quantity_delta' => Quantity::class,
         'performed_by' => 'integer',
         'occurred_at' => 'datetime',
         'meta' => 'array',

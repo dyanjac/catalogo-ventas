@@ -3,6 +3,9 @@
 namespace App\Livewire\Admin;
 
 use App\Livewire\Admin\Concerns\ManagesPosProducts;
+use App\Services\DocumentTotals;
+use App\Services\RoundingPolicy;
+use App\Support\Decimal;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Modules\Catalog\Entities\Category;
@@ -226,7 +229,7 @@ class PosScreen extends Component
             $product = $this->getProductById((string) ($this->items[$index]['product_id'] ?? ''));
 
             $this->items[$index]['unit_price'] = $product
-                ? number_format($product['price'], 2, '.', '')
+                ? Decimal::unitPriceForInput($product['price'])
                 : '';
         }
     }
@@ -268,37 +271,74 @@ class PosScreen extends Component
         ]);
     }
 
-    public function subtotal(): float
+    public function subtotal(): string
     {
-        return round(collect($this->items)->sum(function (array $item): float {
-            $productId = (string) ($item['product_id'] ?? '');
-            if ($productId === '') {
-                return 0;
+        $subtotal = '0';
+        foreach ($this->items as $item) {
+            if ((string) ($item['product_id'] ?? '') === '' || ! is_numeric($item['quantity'] ?? null) || ! is_numeric($item['unit_price'] ?? null)) {
+                continue;
             }
+            $subtotal = Decimal::add($subtotal, Decimal::round(Decimal::mul($item['quantity'], $item['unit_price'], 10), 2, $this->roundingMode()), 2);
+        }
 
-            return (float) ($item['quantity'] ?? 0) * (float) ($item['unit_price'] ?? 0);
-        }), 2);
+        return Decimal::round($subtotal, 2);
     }
 
-    public function itemCount(): float
+    public function lineSubtotal(array $item): string
     {
-        return round(collect($this->items)->sum(function (array $item): float {
-            return (string) ($item['product_id'] ?? '') === '' ? 0 : (float) ($item['quantity'] ?? 0);
-        }), 3);
+        if (! is_numeric($item['quantity'] ?? null) || ! is_numeric($item['unit_price'] ?? null)) {
+            return '0.00';
+        }
+
+        return Decimal::round(Decimal::mul($item['quantity'], $item['unit_price'], 10), 2, $this->roundingMode());
     }
 
-    public function taxAmount(): float
+    public function itemCount(): string
     {
-        $base = max($this->subtotal() - (float) $this->discount, 0);
-
-        return round($base * max((float) $this->taxRate, 0), 2);
+        return collect($this->items)->reduce(function (string $sum, array $item): string {
+            return (string) ($item['product_id'] ?? '') === '' || ! is_numeric($item['quantity'] ?? null)
+                ? $sum : Decimal::add($sum, $item['quantity'], 4);
+        }, '0');
     }
 
-    public function totalAmount(): float
+    public function taxAmount(): string
     {
-        $base = max($this->subtotal() - (float) $this->discount, 0);
+        return $this->previewTotals()['tax'] ?? '0.00';
+    }
 
-        return round($base + $this->taxAmount() + max((float) $this->shipping, 0), 2);
+    public function totalAmount(): string
+    {
+        return $this->previewTotals()['total'] ?? '0.00';
+    }
+
+    private function roundingMode(): string
+    {
+        $organizationId = app()->bound('auth') ? (int) (auth()->user()?->organization_id ?? 0) : 0;
+
+        return $organizationId > 0
+            ? app(RoundingPolicy::class)->mode($organizationId, $this->branchId !== '' ? (int) $this->branchId : null)
+            : 'half_up';
+    }
+
+    private function previewTotals(): ?array
+    {
+        $lines = [];
+        foreach ($this->items as $item) {
+            if ((string) ($item['product_id'] ?? '') === '' || ! is_numeric($item['quantity'] ?? null) || ! is_numeric($item['unit_price'] ?? null)) {
+                continue;
+            }
+            $lines[] = ['quantity' => $item['quantity'], 'unit_price' => $item['unit_price']];
+        }
+        $organizationId = app()->bound('auth') ? (int) (auth()->user()?->organization_id ?? 0) : 0;
+        if ($organizationId < 1 || $lines === []) {
+            return null;
+        }
+
+        try {
+            return app(DocumentTotals::class)->calculate($lines, $this->discount, $this->shipping, $this->taxRate, $organizationId, $this->branchId !== '' ? (int) $this->branchId : null);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     public function documentMeta(): array
@@ -355,24 +395,19 @@ class PosScreen extends Component
 
                     return false;
                 }
-                $requestedByProduct[$product['id']] = ($requestedByProduct[$product['id']] ?? 0) + (float) $quantity;
-                if (($product['tracks_inventory'] ?? false) && $product['stock'] < $requestedByProduct[$product['id']]) {
+                if (! preg_match('/^\d{1,14}(?:\.\d{1,4})?$/', $quantity) || Decimal::compare($quantity, '0.0001', 4) < 0) {
+                    $this->addError('wizard', 'La cantidad debe ser positiva y tener como máximo cuatro decimales escritos con punto.');
+
+                    return false;
+                }
+                $requestedByProduct[$product['id']] = Decimal::add($requestedByProduct[$product['id']] ?? 0, $quantity, 4);
+                if (($product['tracks_inventory'] ?? false) && Decimal::compare($product['stock'], $requestedByProduct[$product['id']], 4) < 0) {
                     $this->addError('wizard', "Stock insuficiente para {$product['name']} en el almacén seleccionado.");
 
                     return false;
                 }
-                if (! preg_match('/^\d{1,9}(?:\.\d{1,3})?$/', $quantity) || (float) $quantity < 0.001) {
-                    $this->addError('wizard', 'La cantidad debe ser positiva y tener como máximo tres decimales escritos con punto.');
-
-                    return false;
-                }
-                if (($product['tracks_inventory'] ?? false) && floor((float) $quantity) !== (float) $quantity) {
-                    $this->addError('wizard', "{$product['name']} requiere una cantidad entera porque controla inventario.");
-
-                    return false;
-                }
-                if ($price !== '' && ! preg_match('/^\d{1,8}(?:\.\d{1,2})?$/', $price)) {
-                    $this->addError('wizard', 'El precio debe tener como máximo dos decimales escritos con punto.');
+                if ($price !== '' && ! preg_match('/^\d{1,12}(?:\.\d{1,6})?$/', $price)) {
+                    $this->addError('wizard', 'El precio debe tener como máximo seis decimales escritos con punto.');
 
                     return false;
                 }

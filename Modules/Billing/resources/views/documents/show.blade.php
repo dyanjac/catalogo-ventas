@@ -11,11 +11,11 @@
 
     $items = $payloadItems->isNotEmpty()
         ? $payloadItems->map(function (array $item) {
-            $quantity = (float) ($item['quantity'] ?? 0);
-            $unitPrice = (float) ($item['unit_price'] ?? 0);
-            $lineSubtotal = (float) ($item['line_subtotal'] ?? ($quantity * $unitPrice));
-            $lineTax = (float) ($item['tax_amount'] ?? 0);
-            $lineTotal = (float) ($item['line_total'] ?? ($lineSubtotal + $lineTax));
+            $quantity = \App\Support\Decimal::normalize($item['quantity'] ?? 0);
+            $unitPrice = \App\Support\Decimal::normalize($item['unit_price'] ?? 0);
+            $lineSubtotal = \App\Support\Decimal::round($item['line_subtotal'] ?? \App\Support\Decimal::mul($quantity, $unitPrice, 10), 2);
+            $lineTax = \App\Support\Decimal::round($item['tax_amount'] ?? 0, 2);
+            $lineTotal = \App\Support\Decimal::round($item['line_total'] ?? \App\Support\Decimal::add($lineSubtotal, $lineTax, 2), 2);
 
             return [
                 'sku' => (string) ($item['sku'] ?? ''),
@@ -28,11 +28,11 @@
             ];
         })
         : $document->order?->items->map(function ($item) {
-            $quantity = (float) ($item->quantity ?? 0);
-            $unitPrice = (float) ($item->unit_price ?? 0);
-            $lineSubtotal = (float) ($item->subtotal ?? ($quantity * $unitPrice));
-            $lineTax = (float) ($item->tax_amount ?? 0);
-            $lineTotal = (float) ($item->total ?? ($lineSubtotal + $lineTax));
+            $quantity = \App\Support\Decimal::normalize($item->quantity ?? 0);
+            $unitPrice = \App\Support\Decimal::normalize($item->unit_price ?? 0);
+            $lineSubtotal = \App\Support\Decimal::round($item->subtotal ?? \App\Support\Decimal::mul($quantity, $unitPrice, 10), 2);
+            $lineTax = \App\Support\Decimal::round($item->tax_amount ?? 0, 2);
+            $lineTotal = \App\Support\Decimal::round($item->total ?? \App\Support\Decimal::add($lineSubtotal, $lineTax, 2), 2);
 
             return [
                 'sku' => (string) ($item->product->sku ?? ''),
@@ -152,19 +152,19 @@
                     <div class="card-body">
                         <dl class="row mb-0">
                             <dt class="col-6">Subtotal</dt>
-                            <dd class="col-6 text-end">{{ number_format((float) ($payloadTotals['subtotal'] ?? $document->subtotal), 2) }} {{ $document->currency }}</dd>
+                            <dd class="col-6 text-end">{{ \App\Support\Decimal::round($payloadTotals['subtotal'] ?? $document->subtotal, 2) }} {{ $document->currency }}</dd>
 
                             <dt class="col-6">Descuento</dt>
                             <dd class="col-6 text-end">{{ number_format((float) ($payloadTotals['discount'] ?? 0), 2) }} {{ $document->currency }}</dd>
 
                             <dt class="col-6">Impuesto</dt>
-                            <dd class="col-6 text-end">{{ number_format((float) ($payloadTotals['tax'] ?? $document->tax), 2) }} {{ $document->currency }}</dd>
+                            <dd class="col-6 text-end">{{ \App\Support\Decimal::round($payloadTotals['tax'] ?? $document->tax, 2) }} {{ $document->currency }}</dd>
 
                             <dt class="col-6">Envio</dt>
                             <dd class="col-6 text-end">{{ number_format((float) ($payloadTotals['shipping'] ?? 0), 2) }} {{ $document->currency }}</dd>
 
                             <dt class="col-6">Total</dt>
-                            <dd class="col-6 text-end font-weight-bold">{{ number_format((float) ($payloadTotals['total'] ?? $document->total), 2) }} {{ $document->currency }}</dd>
+                            <dd class="col-6 text-end font-weight-bold">{{ \App\Support\Decimal::round($payloadTotals['total'] ?? $document->total, 2) }} {{ $document->currency }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -201,20 +201,20 @@
                                         <td>{{ $index + 1 }}</td>
                                         <td>{{ $item['sku'] !== '' ? $item['sku'] : '-' }}</td>
                                         <td>{{ $item['name'] }}</td>
-                                        <td class="text-end">{{ number_format((float) $item['quantity'], 2) }}</td>
-                                        <td class="text-end">{{ number_format((float) $item['unit_price'], 2) }}</td>
-                                        <td class="text-end">{{ number_format((float) $item['line_subtotal'], 2) }}</td>
-                                        <td class="text-end">{{ number_format((float) $item['tax_amount'], 2) }}</td>
-                                        <td class="text-end font-weight-bold">{{ number_format((float) $item['line_total'], 2) }}</td>
+                                        <td class="text-end">{{ $item['quantity'] }}</td>
+                                        <td class="text-end">{{ $item['unit_price'] }}</td>
+                                        <td class="text-end">{{ $item['line_subtotal'] }}</td>
+                                        <td class="text-end">{{ $item['tax_amount'] }}</td>
+                                        <td class="text-end font-weight-bold">{{ $item['line_total'] }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
                                     <th colspan="5" class="text-end">Totales</th>
-                                    <th class="text-end">{{ number_format((float) $document->subtotal, 2) }}</th>
-                                    <th class="text-end">{{ number_format((float) $document->tax, 2) }}</th>
-                                    <th class="text-end">{{ number_format((float) $document->total, 2) }} {{ $document->currency }}</th>
+                                    <th class="text-end">{{ $document->subtotal }}</th>
+                                    <th class="text-end">{{ $document->tax }}</th>
+                                    <th class="text-end">{{ $document->total }} {{ $document->currency }}</th>
                                 </tr>
                             </tfoot>
                         </table>

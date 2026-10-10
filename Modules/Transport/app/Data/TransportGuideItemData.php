@@ -10,7 +10,7 @@ final readonly class TransportGuideItemData
         public ?int $productId,
         public string $code,
         public string $description,
-        public float $quantity,
+        public int|float|string $quantity,
         public string $unitCode = 'NIU',
         public ?string $sunatProductCode = null,
     ) {}

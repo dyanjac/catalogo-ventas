@@ -2,6 +2,7 @@
 
 namespace Modules\Billing\Services\Xml;
 
+use App\Support\Decimal;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingDocument;
 use SimpleXMLElement;
@@ -9,7 +10,7 @@ use SimpleXMLElement;
 class BillingXmlGenerator
 {
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     public function generate(BillingDocument $document, array $payload): string
     {
@@ -29,20 +30,20 @@ class BillingXmlGenerator
 
         $totalsNode = $xml->addChild('Totals');
         $totals = (array) ($payload['totals'] ?? []);
-        $totalsNode->addChild('Subtotal', number_format((float) ($totals['subtotal'] ?? $document->subtotal), 2, '.', ''));
-        $totalsNode->addChild('Discount', number_format((float) ($totals['discount'] ?? 0), 2, '.', ''));
-        $totalsNode->addChild('Tax', number_format((float) ($totals['tax'] ?? $document->tax), 2, '.', ''));
-        $totalsNode->addChild('Shipping', number_format((float) ($totals['shipping'] ?? 0), 2, '.', ''));
-        $totalsNode->addChild('Total', number_format((float) ($totals['total'] ?? $document->total), 2, '.', ''));
+        $totalsNode->addChild('Subtotal', Decimal::round($totals['subtotal'] ?? $document->subtotal, 2));
+        $totalsNode->addChild('Discount', Decimal::round($totals['discount'] ?? 0, 2));
+        $totalsNode->addChild('Tax', Decimal::round($totals['tax'] ?? $document->tax, 2));
+        $totalsNode->addChild('Shipping', Decimal::round($totals['shipping'] ?? 0, 2));
+        $totalsNode->addChild('Total', Decimal::round($totals['total'] ?? $document->total, 2));
 
         $itemsNode = $xml->addChild('Items');
         foreach ((array) ($payload['items'] ?? []) as $line) {
             $itemNode = $itemsNode->addChild('Item');
             $itemNode->addChild('SKU', htmlspecialchars((string) ($line['sku'] ?? '')));
             $itemNode->addChild('Description', htmlspecialchars((string) ($line['name'] ?? '')));
-            $itemNode->addChild('Quantity', number_format((float) ($line['quantity'] ?? 0), 2, '.', ''));
-            $itemNode->addChild('UnitPrice', number_format((float) ($line['unit_price'] ?? 0), 2, '.', ''));
-            $itemNode->addChild('LineSubtotal', number_format((float) ($line['line_subtotal'] ?? 0), 2, '.', ''));
+            $itemNode->addChild('Quantity', Decimal::round($line['quantity'] ?? 0, 4));
+            $itemNode->addChild('UnitPrice', Decimal::round($line['unit_price'] ?? 0, 6));
+            $itemNode->addChild('LineSubtotal', Decimal::round($line['line_subtotal'] ?? 0, 2));
         }
 
         $content = $xml->asXML() ?: '';

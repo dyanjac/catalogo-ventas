@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Billing\Services;
 
+use App\Services\RoundingPolicy;
+use App\Support\Decimal;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +14,10 @@ use Modules\Billing\Models\BillingDocument;
 
 class BillingCreditNoteService
 {
-    public function __construct(private readonly EconomicEventService $economicEvents) {}
+    public function __construct(
+        private readonly EconomicEventService $economicEvents,
+        private readonly RoundingPolicy $roundingPolicy,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function create(BillingDocument $original, array $data): BillingDocument
@@ -35,6 +40,11 @@ class BillingCreditNoteService
         if ($series === '' || $number === '') {
             throw ValidationException::withMessages(['number' => 'La serie y el numero de la nota de credito son obligatorios.']);
         }
+        try {
+            $requestedTotal = Decimal::assertScale($data['total'] ?? $original->total, 2);
+        } catch (\InvalidArgumentException) {
+            throw ValidationException::withMessages(['total' => 'El total admite hasta dos decimales.']);
+        }
 
         $hash = hash('sha256', json_encode(Arr::sortRecursive([
             'organization_id' => (int) $original->organization_id,
@@ -43,10 +53,10 @@ class BillingCreditNoteService
             'number' => $number,
             'reason_code' => $reasonCode,
             'reason' => $reason,
-            'total' => (float) ($data['total'] ?? $original->total),
+            'total' => $requestedTotal,
         ]), JSON_THROW_ON_ERROR));
 
-        return DB::transaction(function () use ($original, $data, $key, $reasonCode, $reason, $series, $number, $hash): BillingDocument {
+        return DB::transaction(function () use ($original, $data, $key, $reasonCode, $reason, $series, $number, $hash, $requestedTotal): BillingDocument {
             $lockedOriginal = BillingDocument::query()
                 ->where('organization_id', $original->organization_id)
                 ->lockForUpdate()
@@ -64,19 +74,26 @@ class BillingCreditNoteService
                 return $existing;
             }
 
-            $total = round((float) ($data['total'] ?? $original->total), 2);
-            if ($total <= 0 || $total > (float) $original->total) {
+            $total = Decimal::round($requestedTotal, 2);
+            if (Decimal::compare($total, '0', 2) <= 0 || Decimal::compare($total, $lockedOriginal->total, 2) > 0) {
                 throw ValidationException::withMessages(['total' => 'El total de la nota de credito debe ser positivo y no superar el comprobante original.']);
             }
-            $credited = (float) BillingDocument::query()
+            $credited = BillingDocument::query()
                 ->where('organization_id', $lockedOriginal->organization_id)
                 ->where('related_document_id', $lockedOriginal->id)
                 ->where('document_type', 'credit_note')
                 ->where('status', '!=', 'voided')
-                ->sum('total');
-            if (round($credited + $total, 2) > round((float) $lockedOriginal->total, 2)) {
+                ->pluck('total')
+                ->reduce(fn (string $sum, $amount): string => Decimal::add($sum, $amount, 2), '0');
+            if (Decimal::compare(Decimal::add($credited, $total, 2), $lockedOriginal->total, 2) > 0) {
                 throw ValidationException::withMessages(['total' => 'Las notas de credito acumuladas no pueden superar el comprobante original.']);
             }
+
+            $mode = $this->roundingPolicy->mode((int) $original->organization_id, $original->branch_id ? (int) $original->branch_id : null);
+            $tax = Decimal::compare($total, $lockedOriginal->total, 2) === 0
+                ? (string) $lockedOriginal->tax
+                : Decimal::round(Decimal::mul(Decimal::div($total, $lockedOriginal->total, 12), $lockedOriginal->tax, 12), 2, $mode);
+            $subtotal = Decimal::sub($total, $tax, 2);
 
             return BillingDocument::query()->create([
                 'organization_id' => $original->organization_id,
@@ -94,8 +111,8 @@ class BillingCreditNoteService
                 'issue_date' => $data['issue_date'] ?? now()->toDateString(),
                 'customer_document_type' => $original->customer_document_type,
                 'customer_document_number' => $original->customer_document_number,
-                'subtotal' => round($total / 1.18, 2),
-                'tax' => round($total - ($total / 1.18), 2),
+                'subtotal' => $subtotal,
+                'tax' => $tax,
                 'total' => $total,
                 'currency' => $original->currency,
                 'status' => 'draft',

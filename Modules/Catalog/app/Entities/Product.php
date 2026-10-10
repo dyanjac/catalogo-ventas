@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -52,18 +53,18 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'purchase_price' => 'decimal:2',
-        'sale_price' => 'decimal:2',
-        'wholesale_price' => 'decimal:2',
-        'average_price' => 'decimal:2',
-        'price' => 'decimal:2',
+        'purchase_price' => 'decimal:6',
+        'sale_price' => 'decimal:6',
+        'wholesale_price' => 'decimal:6',
+        'average_price' => 'decimal:6',
+        'price' => 'decimal:6',
         'product_type' => ProductType::class,
         'accounting_treatment' => ProductAccountingTreatment::class,
         'uses_series' => 'boolean',
         'requires_accounting_entry' => 'boolean',
         'is_active' => 'boolean',
-        'stock' => 'integer',
-        'min_stock' => 'integer',
+        'stock' => Quantity::class,
+        'min_stock' => Quantity::class,
     ];
 
     public function category(): BelongsTo
@@ -144,30 +145,30 @@ class Product extends Model
         return $mainImage?->path ?: $this->image;
     }
 
-    public function getEffectiveStockAttribute(): int
+    public function getEffectiveStockAttribute(): int|string
     {
         if ($this->relationLoaded('warehouseStocks') && $this->warehouseStocks->isNotEmpty()) {
-            return (int) $this->warehouseStocks->sum('stock');
+            return $this->warehouseStocks->reduce(fn (string $sum, ProductWarehouseStock $stock): string => \App\Support\Decimal::add($sum, $stock->stock, 4), '0');
         }
 
         if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
-            return (int) ($this->branchStocks->first()?->stock ?? 0);
+            return $this->branchStocks->first()?->stock ?? 0;
         }
 
-        return (int) ($this->stock ?? 0);
+        return $this->stock ?? 0;
     }
 
-    public function getEffectiveMinStockAttribute(): int
+    public function getEffectiveMinStockAttribute(): int|string
     {
         if ($this->relationLoaded('warehouseStocks') && $this->warehouseStocks->isNotEmpty()) {
-            return (int) $this->warehouseStocks->sum('min_stock');
+            return $this->warehouseStocks->reduce(fn (string $sum, ProductWarehouseStock $stock): string => \App\Support\Decimal::add($sum, $stock->min_stock, 4), '0');
         }
 
         if ($this->relationLoaded('branchStocks') && $this->branchStocks->isNotEmpty()) {
-            return (int) ($this->branchStocks->first()?->min_stock ?? 0);
+            return $this->branchStocks->first()?->min_stock ?? 0;
         }
 
-        return (int) ($this->min_stock ?? 0);
+        return $this->min_stock ?? 0;
     }
 
     public function tracksInventory(): bool

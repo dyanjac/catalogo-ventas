@@ -146,7 +146,7 @@
                                 </div>
 
                                 <div class="table-responsive pos-items-container">
-                                    <p class="small text-muted mb-2">Escribe los decimales con punto. Por ahora, los servicios admiten hasta 3 decimales en cantidad, los productos con inventario requieren unidades enteras y el precio admite hasta 2 decimales.</p>
+                                    <p class="small text-muted mb-2">Escribe los decimales con punto: hasta 4 en cantidad y 6 en precio unitario. Los importes del comprobante se redondean a 2 decimales por línea.</p>
                                     <table class="table table-hover align-middle mb-0 pos-items-table">
                                         <thead>
                                             <tr>
@@ -162,7 +162,7 @@
                                             @foreach ($items as $index => $item)
                                                 @php
                                                     $product = collect($productIndex)->firstWhere('id', (int) ($item['product_id'] ?: 0));
-                                                    $lineSubtotal = ((float) $item['quantity']) * ((float) $item['unit_price']);
+                                                    $lineSubtotal = $this->lineSubtotal($item);
                                                 @endphp
                                                 <tr wire:key="pos-item-{{ $index }}">
                                                     <td data-label="Producto">
@@ -198,13 +198,13 @@
                                                             type="text"
                                                             inputmode="decimal"
                                                             autocomplete="off"
-                                                            placeholder="0.00"
+                                                            placeholder="0.000000"
                                                             name="items[{{ $index }}][unit_price]"
                                                             class="form-control pos-decimal-input"
                                                             aria-label="Precio unitario del ítem {{ $index + 1 }}"
                                                         >
                                                     </td>
-                                                    <td data-label="Subtotal">{{ number_format($lineSubtotal, 2) }}</td>
+                                                    <td data-label="Subtotal">{{ $lineSubtotal }}</td>
                                                     <td class="text-end pos-item-actions">
                                                         <button type="button" class="btn btn-outline-danger btn-sm" wire:click="removeItem({{ $index }})">
                                                             Quitar
@@ -223,15 +223,15 @@
                                 <p class="summary-kicker">Resumen parcial</p>
                                 <div class="summary-line">
                                     <span>Items</span>
-                                    <strong>{{ rtrim(rtrim(number_format($this->itemCount(), 3, '.', ','), '0'), '.') }}</strong>
+                                    <strong>{{ $this->itemCount() }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Subtotal</span>
-                                    <strong>{{ number_format($this->subtotal(), 2) }}</strong>
+                                    <strong>{{ $this->subtotal() }}</strong>
                                 </div>
                                 <div class="summary-line total">
                                     <span>Total estimado</span>
-                                    <strong>{{ number_format($this->totalAmount(), 2) }}</strong>
+                                    <strong>{{ $this->totalAmount() }}</strong>
                                 </div>
                                 <hr>
                                 <p class="summary-caption mb-0">Continua cuando la lista de productos este completa.</p>
@@ -390,7 +390,7 @@
                                 </div>
                                 <div class="summary-line">
                                     <span>Items</span>
-                                    <strong>{{ rtrim(rtrim(number_format($this->itemCount(), 3, '.', ','), '0'), '.') }}</strong>
+                                    <strong>{{ $this->itemCount() }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Metodo pago</span>
@@ -403,7 +403,7 @@
                                 <hr>
                                 <div class="summary-line">
                                     <span>Subtotal</span>
-                                    <strong>{{ number_format($this->subtotal(), 2) }}</strong>
+                                    <strong>{{ $this->subtotal() }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Descuento</span>
@@ -415,11 +415,11 @@
                                 </div>
                                 <div class="summary-line">
                                     <span>IGV</span>
-                                    <strong>{{ number_format($this->taxAmount(), 2) }}</strong>
+                                    <strong>{{ $this->taxAmount() }}</strong>
                                 </div>
                                 <div class="summary-line total">
                                     <span>Total</span>
-                                    <strong>{{ number_format($this->totalAmount(), 2) }}</strong>
+                                    <strong>{{ $this->totalAmount() }}</strong>
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">Registrar venta</button>
                             </div>

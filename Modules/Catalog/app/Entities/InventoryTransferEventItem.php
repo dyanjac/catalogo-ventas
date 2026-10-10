@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ class InventoryTransferEventItem extends Model
         'organization_id', 'event_id', 'transfer_item_id', 'quantity', 'transit_delta', 'inventory_movement_id',
     ];
 
-    protected $casts = ['quantity' => 'integer', 'transit_delta' => 'integer'];
+    protected $casts = ['quantity' => Quantity::class, 'transit_delta' => Quantity::class];
 
     protected static function booted(): void
     {

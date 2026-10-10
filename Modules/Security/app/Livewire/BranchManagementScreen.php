@@ -35,6 +35,8 @@ class BranchManagementScreen extends Component
 
     public bool $is_default = false;
 
+    public string $rounding_mode = '';
+
     public ?string $flashMessage = null;
 
     public string $flashTone = 'success';
@@ -71,6 +73,7 @@ class BranchManagementScreen extends Component
         $this->phone = (string) ($branch->phone ?? '');
         $this->is_active = (bool) $branch->is_active;
         $this->is_default = (bool) $branch->is_default;
+        $this->rounding_mode = (string) ($branch->rounding_mode ?? '');
         $this->loadedBranchId = $branch->id;
         $this->isCreating = false;
         $this->flashMessage = null;
@@ -88,6 +91,7 @@ class BranchManagementScreen extends Component
             'phone' => ['nullable', 'string', 'max:40'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
+            'rounding_mode' => ['nullable', 'in:half_up,half_even'],
         ]);
 
         if ($validated['is_default']) {
@@ -104,6 +108,7 @@ class BranchManagementScreen extends Component
                 'phone' => trim((string) ($validated['phone'] ?? '')) ?: null,
                 'is_active' => (bool) $validated['is_active'],
                 'is_default' => (bool) $validated['is_default'],
+                'rounding_mode' => $validated['rounding_mode'] ?: null,
             ]
         );
 
@@ -159,5 +164,6 @@ class BranchManagementScreen extends Component
         $this->phone = '';
         $this->is_active = true;
         $this->is_default = false;
+        $this->rounding_mode = '';
     }
 }

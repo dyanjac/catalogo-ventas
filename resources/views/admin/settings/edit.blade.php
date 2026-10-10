@@ -59,6 +59,14 @@
                                 <label class="form-label">Direccion</label>
                                 <input type="text" name="address" class="form-control" value="{{ old('address', $setting->address) }}">
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="rounding_mode">Redondeo de importes</label>
+                                <select id="rounding_mode" name="rounding_mode" class="form-select">
+                                    <option value="half_up" @selected(old('rounding_mode', $setting->rounding_mode ?? 'half_up') === 'half_up')>Simetrico (Half-Up)</option>
+                                    <option value="half_even" @selected(old('rounding_mode', $setting->rounding_mode ?? 'half_up') === 'half_even')>Bancario (Half-Even)</option>
+                                </select>
+                                <small class="text-muted">Se aplica por defecto a todas las sucursales.</small>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Logo de la empresa</label>
                                 <input type="file" name="logo_file" class="form-control" accept="image/*">
@@ -107,6 +115,7 @@
                                 <input type="hidden" name="support_phone" value="{{ $setting->support_phone }}">
                                 <input type="hidden" name="email" value="{{ $setting->email }}">
                                 <input type="hidden" name="support_email" value="{{ $setting->support_email }}">
+                                <input type="hidden" name="rounding_mode" value="{{ $setting->rounding_mode ?? 'half_up' }}">
                                 <input type="hidden" name="remove_logo" value="1">
                                 <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar logo</button>
                             </form>

@@ -31,7 +31,7 @@
                         @if($featured->isNotEmpty())
                             <h3>{{ $featured->first()->name }}</h3>
                             <p>{{ \Illuminate\Support\Str::limit($featured->first()->description ?? 'Ideal para reposicion continua de negocios.', 90) }}</p>
-                            <div class="mp-detail-price mb-3">S/ {{ number_format((float) ($featured->first()->display_price ?? 0), 2) }}</div>
+                            <div class="mp-detail-price mb-3">S/ {{ \App\Support\Decimal::unitPriceForInput($featured->first()->display_price ?? 0) }}</div>
                             <a href="{{ $storefrontRoutes->route('catalog.show', ['product' => $featured->first()]) }}" class="btn btn-primary rounded-pill px-4">Comprar ahora</a>
                         @else
                             <h3>Catalogo listo para vender</h3>
@@ -139,7 +139,7 @@
                                     <img src="{{ $product->primary_image_path ? asset('storage/' . $product->primary_image_path) : asset('img/hero-img-1.png') }}" alt="{{ $product->name }}">
                                     <div>
                                         <strong>{{ $product->name }}</strong>
-                                        <span>S/ {{ number_format((float) ($product->display_price ?? 0), 2) }}</span>
+                                        <span>S/ {{ \App\Support\Decimal::unitPriceForInput($product->display_price ?? 0) }}</span>
                                     </div>
                                 </a>
                             @endforeach
@@ -168,8 +168,8 @@
 
 <script>
     function normalizeQty(input) {
-        const raw = parseInt(input?.value ?? '1', 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+        const raw = String(input?.value ?? '1').trim();
+        return /^\d{1,14}(?:\.\d{1,4})?$/.test(raw) && Number(raw) > 0 ? raw : '1';
     }
 
     function syncProductQty(context, productId) {

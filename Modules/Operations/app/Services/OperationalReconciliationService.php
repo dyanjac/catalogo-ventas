@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Operations\Services;
 
 use App\Models\Organization;
+use App\Services\RoundingPolicy;
+use App\Support\Decimal;
 use DomainException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -34,6 +36,7 @@ final class OperationalReconciliationService
     public function __construct(
         private readonly InventoryReconciliationService $inventoryReconciliation,
         private readonly OperationalIncidentService $incidents,
+        private readonly RoundingPolicy $roundingPolicy,
     ) {}
 
     public function run(int $organizationId, string $trigger = 'manual', ?int $actorId = null): OperationalReconciliationRun
@@ -142,12 +145,12 @@ final class OperationalReconciliationService
                         $this->issue($run, 'inventory_balance', 'INV_SCOPE_MISMATCH', 'critical', InventoryBalance::class,
                             $balance->id, $balance->location_key, ['location_key' => $expectedLocation], ['location_key' => $balance->location_key]);
                     }
-                    if ((int) $balance->physical_stock < 0 || (int) $balance->reserved_stock < 0
-                        || (int) $balance->in_transit_stock < 0 || (int) $balance->reserved_stock > (int) $balance->physical_stock) {
+                    if (Decimal::compare($balance->physical_stock, 0, 4) < 0 || Decimal::compare($balance->reserved_stock, 0, 4) < 0
+                        || Decimal::compare($balance->in_transit_stock, 0, 4) < 0 || Decimal::compare($balance->reserved_stock, $balance->physical_stock, 4) > 0) {
                         $this->issue($run, 'inventory_balance', 'INV_NEGATIVE_OR_OVERRESERVED', 'critical', InventoryBalance::class,
                             $balance->id, $balance->location_key,
-                            ['physical_stock_gte' => 0, 'reserved_stock_between' => [0, (int) $balance->physical_stock], 'in_transit_stock_gte' => 0],
-                            ['physical_stock' => (int) $balance->physical_stock, 'reserved_stock' => (int) $balance->reserved_stock, 'in_transit_stock' => (int) $balance->in_transit_stock]);
+                            ['physical_stock_gte' => 0, 'reserved_stock_between' => [0, $balance->physical_stock], 'in_transit_stock_gte' => 0],
+                            ['physical_stock' => $balance->physical_stock, 'reserved_stock' => $balance->reserved_stock, 'in_transit_stock' => $balance->in_transit_stock]);
                     }
                     $movements = $movementsByBalance->get($balance->id, collect());
                     $previous = null;
@@ -165,28 +168,30 @@ final class OperationalReconciliationService
                                 $balance->id, $balance->location_key, ['balance_version' => $expectedVersion], ['balance_version' => (int) $movement->balance_version]);
                             $expectedVersion = (int) $movement->balance_version;
                         }
-                        if ((int) $movement->stock_after !== (int) $movement->stock_before + (int) $movement->quantity) {
+                        $expectedStock = Decimal::add($movement->stock_before, $movement->quantity, 4);
+                        if (Decimal::compare($movement->stock_after, $expectedStock, 4) !== 0) {
                             $this->issue($run, 'inventory_balance', 'INV_EQUATION_MISMATCH', 'critical', InventoryMovement::class,
                                 $movement->id, $movement->reference_code,
-                                ['stock_after' => (int) $movement->stock_before + (int) $movement->quantity], ['stock_after' => (int) $movement->stock_after]);
+                                ['stock_after' => $expectedStock], ['stock_after' => $movement->stock_after]);
                         }
-                        if ($previous && ((int) $movement->stock_before !== (int) $previous->stock_after
-                            || abs((float) $movement->average_cost_before - (float) $previous->average_cost_after) > 0.0001)) {
+                        if ($previous && (Decimal::compare($movement->stock_before, $previous->stock_after, 4) !== 0
+                            || Decimal::compare($movement->average_cost_before, $previous->average_cost_after, 6) !== 0)) {
                             $this->issue($run, 'inventory_balance', 'INV_CHAIN_BREAK', 'critical', InventoryMovement::class,
                                 $movement->id, $movement->reference_code,
-                                ['stock_before' => (int) $previous->stock_after, 'average_cost_before' => (float) $previous->average_cost_after],
-                                ['stock_before' => (int) $movement->stock_before, 'average_cost_before' => (float) $movement->average_cost_before]);
+                                ['stock_before' => $previous->stock_after, 'average_cost_before' => $previous->average_cost_after],
+                                ['stock_before' => $movement->stock_before, 'average_cost_before' => $movement->average_cost_before]);
                         }
-                        $expectedTotal = round(abs((int) $movement->quantity) * (float) $movement->unit_cost, 4);
-                        if (abs($expectedTotal - (float) $movement->total_cost) > 0.0001) {
+                        $mode = $this->roundingPolicy->mode((int) $movement->organization_id, $movement->branch_id ? (int) $movement->branch_id : null);
+                        $expectedTotal = Decimal::round(Decimal::mul(Decimal::absolute($movement->quantity), $movement->unit_cost, 10), 6, $mode);
+                        if (Decimal::compare($expectedTotal, $movement->total_cost, 6) !== 0) {
                             $this->issue($run, 'inventory_balance', 'INV_COST_DRIFT', 'critical', InventoryMovement::class,
-                                $movement->id, $movement->reference_code, ['total_cost' => $expectedTotal], ['total_cost' => (float) $movement->total_cost]);
+                                $movement->id, $movement->reference_code, ['total_cost' => $expectedTotal], ['total_cost' => $movement->total_cost]);
                         }
                         if ($movement->movement_type === InventoryMovementType::Reversal && $movement->reversalOf) {
                             $expectedAverage = $this->expectedReversalAverage($movement, $movement->reversalOf);
-                            if ($expectedAverage !== null && abs($expectedAverage - (float) $movement->average_cost_after) > 0.0001) {
+                            if ($expectedAverage !== null && Decimal::compare($expectedAverage, $movement->average_cost_after, 6) !== 0) {
                                 $this->issue($run, 'inventory_balance', 'INV_REVERSAL_COST_MISMATCH', 'critical', InventoryMovement::class,
-                                    $movement->id, $movement->reference_code, ['average_cost_after' => $expectedAverage], ['average_cost_after' => (float) $movement->average_cost_after]);
+                                    $movement->id, $movement->reference_code, ['average_cost_after' => $expectedAverage], ['average_cost_after' => $movement->average_cost_after]);
                             }
                         }
                         $previous = $movement;
@@ -195,13 +200,13 @@ final class OperationalReconciliationService
                     if (! $previous && (int) $balance->version !== 0) {
                         $this->issue($run, 'inventory_balance', 'INV_LEDGER_MISSING', 'critical', InventoryBalance::class,
                             $balance->id, $balance->location_key, ['version' => 0], ['version' => (int) $balance->version]);
-                    } elseif ($previous && ((int) $previous->stock_after !== (int) $balance->physical_stock
-                        || abs((float) $previous->average_cost_after - (float) $balance->average_cost) > 0.0001
+                    } elseif ($previous && (Decimal::compare($previous->stock_after, $balance->physical_stock, 4) !== 0
+                        || Decimal::compare($previous->average_cost_after, $balance->average_cost, 6) !== 0
                         || (int) $previous->balance_version !== (int) $balance->version)) {
                         $this->issue($run, 'inventory_balance', 'INV_BALANCE_HEAD_MISMATCH', 'critical', InventoryBalance::class,
                             $balance->id, $balance->location_key,
-                            ['physical_stock' => (int) $previous->stock_after, 'average_cost' => (float) $previous->average_cost_after, 'version' => (int) $previous->balance_version],
-                            ['physical_stock' => (int) $balance->physical_stock, 'average_cost' => (float) $balance->average_cost, 'version' => (int) $balance->version]);
+                            ['physical_stock' => $previous->stock_after, 'average_cost' => $previous->average_cost_after, 'version' => (int) $previous->balance_version],
+                            ['physical_stock' => $balance->physical_stock, 'average_cost' => $balance->average_cost, 'version' => (int) $balance->version]);
                     }
                 }
             });
@@ -232,6 +237,7 @@ final class OperationalReconciliationService
                         if (! $movement) {
                             $this->issue($run, 'inventory_document', 'DOC_ITEM_MOVEMENT_MISSING', 'critical', InventoryDocumentItem::class,
                                 $item->id, $document->code, ['movement' => 'required'], ['movement' => null], ['document_id' => $document->id]);
+
                             continue;
                         }
                         if ((int) $item->organization_id !== (int) $document->organization_id
@@ -243,9 +249,9 @@ final class OperationalReconciliationService
                                 $item->id, $document->code, null, null, ['document_id' => $document->id, 'movement_id' => $movement->id]);
                         }
                         $expectedQuantity = $this->expectedDocumentQuantity($document->document_type, $item);
-                        if ($expectedQuantity !== null && (int) $movement->quantity !== $expectedQuantity) {
+                        if ($expectedQuantity !== null && Decimal::compare($movement->quantity, $expectedQuantity, 4) !== 0) {
                             $this->issue($run, 'inventory_document', 'DOC_SIGN_QUANTITY_MISMATCH', 'critical', InventoryDocumentItem::class,
-                                $item->id, $document->code, ['quantity' => $expectedQuantity], ['quantity' => (int) $movement->quantity], ['movement_id' => $movement->id]);
+                                $item->id, $document->code, ['quantity' => $expectedQuantity], ['quantity' => $movement->quantity], ['movement_id' => $movement->id]);
                         }
                         if ($document->document_type !== InventoryDocumentType::Compensation
                             && ($movement->reference_type !== InventoryDocument::class || (int) $movement->reference_id !== (int) $document->id)) {
@@ -290,6 +296,7 @@ final class OperationalReconciliationService
                     $stable = in_array($event->status, [EconomicEventStatus::Processed, EconomicEventStatus::Reversed], true);
                     if ($stable && ! $event->entry) {
                         $this->issue($run, 'accounting', 'ACC_EVENT_ENTRY_MISSING', 'critical', AccountingEconomicEvent::class, $event->id, $event->source_code);
+
                         continue;
                     }
                     if (! $stable && $event->processed_entry_id) {
@@ -364,17 +371,17 @@ final class OperationalReconciliationService
                     if ($entry->status !== 'posted') {
                         continue;
                     }
-                    $lineDebit = round((float) $entry->lines->sum(fn ($line) => (float) $line->debit), 2);
-                    $lineCredit = round((float) $entry->lines->sum(fn ($line) => (float) $line->credit), 2);
+                    $lineDebit = $entry->lines->reduce(fn (string $sum, $line): string => Decimal::add($sum, $line->debit, 2), '0');
+                    $lineCredit = $entry->lines->reduce(fn (string $sum, $line): string => Decimal::add($sum, $line->credit, 2), '0');
                     if ($entry->lines->contains(fn ($line) => (int) $line->organization_id !== (int) $entry->organization_id)) {
                         $this->issue($run, 'accounting', 'ACC_LINE_TENANT_MISMATCH', 'critical', AccountingEntry::class, $entry->id, $entry->reference);
                     }
-                    if (abs($lineDebit - (float) $entry->total_debit) > 0.001 || abs($lineCredit - (float) $entry->total_credit) > 0.001) {
+                    if (Decimal::compare($lineDebit, $entry->total_debit, 2) !== 0 || Decimal::compare($lineCredit, $entry->total_credit, 2) !== 0) {
                         $this->issue($run, 'accounting', 'ACC_HEADER_TOTAL_MISMATCH', 'critical', AccountingEntry::class,
                             $entry->id, $entry->reference, ['debit' => $lineDebit, 'credit' => $lineCredit],
-                            ['debit' => (float) $entry->total_debit, 'credit' => (float) $entry->total_credit]);
+                            ['debit' => $entry->total_debit, 'credit' => $entry->total_credit]);
                     }
-                    if ($lineDebit <= 0 || abs($lineDebit - $lineCredit) > 0.001) {
+                    if (Decimal::compare($lineDebit, 0, 2) <= 0 || Decimal::compare($lineDebit, $lineCredit, 2) !== 0) {
                         $this->issue($run, 'accounting', 'ACC_UNBALANCED', 'critical', AccountingEntry::class,
                             $entry->id, $entry->reference, ['balanced' => true], ['debit' => $lineDebit, 'credit' => $lineCredit]);
                     }
@@ -398,11 +405,14 @@ final class OperationalReconciliationService
             || (int) $original->entry->organization_id !== (int) $event->organization_id
             || (int) $event->entry->reversal_of_id !== (int) $original->entry->id) {
             $this->issue($run, 'accounting', 'ACC_REVERSAL_MISMATCH', 'critical', AccountingEconomicEvent::class, $event->id, $event->source_code);
+
             return;
         }
         $group = fn (Collection $lines): array => $lines->groupBy(fn ($line) => $line->account_code.'|'.($line->product_id ?? 0))
-            ->map(fn (Collection $rows) => ['debit' => round((float) $rows->sum(fn ($line) => (float) $line->debit), 2),
-                'credit' => round((float) $rows->sum(fn ($line) => (float) $line->credit), 2)])->sortKeys()->all();
+            ->map(fn (Collection $rows) => [
+                'debit' => $rows->reduce(fn (string $sum, $line): string => Decimal::add($sum, $line->debit, 2), '0'),
+                'credit' => $rows->reduce(fn (string $sum, $line): string => Decimal::add($sum, $line->credit, 2), '0'),
+            ])->sortKeys()->all();
         $originalLines = $group($original->entry->lines);
         $reversalLines = $group($event->entry->lines);
         $expected = collect($originalLines)->map(fn (array $line) => ['debit' => $line['credit'], 'credit' => $line['debit']])->all();
@@ -412,29 +422,31 @@ final class OperationalReconciliationService
         }
     }
 
-    private function expectedDocumentQuantity(InventoryDocumentType $type, InventoryDocumentItem $item): ?int
+    private function expectedDocumentQuantity(InventoryDocumentType $type, InventoryDocumentItem $item): ?string
     {
         return match ($type) {
             InventoryDocumentType::Inbound, InventoryDocumentType::Receipt,
-            InventoryDocumentType::CustomerReturn, InventoryDocumentType::OpeningStock => abs((int) $item->quantity),
+            InventoryDocumentType::CustomerReturn, InventoryDocumentType::OpeningStock => Decimal::absolute($item->quantity),
             InventoryDocumentType::Outbound, InventoryDocumentType::Dispatch,
-            InventoryDocumentType::SupplierReturn => -abs((int) $item->quantity),
+            InventoryDocumentType::SupplierReturn => Decimal::sub(0, Decimal::absolute($item->quantity), 4),
             InventoryDocumentType::StockAdjustment => $item->target_quantity === null || ! $item->movement
-                ? null : (int) $item->target_quantity - (int) $item->movement->stock_before,
-            InventoryDocumentType::Compensation => $item->movement?->reversalOf ? -(int) $item->movement->reversalOf->quantity : null,
+                ? null : Decimal::sub($item->target_quantity, $item->movement->stock_before, 4),
+            InventoryDocumentType::Compensation => $item->movement?->reversalOf ? Decimal::sub(0, $item->movement->reversalOf->quantity, 4) : null,
         };
     }
 
-    private function expectedReversalAverage(InventoryMovement $reversal, InventoryMovement $original): ?float
+    private function expectedReversalAverage(InventoryMovement $reversal, InventoryMovement $original): ?string
     {
-        $stockAfter = (int) $reversal->stock_after;
-        $valueBefore = (int) $reversal->stock_before * (float) $reversal->average_cost_before;
-        $valueAfter = $valueBefore + ((int) $reversal->quantity * (float) $original->unit_cost);
-        if ($stockAfter < 0 || $valueAfter < -0.0001) {
+        $stockAfter = $reversal->stock_after;
+        $valueBefore = Decimal::mul($reversal->stock_before, $reversal->average_cost_before, 10);
+        $valueAfter = Decimal::add($valueBefore, Decimal::mul($reversal->quantity, $original->unit_cost, 10), 10);
+        if (Decimal::compare($stockAfter, 0, 4) < 0 || Decimal::compare($valueAfter, '-0.0001', 10) < 0) {
             return null;
         }
 
-        return $stockAfter === 0 ? 0.0 : round($valueAfter / $stockAfter, 4);
+        $mode = $this->roundingPolicy->mode((int) $reversal->organization_id, $reversal->branch_id ? (int) $reversal->branch_id : null);
+
+        return Decimal::compare($stockAfter, 0, 4) === 0 ? '0.000000' : Decimal::round(Decimal::div(Decimal::compare($valueAfter, 0) > 0 ? $valueAfter : '0', $stockAfter, 12), 6, $mode);
     }
 
     /** @param array<string,mixed>|null $expected @param array<string,mixed>|null $actual @param array<string,mixed> $context */

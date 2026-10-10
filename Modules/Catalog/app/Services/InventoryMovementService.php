@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Services;
 
 use App\Models\User;
+use App\Support\Decimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,25 +23,25 @@ class InventoryMovementService
 {
     public function __construct(private readonly InventoryLedgerService $ledger) {}
 
-    public function recordInbound(Product $product, int $branchId, int $quantity, array $context = []): InventoryMovement
+    public function recordInbound(Product $product, int $branchId, int|float|string $quantity, array $context = []): InventoryMovement
     {
         if (isset($context['warehouse_id'])) {
             return $this->recordWarehouseInbound($product, $branchId, (int) $context['warehouse_id'], $quantity, $context);
         }
 
-        return $this->recordBranchMovement($product, $branchId, abs($quantity), InventoryMovementType::Inbound, $context);
+        return $this->recordBranchMovement($product, $branchId, Decimal::absolute($quantity), InventoryMovementType::Inbound, $context);
     }
 
-    public function recordOutbound(Product $product, int $branchId, int $quantity, array $context = []): InventoryMovement
+    public function recordOutbound(Product $product, int $branchId, int|float|string $quantity, array $context = []): InventoryMovement
     {
         if (isset($context['warehouse_id'])) {
             return $this->recordWarehouseOutbound($product, $branchId, (int) $context['warehouse_id'], $quantity, $context);
         }
 
-        return $this->recordBranchMovement($product, $branchId, abs($quantity) * -1, InventoryMovementType::Outbound, $context);
+        return $this->recordBranchMovement($product, $branchId, Decimal::sub(0, Decimal::absolute($quantity), 4), InventoryMovementType::Outbound, $context);
     }
 
-    public function recordAdjustment(Product $product, int $branchId, int $targetStock, array $context = []): InventoryMovement
+    public function recordAdjustment(Product $product, int $branchId, int|float|string $targetStock, array $context = []): InventoryMovement
     {
         return DB::transaction(function () use ($product, $branchId, $targetStock, $context): InventoryMovement {
             $stock = $this->assertProductActiveForBranch($product, $branchId);
@@ -51,8 +52,8 @@ class InventoryMovementService
                 warehouseId: null,
                 type: InventoryMovementType::Adjustment,
                 context: $context,
-                targetStock: max(0, $targetStock - $warehouseStock),
-                initialStock: max(0, (int) $stock->stock - $warehouseStock),
+                targetStock: Decimal::nonNegative(Decimal::sub($targetStock, $warehouseStock, 4)),
+                initialStock: Decimal::nonNegative(Decimal::sub($stock->stock, $warehouseStock, 4)),
             ));
 
             $this->mirrorBranchMovement($product, $stock, $movement);
@@ -61,41 +62,41 @@ class InventoryMovementService
         }, 5);
     }
 
-    public function recordWarehouseInbound(Product $product, int $branchId, int $warehouseId, int $quantity, array $context = []): InventoryMovement
+    public function recordWarehouseInbound(Product $product, int $branchId, int $warehouseId, int|float|string $quantity, array $context = []): InventoryMovement
     {
-        return $this->recordWarehouseMovement($product, $branchId, $warehouseId, abs($quantity), InventoryMovementType::Inbound, $context);
+        return $this->recordWarehouseMovement($product, $branchId, $warehouseId, Decimal::absolute($quantity), InventoryMovementType::Inbound, $context);
     }
 
-    public function recordWarehouseOutbound(Product $product, int $branchId, int $warehouseId, int $quantity, array $context = []): InventoryMovement
+    public function recordWarehouseOutbound(Product $product, int $branchId, int $warehouseId, int|float|string $quantity, array $context = []): InventoryMovement
     {
-        return $this->recordWarehouseMovement($product, $branchId, $warehouseId, abs($quantity) * -1, InventoryMovementType::Outbound, $context);
+        return $this->recordWarehouseMovement($product, $branchId, $warehouseId, Decimal::sub(0, Decimal::absolute($quantity), 4), InventoryMovementType::Outbound, $context);
     }
 
-    public function recordReservedOutbound(InventoryBalance $balance, int $quantity, array $context = []): InventoryMovement
+    public function recordReservedOutbound(InventoryBalance $balance, int|float|string $quantity, array $context = []): InventoryMovement
     {
         $product = Product::query()
             ->where('organization_id', $balance->organization_id)
             ->findOrFail($balance->product_id);
-        $context['reserved_stock_delta'] = abs($quantity) * -1;
+        $context['reserved_stock_delta'] = Decimal::sub(0, Decimal::absolute($quantity), 4);
 
         return $balance->warehouse_id
             ? $this->recordWarehouseOutbound($product, (int) $balance->branch_id, (int) $balance->warehouse_id, $quantity, $context)
             : $this->recordOutbound($product, (int) $balance->branch_id, $quantity, $context);
     }
 
-    public function recordTransitInbound(InventoryBalance $balance, int $quantity, array $context = []): InventoryMovement
+    public function recordTransitInbound(InventoryBalance $balance, int|float|string $quantity, array $context = []): InventoryMovement
     {
         $product = Product::query()
             ->where('organization_id', $balance->organization_id)
             ->findOrFail($balance->product_id);
-        $context['in_transit_stock_delta'] = abs($quantity) * -1;
+        $context['in_transit_stock_delta'] = Decimal::sub(0, Decimal::absolute($quantity), 4);
 
         return $balance->warehouse_id
             ? $this->recordWarehouseInbound($product, (int) $balance->branch_id, (int) $balance->warehouse_id, $quantity, $context)
             : $this->recordInbound($product, (int) $balance->branch_id, $quantity, $context);
     }
 
-    public function recordWarehouseOpeningStock(Product $product, int $branchId, int $warehouseId, int $stock, array $context = []): InventoryMovement
+    public function recordWarehouseOpeningStock(Product $product, int $branchId, int $warehouseId, int|float|string $stock, array $context = []): InventoryMovement
     {
         return DB::transaction(function () use ($product, $branchId, $warehouseId, $stock, $context): InventoryMovement {
             $legacy = $this->assertProductActiveForWarehouse($product, $branchId, $warehouseId);
@@ -105,7 +106,7 @@ class InventoryMovementService
                 warehouseId: $warehouseId,
                 type: InventoryMovementType::OpeningStock,
                 context: $context,
-                quantityDelta: max(0, $stock),
+                quantityDelta: Decimal::nonNegative($stock),
                 initialStock: 0,
                 initialAverageCost: 0,
                 requireEmptyLedger: true,
@@ -117,7 +118,7 @@ class InventoryMovementService
         }, 5);
     }
 
-    public function recordWarehouseAdjustment(Product $product, int $branchId, int $warehouseId, int $targetStock, array $context = []): InventoryMovement
+    public function recordWarehouseAdjustment(Product $product, int $branchId, int $warehouseId, int|float|string $targetStock, array $context = []): InventoryMovement
     {
         return DB::transaction(function () use ($product, $branchId, $warehouseId, $targetStock, $context): InventoryMovement {
             $legacy = $this->assertProductActiveForWarehouse($product, $branchId, $warehouseId);
@@ -127,9 +128,9 @@ class InventoryMovementService
                 warehouseId: $warehouseId,
                 type: InventoryMovementType::Adjustment,
                 context: $context,
-                targetStock: max(0, $targetStock),
-                initialStock: (int) $legacy->stock,
-                initialAverageCost: (float) $legacy->average_cost,
+                targetStock: Decimal::nonNegative($targetStock),
+                initialStock: $legacy->stock,
+                initialAverageCost: $legacy->average_cost,
             ));
 
             $this->mirrorWarehouseMovement($product, $legacy, $movement);
@@ -172,7 +173,7 @@ class InventoryMovementService
         }, 5);
     }
 
-    private function recordBranchMovement(Product $product, int $branchId, int $quantityDelta, InventoryMovementType $type, array $context): InventoryMovement
+    private function recordBranchMovement(Product $product, int $branchId, int|float|string $quantityDelta, InventoryMovementType $type, array $context): InventoryMovement
     {
         return DB::transaction(function () use ($product, $branchId, $quantityDelta, $type, $context): InventoryMovement {
             $stock = $this->assertProductActiveForBranch($product, $branchId);
@@ -184,7 +185,7 @@ class InventoryMovementService
                 type: $type,
                 context: $context,
                 quantityDelta: $quantityDelta,
-                initialStock: max(0, (int) $stock->stock - $warehouseStock),
+                initialStock: Decimal::nonNegative(Decimal::sub($stock->stock, $warehouseStock, 4)),
             ));
             $this->mirrorBranchMovement($product, $stock, $movement);
 
@@ -192,7 +193,7 @@ class InventoryMovementService
         }, 5);
     }
 
-    private function recordWarehouseMovement(Product $product, int $branchId, int $warehouseId, int $quantityDelta, InventoryMovementType $type, array $context): InventoryMovement
+    private function recordWarehouseMovement(Product $product, int $branchId, int $warehouseId, int|float|string $quantityDelta, InventoryMovementType $type, array $context): InventoryMovement
     {
         return DB::transaction(function () use ($product, $branchId, $warehouseId, $quantityDelta, $type, $context): InventoryMovement {
             $stock = $this->assertProductActiveForWarehouse($product, $branchId, $warehouseId);
@@ -203,8 +204,8 @@ class InventoryMovementService
                 type: $type,
                 context: $context,
                 quantityDelta: $quantityDelta,
-                initialStock: (int) $stock->stock,
-                initialAverageCost: (float) $stock->average_cost,
+                initialStock: $stock->stock,
+                initialAverageCost: $stock->average_cost,
             ));
             $this->mirrorWarehouseMovement($product, $stock, $movement);
 
@@ -218,10 +219,10 @@ class InventoryMovementService
         ?int $warehouseId,
         InventoryMovementType $type,
         array $context,
-        ?int $quantityDelta = null,
-        ?int $targetStock = null,
-        int $initialStock = 0,
-        float $initialAverageCost = 0,
+        int|float|string|null $quantityDelta = null,
+        int|float|string|null $targetStock = null,
+        int|float|string $initialStock = 0,
+        int|float|string $initialAverageCost = 0,
         bool $requireEmptyLedger = false,
     ): InventoryMovementCommand {
         $referenceType = $context['reference_type'] ?? null;
@@ -247,7 +248,7 @@ class InventoryMovementService
             targetStock: $targetStock,
             initialStock: $initialStock,
             initialAverageCost: $initialAverageCost,
-            unitCost: round((float) ($context['unit_cost'] ?? $initialAverageCost), 4),
+            unitCost: $context['unit_cost'] ?? $initialAverageCost,
             performedBy: $this->actorId($context['performed_by'] ?? auth()->user()),
             reason: $context['reason'] ?? null,
             referenceType: $referenceType,
@@ -256,8 +257,8 @@ class InventoryMovementService
             notes: $context['notes'] ?? null,
             meta: $context['meta'] ?? null,
             requireEmptyLedger: $requireEmptyLedger,
-            reservedStockDelta: (int) ($context['reserved_stock_delta'] ?? 0),
-            inTransitStockDelta: (int) ($context['in_transit_stock_delta'] ?? 0),
+            reservedStockDelta: $context['reserved_stock_delta'] ?? 0,
+            inTransitStockDelta: $context['in_transit_stock_delta'] ?? 0,
         );
     }
 
@@ -280,7 +281,7 @@ class InventoryMovementService
     private function mirrorBranchMovement(Product $product, ProductBranchStock $stock, InventoryMovement $movement): void
     {
         $stock->forceFill([
-            'stock' => $this->warehouseStockTotal($product, (int) $movement->branch_id) + (int) $movement->stock_after,
+            'stock' => Decimal::add($this->warehouseStockTotal($product, (int) $movement->branch_id), $movement->stock_after, 4),
             'is_active' => true,
         ])->save();
 
@@ -317,8 +318,8 @@ class InventoryMovementService
                 ->where('product_id', $product->id)
                 ->where('branch_id', $movement->branch_id)
                 ->value('stock') ?? 0;
-            $previousWarehouseTotal = (int) ($warehouseTotals?->stock_total ?? 0) - (int) $movement->stock_after + (int) $movement->stock_before;
-            $unallocated = max(0, (int) $legacyBranchStock - $previousWarehouseTotal);
+            $previousWarehouseTotal = Decimal::add(Decimal::sub($warehouseTotals?->stock_total ?? 0, $movement->stock_after, 4), $movement->stock_before, 4);
+            $unallocated = Decimal::nonNegative(Decimal::sub($legacyBranchStock, $previousWarehouseTotal, 4));
         }
 
         ProductBranchStock::query()->updateOrCreate(
@@ -328,8 +329,8 @@ class InventoryMovementService
             ],
             [
                 'organization_id' => $product->organization_id,
-                'stock' => (int) ($warehouseTotals?->stock_total ?? 0) + (int) $unallocated,
-                'min_stock' => (int) ($warehouseTotals?->min_stock_total ?? 0),
+                'stock' => Decimal::add($warehouseTotals?->stock_total ?? 0, $unallocated, 4),
+                'min_stock' => Decimal::assertScale($warehouseTotals?->min_stock_total ?? 0, 4),
                 'is_active' => true,
             ]
         );
@@ -347,8 +348,8 @@ class InventoryMovementService
             ->first();
 
         $product->forceFill([
-            'stock' => (int) ($totals?->stock_total ?? 0),
-            'min_stock' => (int) ($totals?->min_stock_total ?? 0),
+            'stock' => Decimal::assertScale($totals?->stock_total ?? 0, 4),
+            'min_stock' => Decimal::assertScale($totals?->min_stock_total ?? 0, 4),
         ])->save();
     }
 
@@ -409,13 +410,13 @@ class InventoryMovementService
         return is_numeric($actor) ? (int) $actor : null;
     }
 
-    private function warehouseStockTotal(Product $product, int $branchId): int
+    private function warehouseStockTotal(Product $product, int $branchId): int|string
     {
-        return (int) ProductWarehouseStock::query()
+        return Decimal::quantity(ProductWarehouseStock::query()
             ->where('organization_id', $product->organization_id)
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
             ->where('is_active', true)
-            ->sum('stock');
+            ->sum('stock'));
     }
 }

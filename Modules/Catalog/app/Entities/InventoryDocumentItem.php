@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,10 +26,10 @@ class InventoryDocumentItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
-        'target_quantity' => 'integer',
-        'unit_cost' => 'decimal:4',
-        'line_total' => 'decimal:4',
+        'quantity' => Quantity::class,
+        'target_quantity' => Quantity::class,
+        'unit_cost' => 'decimal:6',
+        'line_total' => 'decimal:6',
         'meta' => 'array',
     ];
 

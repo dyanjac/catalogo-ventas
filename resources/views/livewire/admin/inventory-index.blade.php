@@ -100,14 +100,14 @@
                                         <td>{{ $stock->product?->category?->name ?? '-' }}</td>
                                         <td>
                                             {{ $stock->stock }}
-                                            @if($stock->stock <= $stock->min_stock)
+                                            @if(\App\Support\Decimal::compare($stock->stock, $stock->min_stock, 4) <= 0)
                                                 <span class="badge bg-danger ms-1">Bajo</span>
                                             @endif
                                         </td>
                                         <td>{{ $stock->min_stock }}</td>
                                         @if($hasWarehouseSchema)
-                                            <td>S/ {{ number_format((float) ($stock->average_cost ?? 0), 4) }}</td>
-                                            <td>S/ {{ number_format((float) ($stock->last_cost ?? 0), 4) }}</td>
+                                            <td>S/ {{ \App\Support\Decimal::unitPriceForInput($stock->average_cost ?? 0) }}</td>
+                                            <td>S/ {{ \App\Support\Decimal::unitPriceForInput($stock->last_cost ?? 0) }}</td>
                                         @endif
                                     </tr>
                                 @empty
@@ -150,8 +150,8 @@
                                         <span>{{ strtoupper(str_replace('_', ' ', $movement->movement_type->value)) }}</span>
                                         <span>{{ $movement->reason ? strtoupper(str_replace('_', ' ', $movement->reason)) : 'SIN MOTIVO' }}</span>
                                         <span>{{ $movement->stock_before }} -> {{ $movement->stock_after }}</span>
-                                        <span>CPU S/ {{ number_format((float) ($movement->unit_cost ?? 0), 4) }}</span>
-                                        <span>CPP S/ {{ number_format((float) ($movement->average_cost_before ?? 0), 4) }} -> {{ number_format((float) ($movement->average_cost_after ?? 0), 4) }}</span>
+                                        <span>CPU S/ {{ \App\Support\Decimal::unitPriceForInput($movement->unit_cost ?? 0) }}</span>
+                                        <span>CPP S/ {{ \App\Support\Decimal::unitPriceForInput($movement->average_cost_before ?? 0) }} -> {{ \App\Support\Decimal::unitPriceForInput($movement->average_cost_after ?? 0) }}</span>
                                     </div>
                                     <div class="mt-2 text-sm text-muted">
                                         {{ $movement->reference_code ?: 'Sin referencia' }}
@@ -248,9 +248,9 @@
                                                 <div>
                                                     <label class="form-label">{{ $documentType === 'stock_adjustment' ? 'Stock contado' : 'Cantidad' }}</label>
                                                     @if($documentType === 'stock_adjustment')
-                                                        <input type="number" min="0" wire:model="documentItems.{{ $index }}.target_quantity" class="form-control">
+                                                        <input type="text" inputmode="decimal" wire:model="documentItems.{{ $index }}.target_quantity" class="form-control">
                                                     @else
-                                                        <input type="number" min="1" wire:model="documentItems.{{ $index }}.quantity" class="form-control">
+                                                        <input type="text" inputmode="decimal" wire:model="documentItems.{{ $index }}.quantity" class="form-control">
                                                     @endif
                                                     @error('documentItems.'.$index.'.quantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                     @error('documentItems.'.$index.'.target_quantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
@@ -258,13 +258,12 @@
                                                 <div>
                                                     <label class="form-label">{{ in_array($documentType, ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) ? 'Costo unitario' : 'Costo aplicado' }}</label>
                                                     <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.0001"
+                                                        type="text"
+                                                        inputmode="decimal"
                                                         wire:model="documentItems.{{ $index }}.unit_cost"
                                                         class="form-control"
                                                         @disabled(in_array($documentType, ['outbound', 'dispatch', 'supplier_return', 'stock_adjustment'], true))
-                                                        placeholder="{{ in_array($documentType, ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) ? '0.0000' : 'Promedio del almacen' }}"
+                                                        placeholder="{{ in_array($documentType, ['inbound', 'opening_stock', 'receipt', 'customer_return'], true) ? '0.000000' : 'Promedio del almacen' }}"
                                                     >
                                                     @error('documentItems.'.$index.'.unit_cost') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                                 </div>
@@ -405,7 +404,7 @@
                                 <div class="grid gap-3 md:grid-cols-[180px,1fr]">
                                     <div>
                                         <label class="form-label">Cantidad</label>
-                                        <input type="number" min="1" wire:model="transferQuantity" class="form-control">
+                                        <input type="text" inputmode="decimal" wire:model="transferQuantity" class="form-control">
                                         @error('transferQuantity') <div class="mt-1 text-sm text-danger">{{ $message }}</div> @enderror
                                     </div>
                                     <div>
@@ -444,16 +443,16 @@
 
                                         <div class="mt-3 space-y-2">
                                             @foreach($transfer->items as $item)
-                                                @php($pending = (int) $item->dispatched_quantity - (int) $item->received_quantity)
+                                                @php($pending = \App\Support\Decimal::sub($item->dispatched_quantity, $item->received_quantity, 4))
                                                 <div class="grid gap-2 md:grid-cols-[1fr,180px] md:items-end">
                                                     <div class="text-sm">
                                                         <span class="font-medium text-slate-900">{{ $item->product?->name }}</span>
                                                         <span class="text-muted">Despachado {{ $item->dispatched_quantity }}, recibido {{ $item->received_quantity }}, pendiente {{ $pending }}</span>
                                                     </div>
-                                                    @if($canReceiveTransfer && in_array($transfer->status->value, ['in_transit', 'partially_received'], true) && $pending > 0)
+                                                    @if($canReceiveTransfer && in_array($transfer->status->value, ['in_transit', 'partially_received'], true) && \App\Support\Decimal::compare($pending, 0, 4) > 0)
                                                         <div>
                                                             <label class="form-label">Cantidad recibida</label>
-                                                            <input type="number" min="1" max="{{ $pending }}" wire:model="transferReceiptQuantities.{{ $transfer->id }}.{{ $item->id }}" class="form-control" placeholder="Max. {{ $pending }}">
+                                                            <input type="text" inputmode="decimal" wire:model="transferReceiptQuantities.{{ $transfer->id }}.{{ $item->id }}" class="form-control" placeholder="Max. {{ $pending }}">
                                                         </div>
                                                     @endif
                                                 </div>

@@ -139,11 +139,11 @@ class InventoryLedgerTest extends TestCase
             'unit_cost' => 4,
         ]);
 
-        $this->assertSame('3.0000', $inbound->average_cost_after);
+        $this->assertSame('3.000000', $inbound->average_cost_after);
         $reversal = $service->reverse($inbound, idempotencyKey: 'purchase-cost-restore:reverse');
 
-        $this->assertSame('2.0000', $reversal->average_cost_after);
-        $this->assertSame('2.0000', InventoryBalance::query()->whereKey($reversal->inventory_balance_id)->value('average_cost'));
+        $this->assertSame('2.000000', $reversal->average_cost_after);
+        $this->assertSame('2.000000', InventoryBalance::query()->whereKey($reversal->inventory_balance_id)->value('average_cost'));
     }
 
     public function test_backfill_is_idempotent_and_separates_warehouse_from_unallocated_stock(): void

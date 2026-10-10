@@ -2,15 +2,27 @@
 
 namespace Modules\Orders\Entities;
 
-use Modules\Catalog\Entities\Product;
+use App\Casts\Quantity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryReservationItem;
 use Modules\Catalog\Entities\InventoryWarehouse;
+use Modules\Catalog\Entities\Product;
 
 class OrderItem extends Model
 {
+    protected $casts = [
+        'quantity' => Quantity::class,
+        'reserved_quantity' => Quantity::class,
+        'dispatched_quantity' => Quantity::class,
+        'returned_quantity' => Quantity::class,
+        'unit_price' => 'decimal:6',
+        'discount_amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'line_total' => 'decimal:2',
+    ];
+
     protected $fillable = [
         'organization_id',
         'order_id',

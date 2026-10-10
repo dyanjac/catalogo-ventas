@@ -109,7 +109,7 @@
                                         </td>
                                         <td>{{ $product->category?->name ?? '-' }}</td>
                                         <td>{{ $product->unitMeasure?->name ?? '-' }}</td>
-                                        <td>S/ {{ number_format((float) ($product->sale_price ?? 0), 2) }}</td>
+                                        <td>S/ {{ \App\Support\Decimal::unitPriceForInput($product->sale_price ?? 0) }}</td>
                                         <td>
                                             {{ $product->effective_stock }}
                                             @if($product->effective_stock <= $product->effective_min_stock)
@@ -197,7 +197,7 @@
                                                 </label>
                                                 <div>
                                                     <label class="form-label">Minimo sucursal</label>
-                                                    <input type="number" min="0" wire:model="assignmentBranchMinStocks.{{ $branch->id }}" class="form-control">
+                                                    <input type="text" inputmode="decimal" wire:model="assignmentBranchMinStocks.{{ $branch->id }}" class="form-control">
                                                 </div>
                                             </div>
 
@@ -215,7 +215,7 @@
                                                             </label>
                                                             <div>
                                                                 <label class="form-label">Minimo almacen</label>
-                                                                <input type="number" min="0" wire:model="assignmentWarehouseMinStocks.{{ $warehouse->id }}" class="form-control">
+                                                                <input type="text" inputmode="decimal" wire:model="assignmentWarehouseMinStocks.{{ $warehouse->id }}" class="form-control">
                                                             </div>
                                                         </div>
                                                     @empty

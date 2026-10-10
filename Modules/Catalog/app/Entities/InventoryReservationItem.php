@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ class InventoryReservationItem extends Model
         'organization_id', 'reservation_id', 'inventory_balance_id', 'product_id', 'branch_id', 'warehouse_id', 'quantity',
     ];
 
-    protected $casts = ['quantity' => 'integer'];
+    protected $casts = ['quantity' => Quantity::class];
 
     protected static function booted(): void
     {

@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,10 +24,10 @@ class InventoryTransferItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
-        'dispatched_quantity' => 'integer',
-        'received_quantity' => 'integer',
-        'unit_cost' => 'decimal:4',
+        'quantity' => Quantity::class,
+        'dispatched_quantity' => Quantity::class,
+        'received_quantity' => Quantity::class,
+        'unit_cost' => 'decimal:6',
     ];
 
     protected static function booted(): void
