@@ -4,6 +4,9 @@ namespace Modules\Catalog\Services;
 
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
 use Modules\Catalog\Entities\ProductWarehouseStock;
@@ -136,6 +139,15 @@ class ProductInventoryService
 
     public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
     {
+        $balance = InventoryBalance::query()
+            ->where('organization_id', $product->organization_id)
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->where('warehouse_id', $warehouseId)
+            ->first(['physical_stock', 'reserved_stock', 'is_active']);
+        if ($balance) {
+            return $balance->is_active ? $balance->availableStock() : 0;
+        }
         if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
             return $this->balanceReader->warehouseAvailableStock((int) $product->organization_id, (int) $product->id, $branchId, $warehouseId);
         }
@@ -211,7 +223,87 @@ class ProductInventoryService
 
     public function decrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
     {
-        $this->movements->recordOutbound($product, $branchId, $quantity, $context);
+        DB::transaction(function () use ($product, $branchId, $quantity, $context): void {
+            $selectedWarehouseId = isset($context['warehouse_id']) ? (int) $context['warehouse_id'] : null;
+            $warehouseStocks = ProductWarehouseStock::query()
+                ->where('organization_id', $product->organization_id)
+                ->where('product_id', $product->id)
+                ->where('branch_id', $branchId)
+                ->where('is_active', true)
+                ->when($selectedWarehouseId !== null, fn ($query) => $query->where('warehouse_id', $selectedWarehouseId))
+                ->with('warehouse')
+                ->orderBy('warehouse_id')
+                ->lockForUpdate()
+                ->get();
+            $balances = InventoryBalance::query()
+                ->where('organization_id', $product->organization_id)
+                ->where('product_id', $product->id)
+                ->where('branch_id', $branchId)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy(fn (InventoryBalance $balance): int => (int) ($balance->warehouse_id ?? 0));
+
+            $remaining = $quantity;
+            $allocations = [];
+            foreach ($warehouseStocks->sortBy(fn (ProductWarehouseStock $stock): int => $stock->warehouse?->is_default ? 0 : 1) as $stock) {
+                if ($selectedWarehouseId !== null && (int) $stock->warehouse_id !== $selectedWarehouseId) {
+                    continue;
+                }
+                if (! $stock->warehouse?->is_active || (int) $stock->warehouse->branch_id !== $branchId) {
+                    continue;
+                }
+
+                $balance = $balances->get((int) $stock->warehouse_id);
+                $available = $balance
+                    ? ($balance->is_active ? $balance->availableStock() : 0)
+                    : (int) $stock->stock;
+                $allocated = min($remaining, max(0, $available));
+                if ($allocated > 0) {
+                    $allocations[] = [(int) $stock->warehouse_id, $allocated];
+                    $remaining -= $allocated;
+                }
+            }
+
+            if ($remaining > 0 && $selectedWarehouseId === null) {
+                $branchBalance = $balances->get(0);
+                $branchStock = ProductBranchStock::query()
+                    ->where('organization_id', $product->organization_id)
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $branchId)
+                    ->lockForUpdate()
+                    ->first();
+                $available = $branchBalance
+                    ? ($branchBalance->is_active ? $branchBalance->availableStock() : 0)
+                    : ($branchStock?->is_active
+                        ? max(0, (int) $branchStock->stock - (int) $warehouseStocks->sum('stock'))
+                        : 0);
+                $allocated = min($remaining, max(0, $available));
+                if ($allocated > 0) {
+                    $allocations[] = [null, $allocated];
+                    $remaining -= $allocated;
+                }
+            }
+
+            if ($remaining > 0) {
+                throw ValidationException::withMessages([
+                    'stock' => "Stock insuficiente para {$product->name} en el ".($selectedWarehouseId ? 'almacén seleccionado' : 'ámbito de la sucursal').'. Disponible: '.($quantity - $remaining).'.',
+                ]);
+            }
+
+            foreach ($allocations as [$warehouseId, $allocated]) {
+                $movementContext = $context;
+                if ($warehouseId !== null) {
+                    $movementContext['warehouse_id'] = $warehouseId;
+                } else {
+                    unset($movementContext['warehouse_id']);
+                }
+                if (isset($movementContext['idempotency_key'])) {
+                    $movementContext['idempotency_key'] .= ':'.($warehouseId === null ? 'branch' : "warehouse-{$warehouseId}");
+                }
+                $this->movements->recordOutbound($product, $branchId, $allocated, $movementContext);
+            }
+        }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
     }
 
     public function incrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void

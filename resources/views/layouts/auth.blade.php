@@ -10,6 +10,7 @@
     <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet" />
     @vite(['resources/css/admin.css', 'resources/js/admin.js'])
     @fluxAppearance
+    <script>window.Flux.applyAppearance('light');</script>
     @livewireStyles
     @php
         $palette = array_merge(config('admintheme.defaults', []), $adminPalette ?? []);

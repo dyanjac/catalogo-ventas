@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Modules\Catalog\Enums\ProductAccountingTreatment;
 use Modules\Catalog\Enums\ProductType;
+use Modules\Security\Services\SecurityAuthorizationService;
 use Modules\Security\Services\SecurityScopeService;
 
 class ProductController extends Controller
@@ -31,6 +32,8 @@ class ProductController extends Controller
 
     public function create(): View
     {
+        abort_unless(app(SecurityAuthorizationService::class)->hasPermission(request()->user(), 'catalog.products.create'), 403);
+
         return view('admin.products.create', [
             'product' => new Product([
                 'tax_affectation' => 'Gravado',

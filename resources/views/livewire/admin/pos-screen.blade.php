@@ -19,6 +19,8 @@
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
         <input type="hidden" name="document_type" value="{{ $documentType }}">
+        <input type="hidden" name="branch_id" value="{{ $branchId }}">
+        <input type="hidden" name="warehouse_id" value="{{ $warehouseId }}">
         <input type="hidden" name="customer[name]" value="{{ $customer['name'] }}">
         <input type="hidden" name="customer[address]" value="{{ $customer['address'] }}">
         <input type="hidden" name="customer[city]" value="{{ $customer['city'] }}">
@@ -89,19 +91,58 @@
                                 </div>
 
                                 <div class="product-search-box">
-                                    <label for="product_search" class="font-weight-semibold">Busqueda rapida</label>
-                                    <div class="input-group pos-search-controls">
-                                        <input wire:model.live="productSearch" type="text" id="product_search" class="form-control" list="product-search-list" placeholder="Buscar producto por nombre o SKU">
-                                        <button type="button" class="btn btn-outline-primary" wire:click="addItemBySearch">Agregar producto buscado</button>
+                                    <div class="pos-location-fields">
+                                        <div>
+                                            <label for="pos_branch">Sucursal</label>
+                                            <select id="pos_branch" class="form-control" wire:model.live="branchId">
+                                                @foreach ($saleBranches as $branch)
+                                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="pos_warehouse">Almacén de salida</label>
+                                            <select id="pos_warehouse" class="form-control" wire:model.live="warehouseId">
+                                                <option value="">Seleccionar almacén</option>
+                                                @foreach ($saleWarehouses as $warehouse)
+                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
-                                    <datalist id="product-search-list">
-                                        @foreach ($productIndex as $product)
-                                            <option value="{{ $product['label'] }}"></option>
-                                        @endforeach
-                                    </datalist>
+                                    @error('branch_id') <small class="text-danger d-block mb-2">{{ $message }}</small> @enderror
+                                    @error('warehouse_id') <small class="text-danger d-block mb-2">{{ $message }}</small> @enderror
+                                    <label for="product_search" class="font-weight-semibold">Buscar producto</label>
+                                    <div class="pos-search-controls">
+                                        <div class="pos-autocomplete">
+                                            <input wire:model.live.debounce.250ms="productSearch" wire:keydown.enter.prevent="addItemBySearch" type="text" id="product_search" class="form-control" autocomplete="off" aria-controls="product-suggestions" placeholder="Nombre, código o marca">
+                                            @if (trim($productSearch) !== '')
+                                                <div id="product-suggestions" class="pos-suggestions" role="listbox" aria-label="Productos encontrados">
+                                                    @forelse ($this->productSuggestions() as $suggestion)
+                                                        <div class="pos-suggestion" wire:key="suggestion-{{ $suggestion['id'] }}">
+                                                            <button type="button" role="option" aria-selected="false" wire:click="selectProduct({{ $suggestion['id'] }})" @disabled($suggestion['stock'] <= 0)>
+                                                                <strong>{{ $suggestion['name'] }}</strong>
+                                                                <span>{{ $suggestion['sku'] }} · {{ $suggestion['brand'] ?: 'Sin marca' }}</span>
+                                                            </button>
+                                                            <span @class(['pos-stock-pill', 'is-empty' => $suggestion['stock'] <= 0])>{{ $suggestion['tracks_inventory'] ? ($suggestion['stock'] > 0 ? 'Stock '.$suggestion['stock'] : 'Sin stock') : 'Servicio' }}</span>
+                                                        </div>
+                                                    @empty
+                                                        <p class="pos-suggestions-empty">No hay coincidencias. Puedes buscar con más filtros o crear el producto.</p>
+                                                    @endforelse
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary" wire:click="openAdvancedSearch">Búsqueda avanzada</button>
+                                        @if ($canCreateProduct)
+                                            <button type="button" class="btn btn-primary" wire:click="openQuickProduct">Crear producto</button>
+                                        @endif
+                                    </div>
                                     @error('productSearch')
                                         <small class="text-danger d-block mt-2">{{ $message }}</small>
                                     @enderror
+                                    @if ($productFeedback !== '')
+                                        <p class="small text-success mb-0 mt-2" role="status">{{ $productFeedback }}</p>
+                                    @endif
                                 </div>
 
                                 <div class="table-responsive pos-items-container">
@@ -133,7 +174,9 @@
                                                         >
                                                             <option value="">Seleccionar...</option>
                                                             @foreach ($productIndex as $option)
+                                                                @if ($option['stock'] > 0 || (string) $option['id'] === (string) $item['product_id'])
                                                                 <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
+                                                                @endif
                                                             @endforeach
                                                         </select>
                                                     </td>
@@ -334,6 +377,14 @@
                                     <strong>{{ $meta['title'] }}</strong>
                                 </div>
                                 <div class="summary-line">
+                                    <span>Sucursal</span>
+                                    <strong>{{ $saleBranches->firstWhere('id', (int) $branchId)?->name ?? 'Sin seleccionar' }}</strong>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Almacén</span>
+                                    <strong>{{ $saleWarehouses->firstWhere('id', (int) $warehouseId)?->name ?? 'Sin seleccionar' }}</strong>
+                                </div>
+                                <div class="summary-line">
                                     <span>Cliente</span>
                                     <strong>{{ $customer['name'] ?: 'Sin definir' }}</strong>
                                 </div>
@@ -386,4 +437,7 @@
             </div>
         </div>
     </form>
+
+    @include('livewire.admin.partials.pos-advanced-search')
+    @include('livewire.admin.partials.pos-quick-product')
 </div>

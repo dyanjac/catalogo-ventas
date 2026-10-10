@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Livewire\Admin\PosScreen;
 use App\Models\Organization;
 use App\Models\User;
-use App\Livewire\Admin\PosScreen;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Mockery;
+use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Billing\Models\BillingDocument;
 use Modules\Billing\Services\BillingCreditNoteService;
 use Modules\Billing\Services\ElectronicBillingService;
@@ -29,6 +31,7 @@ use Modules\Catalog\Enums\InventoryReservationStatus;
 use Modules\Catalog\Enums\ProductAccountingTreatment;
 use Modules\Catalog\Enums\ProductType;
 use Modules\Catalog\Services\InventoryLedgerBackfillService;
+use Modules\Catalog\Services\InventoryMovementService;
 use Modules\Catalog\Services\InventoryReservationService;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Enums\OrderWarehouseStatus;
@@ -36,9 +39,9 @@ use Modules\Orders\Enums\SalesInventoryChannelMode;
 use Modules\Orders\Services\OrderCheckoutService;
 use Modules\Orders\Services\OrderInventoryLifecycleService;
 use Modules\Orders\Services\SalesInventoryChannelRolloutService;
-use Modules\Security\Models\SecurityBranch;
-use Modules\Accounting\Services\SalesAccountingService;
 use Modules\Sales\Http\Controllers\SalesPosController;
+use Modules\Security\Models\SecurityBranch;
+use Modules\Security\Services\SecurityAuthorizationService;
 use Tests\TestCase;
 
 class SalesInventoryWorkflowTest extends TestCase
@@ -250,6 +253,62 @@ class SalesInventoryWorkflowTest extends TestCase
         $this->assertSame($scope['movement_count'], InventoryMovement::query()->count());
     }
 
+    public function test_pos_reserves_selected_non_default_warehouse(): void
+    {
+        $scope = $this->scope('pos');
+        $authorization = Mockery::mock(SecurityAuthorizationService::class);
+        $authorization->shouldReceive('hasRole')->andReturn(true);
+        app()->instance(SecurityAuthorizationService::class, $authorization);
+        $alternate = InventoryWarehouse::query()->create([
+            'organization_id' => $scope['organization']->id,
+            'branch_id' => $scope['branch']->id,
+            'code' => 'POS-ALT', 'name' => 'Almacén alterno',
+            'is_default' => false, 'is_active' => true,
+        ]);
+        ProductWarehouseStock::query()->create([
+            'organization_id' => $scope['organization']->id,
+            'product_id' => $scope['product']->id,
+            'branch_id' => $scope['branch']->id,
+            'warehouse_id' => $alternate->id,
+            'stock' => 0, 'is_active' => true,
+        ]);
+        app(InventoryMovementService::class)->recordWarehouseOpeningStock(
+            $scope['product'], $scope['branch']->id, $alternate->id, 4,
+            ['idempotency_key' => 'pos-alternate-opening'],
+        );
+
+        $this->storePos($scope['user'], [
+            'document_type' => 'order', 'currency' => 'PEN',
+            'payment_method' => 'cash', 'payment_status' => 'pending',
+            'idempotency_key' => 'pos-alternate-sale',
+            'branch_id' => $scope['branch']->id, 'warehouse_id' => $alternate->id,
+            'customer' => ['name' => 'Cliente alterno'],
+            'items' => [['product_id' => $scope['product']->id, 'quantity' => 2, 'unit_price' => 12.50]],
+        ]);
+
+        $order = Order::query()->firstOrFail();
+        $alternateBalance = InventoryBalance::query()->where('warehouse_id', $alternate->id)->firstOrFail();
+        $this->assertSame($alternate->id, (int) $order->warehouse_id);
+        $this->assertSame(2, (int) $alternateBalance->reserved_stock);
+        $this->assertSame(0, (int) $scope['balance']->fresh()->reserved_stock);
+        $this->assertSame($alternate->id, (int) $order->items()->firstOrFail()->warehouse_id);
+
+        try {
+            $this->storePos($scope['user'], [
+                'document_type' => 'order', 'currency' => 'PEN',
+                'payment_method' => 'cash', 'payment_status' => 'pending',
+                'idempotency_key' => 'pos-alternate-overflow',
+                'branch_id' => $scope['branch']->id, 'warehouse_id' => $alternate->id,
+                'customer' => ['name' => 'Cliente sin stock alterno'],
+                'items' => [['product_id' => $scope['product']->id, 'quantity' => 3, 'unit_price' => 12.50]],
+            ]);
+            $this->fail('La venta no debe usar stock del almacén predeterminado.');
+        } catch (ValidationException) {
+            $this->assertDatabaseCount('orders', 1);
+            $this->assertSame(2, (int) $alternateBalance->fresh()->reserved_stock);
+        }
+    }
+
     public function test_pos_preserves_typed_fractional_service_quantity_and_zero_price(): void
     {
         $scope = $this->scope('pos');
@@ -334,6 +393,11 @@ class SalesInventoryWorkflowTest extends TestCase
     public function test_pos_screen_validates_quantities_and_renders_all_steps(): void
     {
         $scope = $this->scope('pos');
+        $authorization = Mockery::mock(SecurityAuthorizationService::class);
+        $authorization->shouldReceive('hasRole')->andReturn(true);
+        $authorization->shouldReceive('canAccessModule')->andReturn(true);
+        $authorization->shouldReceive('hasPermission')->andReturn(false);
+        app()->instance(SecurityAuthorizationService::class, $authorization);
         config()->set('app.key', str_repeat('x', 32));
 
         Livewire::actingAs($scope['user'])

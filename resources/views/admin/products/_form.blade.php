@@ -1,7 +1,11 @@
 <div class="row g-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <label class="form-label">Nombre</label>
         <input type="text" name="name" class="form-control" value="{{ old('name', $product->name) }}" required>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Marca</label>
+        <input type="text" name="brand" class="form-control" value="{{ old('brand', $product->brand) }}" maxlength="120">
     </div>
     <div class="col-md-3">
         <label class="form-label">SKU</label>

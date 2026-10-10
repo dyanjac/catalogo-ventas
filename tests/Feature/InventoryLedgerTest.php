@@ -56,6 +56,31 @@ class InventoryLedgerTest extends TestCase
         $this->assertSame(2, InventoryMovement::query()->where('organization_id', $organization->id)->count());
     }
 
+    public function test_legacy_sale_allocates_warehouse_and_unallocated_stock_without_partial_exit(): void
+    {
+        [, $branch, $product, $warehouse] = $this->inventoryScope(5, withWarehouse: true, warehouseStock: 2);
+        $inventory = app(ProductInventoryService::class);
+        $movementCount = InventoryMovement::query()->count();
+
+        try {
+            $inventory->decrementBranchStock($product, $branch->id, 6, ['idempotency_key' => 'sale-too-large']);
+            $this->fail('La venta no debe descontar parcialmente cuando falta stock.');
+        } catch (ValidationException) {
+            $this->assertDatabaseCount('inventory_movements', $movementCount);
+            $this->assertSame(5, (int) ProductBranchStock::query()->where('product_id', $product->id)->value('stock'));
+        }
+
+        $inventory->decrementBranchStock($product, $branch->id, 4, ['idempotency_key' => 'sale-split']);
+
+        $this->assertSame(0, (int) InventoryBalance::query()->where('product_id', $product->id)
+            ->where('warehouse_id', $warehouse->id)->value('physical_stock'));
+        $this->assertSame(1, (int) InventoryBalance::query()->where('product_id', $product->id)
+            ->whereNull('warehouse_id')->value('physical_stock'));
+        $this->assertSame(1, (int) ProductBranchStock::query()->where('product_id', $product->id)->value('stock'));
+        $this->assertSame(2, InventoryMovement::query()->where('product_id', $product->id)
+            ->where('movement_type', 'outbound')->count());
+    }
+
     public function test_idempotent_replay_does_not_duplicate_and_payload_mismatch_is_rejected(): void
     {
         [, $branch, $product] = $this->inventoryScope(0);

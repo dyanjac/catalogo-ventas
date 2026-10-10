@@ -56,12 +56,14 @@ class OrderInventoryLifecycleService
             $warehouse = InventoryWarehouse::query()
                 ->where('organization_id', $locked->organization_id)
                 ->where('branch_id', $locked->branch_id)
-                ->where('is_default', true)
+                ->when($locked->warehouse_id,
+                    fn ($query) => $query->whereKey($locked->warehouse_id),
+                    fn ($query) => $query->where('is_default', true))
                 ->where('is_active', true)
                 ->lockForUpdate()
                 ->first();
             if (! $warehouse) {
-                throw ValidationException::withMessages(['warehouse' => 'La sucursal no tiene un almacen predeterminado activo.']);
+                throw ValidationException::withMessages(['warehouse' => 'El almacén de salida no está activo en la sucursal.']);
             }
 
             $items = $locked->items()->with('product')->orderBy('id')->lockForUpdate()->get();
