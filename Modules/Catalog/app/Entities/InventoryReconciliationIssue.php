@@ -26,8 +26,8 @@ class InventoryReconciliationIssue extends Model
     ];
 
     protected $casts = [
-        'expected_value' => 'decimal:4',
-        'actual_value' => 'decimal:4',
+        'expected_value' => 'decimal:6',
+        'actual_value' => 'decimal:6',
         'context' => 'array',
     ];
 

@@ -34,7 +34,7 @@
                                     :items="[
                                         ['label' => 'Producto', 'value' => ($item->product?->name ?? 'Producto eliminado') . ' · ' . ($item->product?->sku ?? 'Sin SKU'), 'class' => 'col-12'],
                                         ['label' => 'Cantidad', 'value' => $item->quantity, 'class' => 'col-md-2'],
-                                        ['label' => 'Precio', 'value' => $item->currency . ' ' . number_format((float) $item->unit_price, 2), 'class' => 'col-md-2'],
+                                        ['label' => 'Precio', 'value' => $item->currency . ' ' . \App\Support\Decimal::unitPriceForInput($item->unit_price), 'class' => 'col-md-2'],
                                         ['label' => 'Imp.', 'value' => $item->currency . ' ' . number_format((float) $item->tax_amount, 2), 'class' => 'col-md-2'],
                                         ['label' => 'Desc.', 'value' => $item->currency . ' ' . number_format((float) $item->discount_amount, 2), 'class' => 'col-md-2'],
                                         ['label' => 'Total', 'value' => $item->currency . ' ' . number_format((float) $item->line_total, 2), 'class' => 'col-md-4'],

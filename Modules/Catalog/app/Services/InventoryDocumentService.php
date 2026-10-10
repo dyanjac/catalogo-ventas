@@ -3,6 +3,7 @@
 namespace Modules\Catalog\Services;
 
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -148,10 +149,10 @@ class InventoryDocumentService
                         'document_id' => $document->id,
                         'product_id' => $item['product_id'],
                         'inventory_balance_id' => $balanceId,
-                        'quantity' => (int) $item['quantity'],
-                        'target_quantity' => isset($item['target_quantity']) ? (int) $item['target_quantity'] : null,
+                        'quantity' => Decimal::assertScale($item['quantity'], 4),
+                        'target_quantity' => isset($item['target_quantity']) ? Decimal::assertScale($item['target_quantity'], 4) : null,
                         'unit_cost' => $item['unit_cost'] ?? null,
-                        'line_total' => isset($item['unit_cost']) ? round((int) $item['quantity'] * (float) $item['unit_cost'], 4) : null,
+                        'line_total' => isset($item['unit_cost']) ? Decimal::round(Decimal::mul($item['quantity'], $item['unit_cost'], 10), 6) : null,
                         'notes' => $item['notes'] ?? null,
                         'meta' => $item['meta'] ?? null,
                     ]);
@@ -320,7 +321,7 @@ class InventoryDocumentService
                             $product,
                             (int) $document->branch_id,
                             (int) $warehouse->id,
-                            (int) $item->quantity,
+                            $item->quantity,
                             array_merge($reference, [
                                 'unit_cost' => $this->resolveInboundUnitCost($item, $product),
                                 'reason_code' => $document->document_type === InventoryDocumentType::CustomerReturn ? 'customer_return' : 'receipt',
@@ -331,7 +332,7 @@ class InventoryDocumentService
                             $product,
                             (int) $document->branch_id,
                             (int) $warehouse->id,
-                            (int) $item->quantity,
+                            $item->quantity,
                             array_merge($reference, [
                                 'unit_cost' => $this->resolveOutboundUnitCost($document, $product, $warehouse->id),
                                 'reason_code' => match ($document->document_type) {
@@ -346,7 +347,7 @@ class InventoryDocumentService
                             $product,
                             (int) $document->branch_id,
                             (int) $warehouse->id,
-                            (int) $item->quantity,
+                            $item->quantity,
                             array_merge($reference, [
                                 'reason_code' => 'initial_stock',
                                 'unit_cost' => $this->resolveInboundUnitCost($item, $product),
@@ -363,7 +364,7 @@ class InventoryDocumentService
                             $product,
                             (int) $document->branch_id,
                             (int) $warehouse->id,
-                            (int) $item->target_quantity,
+                            $item->target_quantity,
                             array_merge($reference, [
                                 'reason_code' => 'inventory_count',
                             ])
@@ -464,7 +465,7 @@ class InventoryDocumentService
                         'product_id' => $item->product_id,
                         'inventory_balance_id' => $item->inventory_balance_id,
                         'inventory_movement_id' => $compensatingMovement->id,
-                        'quantity' => abs((int) $compensatingMovement->quantity),
+                        'quantity' => Decimal::absolute($compensatingMovement->quantity),
                         'unit_cost' => $compensatingMovement->unit_cost,
                         'line_total' => $compensatingMovement->total_cost,
                         'meta' => ['reversal_of_movement_id' => $movement->id],
@@ -508,20 +509,20 @@ class InventoryDocumentService
         return $prefix.'-'.str_pad((string) $nextId, 8, '0', STR_PAD_LEFT);
     }
 
-    private function resolveInboundUnitCost(InventoryDocumentItem $item, Product $product): float
+    private function resolveInboundUnitCost(InventoryDocumentItem $item, Product $product): string
     {
         $unitCost = $item->unit_cost ?? $product->purchase_price ?? $product->average_price;
 
-        if ($unitCost === null || (float) $unitCost <= 0) {
+        if ($unitCost === null || Decimal::compare($unitCost, 0) <= 0) {
             throw ValidationException::withMessages([
                 'unit_cost' => "El producto {$product->name} requiere un costo unitario valido para la guia de ingreso.",
             ]);
         }
 
-        return round((float) $unitCost, 4);
+        return Decimal::assertScale($unitCost, 6);
     }
 
-    private function resolveOutboundUnitCost(InventoryDocument $document, Product $product, int $warehouseId): float
+    private function resolveOutboundUnitCost(InventoryDocument $document, Product $product, int $warehouseId): string
     {
         $stock = ProductWarehouseStock::query()
             ->where('organization_id', $product->organization_id)
@@ -530,15 +531,15 @@ class InventoryDocumentService
             ->where('warehouse_id', $warehouseId)
             ->first();
 
-        $unitCost = (float) ($stock?->average_cost ?? 0);
+        $unitCost = $stock?->average_cost ?? 0;
 
-        if ($unitCost <= 0) {
+        if (Decimal::compare($unitCost, 0) <= 0) {
             throw ValidationException::withMessages([
                 'average_cost' => "El producto {$product->name} no tiene costo promedio valido en el almacen seleccionado.",
             ]);
         }
 
-        return round($unitCost, 4);
+        return Decimal::assertScale($unitCost, 6);
     }
 
     private function ensureTenantOperational(): void
@@ -591,8 +592,8 @@ class InventoryDocumentService
         if ($reservationItems->contains(fn ($item) => (int) $item->balance?->warehouse_id !== (int) $document->warehouse_id)) {
             throw ValidationException::withMessages(['reservation' => 'La reserva contiene saldos de otro almacen.']);
         }
-        $reserved = $reservationItems->groupBy('product_id')->map(fn ($items) => (int) $items->sum('quantity'))->sortKeys()->all();
-        $documented = $document->items->groupBy('product_id')->map(fn ($items) => (int) $items->sum('quantity'))->sortKeys()->all();
+        $reserved = $reservationItems->groupBy('product_id')->map(fn ($items) => Decimal::quantity($items->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->quantity, 4), '0')))->sortKeys()->all();
+        $documented = $document->items->groupBy('product_id')->map(fn ($items) => Decimal::quantity($items->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->quantity, 4), '0')))->sortKeys()->all();
         if ($reserved !== $documented) {
             throw ValidationException::withMessages(['reservation' => 'El despacho debe coincidir exactamente con los items de la reserva.']);
         }

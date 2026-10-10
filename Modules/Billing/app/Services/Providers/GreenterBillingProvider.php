@@ -2,7 +2,9 @@
 
 namespace Modules\Billing\Services\Providers;
 
+use App\Support\Decimal;
 use DateTime;
+use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -60,7 +62,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     public function issueDocument(BillingSetting $setting, array $payload): array
@@ -142,7 +144,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function buildSeeAndInvoice(BillingSetting $setting, array $payload, string $ublVersion): array
     {
@@ -151,7 +153,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
         }
 
         $credentials = $this->resolvedCredentials($setting);
-        $see = new \Greenter\See();
+        $see = new \Greenter\See;
         $see->setService(
             $setting->environment === 'production'
                 ? \Greenter\Ws\Services\SunatEndpoints::FE_PRODUCCION
@@ -183,15 +185,15 @@ class GreenterBillingProvider extends AbstractBillingProvider
             throw new \RuntimeException('Greenter no devolvió XML firmado.');
         }
 
-        $dir = 'billing/xml/' . now()->format('Ym');
-        $path = $dir . '/' . $invoice->getName() . '.xml';
+        $dir = 'billing/xml/'.now()->format('Ym');
+        $path = $dir.'/'.$invoice->getName().'.xml';
         Storage::disk('public')->put($path, $xml);
 
         return $path;
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function buildInvoiceFromPayload(BillingSetting $setting, array $payload, string $ublVersion): \Greenter\Model\Sale\Invoice
     {
@@ -200,35 +202,48 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $issueDate = (string) ($payload['issue_date'] ?? now()->toDateString());
 
         $totals = is_array($payload['totals'] ?? null) ? $payload['totals'] : [];
-        $subtotal = round((float) ($totals['subtotal'] ?? 0), 2);
-        $tax = round((float) ($totals['tax'] ?? 0), 2);
-        $total = round((float) ($totals['total'] ?? ($subtotal + $tax)), 2);
-        $taxRate = $this->resolveIgvRate($payload, $subtotal, $tax);
+        $subtotal = Decimal::round($totals['subtotal'] ?? 0, 2);
+        $discount = Decimal::round($totals['discount'] ?? 0, 2);
+        $taxable = Decimal::sub($subtotal, $discount, 2);
+        $tax = Decimal::round($totals['tax'] ?? 0, 2);
+        $shipping = Decimal::round($totals['shipping'] ?? 0, 2);
+        $total = Decimal::round($totals['total'] ?? Decimal::add(Decimal::add($taxable, $tax, 2), $shipping, 2), 2);
+        $taxRate = $this->resolveIgvRate($payload, (float) $taxable, (float) $tax);
         $taxPercent = round($taxRate * 100, 2);
 
         $company = $this->buildCompany($setting);
         $client = $this->buildClientFromPayload($payload);
         $details = $this->buildDetailsFromPayload($payload, $taxRate, $taxPercent);
 
-        $invoice = new \Greenter\Model\Sale\Invoice();
+        $invoice = new \Greenter\Model\Sale\Invoice;
         $invoice
             ->setUblVersion($ublVersion)
             ->setTipoDoc($documentType)
             ->setSerie((string) ($payload['series'] ?? 'F001'))
             ->setCorrelativo($this->normalizeCorrelative((string) ($payload['number'] ?? '1')))
-            ->setFechaEmision(new DateTime($issueDate))
+            ->setFechaEmision(new DateTime($issueDate, new DateTimeZone(\Greenter\Model\TimeZonePe::DEFAULT)))
             ->setTipoMoneda($currency)
             ->setCompany($company)
             ->setClient($client)
-            ->setMtoOperGravadas($subtotal)
+            ->setMtoOperGravadas((float) $taxable)
             ->setMtoOperExoneradas(0.00)
             ->setMtoOperInafectas(0.00)
-            ->setMtoIGV($tax)
-            ->setTotalImpuestos($tax)
-            ->setValorVenta($subtotal)
-            ->setSubTotal($total)
-            ->setMtoImpVenta($total)
+            ->setMtoIGV((float) $tax)
+            ->setTotalImpuestos((float) $tax)
+            ->setValorVenta((float) $taxable)
+            ->setSubTotal((float) Decimal::sub($total, $shipping, 2))
+            ->setMtoImpVenta((float) $total)
             ->setDetails($details);
+
+        if (Decimal::compare($shipping, 0, 2) > 0) {
+            $invoice->setCargos([
+                (new \Greenter\Model\Sale\Charge)
+                    ->setCodTipo('50')
+                    ->setFactor(1.0)
+                    ->setMontoBase((float) $shipping)
+                    ->setMonto((float) $shipping),
+            ])->setSumOtrosCargos((float) $shipping);
+        }
 
         $tipoOperacion = $this->resolveTipoOperacion($setting, $payload, $documentType);
         if ($tipoOperacion !== null) {
@@ -239,8 +254,8 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
-     * @param array<string,mixed> $test
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $test
      * @return array<string,mixed>
      */
     private function issueWithUblVersion(
@@ -312,7 +327,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $credentials = $this->resolvedCredentials($setting);
         $raw = (array) ($setting->provider_credentials['greenter'] ?? []);
 
-        $address = new \Greenter\Model\Company\Address();
+        $address = new \Greenter\Model\Company\Address;
         $address
             ->setUbigueo((string) ($raw['company_ubigeo'] ?? '150101'))
             ->setDepartamento((string) ($raw['company_department'] ?? 'LIMA'))
@@ -323,7 +338,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
             ->setCodigoPais('PE')
             ->setCodLocal((string) ($raw['company_local_code'] ?? '0000'));
 
-        $company = new \Greenter\Model\Company\Company();
+        $company = new \Greenter\Model\Company\Company;
         $company
             ->setRuc((string) ($credentials['ruc'] ?? ''))
             ->setRazonSocial((string) ($raw['company_business_name'] ?? 'EMPRESA NO CONFIGURADA S.A.C.'))
@@ -334,12 +349,12 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function buildClientFromPayload(array $payload): \Greenter\Model\Client\Client
     {
         $customer = is_array($payload['customer'] ?? null) ? $payload['customer'] : [];
-        $address = new \Greenter\Model\Company\Address();
+        $address = new \Greenter\Model\Company\Address;
         $address
             ->setDireccion((string) ($customer['address'] ?? '-'))
             ->setDistrito((string) ($customer['city'] ?? 'LIMA'))
@@ -353,7 +368,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
             $docNumber = $docType === '6' ? '00000000000' : '00000000';
         }
 
-        $client = new \Greenter\Model\Client\Client();
+        $client = new \Greenter\Model\Client\Client;
         $client
             ->setTipoDoc($docType)
             ->setNumDoc($docNumber)
@@ -364,7 +379,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array<int,\Greenter\Model\Sale\SaleDetail>
      */
     private function buildDetailsFromPayload(array $payload, float $taxRate, float $taxPercent): array
@@ -374,18 +389,29 @@ class GreenterBillingProvider extends AbstractBillingProvider
         return collect($items)
             ->map(function ($row) use ($taxRate, $taxPercent) {
                 $line = is_array($row) ? $row : [];
-                $quantity = max(1, (float) ($line['quantity'] ?? 1));
-                $unitValue = round((float) ($line['unit_price'] ?? 0), 6);
-                $lineBase = isset($line['line_subtotal'])
-                    ? round((float) $line['line_subtotal'], 2)
-                    : round($unitValue * $quantity, 2);
-                $igv = round($lineBase * $taxRate, 2);
-                $lineTotal = round($lineBase + $igv, 2);
-                $unitPrice = $quantity > 0 ? round($lineTotal / $quantity, 6) : round($unitValue * (1 + $taxRate), 6);
+                $quantityValue = Decimal::assertScale($line['quantity'] ?? 1, 4);
+                if (Decimal::compare($quantityValue, 0, 4) <= 0) {
+                    throw new \InvalidArgumentException('La cantidad facturada debe ser positiva.');
+                }
+                $unitValueValue = Decimal::assertScale($line['unit_price'] ?? 0, 6);
+                $lineSubtotal = isset($line['line_subtotal'])
+                    ? Decimal::round($line['line_subtotal'], 2)
+                    : Decimal::round(Decimal::mul($unitValueValue, $quantityValue, 10), 2);
+                $lineDiscount = Decimal::round($line['line_discount'] ?? 0, 2);
+                $lineBaseValue = Decimal::sub($lineSubtotal, $lineDiscount, 2);
+                $igvValue = isset($line['line_tax'])
+                    ? Decimal::round($line['line_tax'], 2)
+                    : Decimal::round(Decimal::mul($lineBaseValue, (string) $taxRate, 12), 2);
+                $lineTotalValue = Decimal::round($line['line_total'] ?? Decimal::add($lineBaseValue, $igvValue, 2), 2);
+                $quantity = (float) $quantityValue;
+                $unitValue = (float) $unitValueValue;
+                $lineBase = (float) $lineBaseValue;
+                $igv = (float) $igvValue;
+                $unitPrice = (float) Decimal::round(Decimal::div($lineTotalValue, $quantityValue, 12), 6);
 
-                $detail = new \Greenter\Model\Sale\SaleDetail();
+                $detail = new \Greenter\Model\Sale\SaleDetail;
                 $detail
-                    ->setCodProducto((string) ($line['sku'] ?? ('ITEM-' . ($line['product_id'] ?? '0'))))
+                    ->setCodProducto((string) ($line['sku'] ?? ('ITEM-'.($line['product_id'] ?? '0'))))
                     ->setUnidad('NIU')
                     ->setCantidad($quantity)
                     ->setDescripcion((string) ($line['name'] ?? 'ITEM'))
@@ -397,6 +423,16 @@ class GreenterBillingProvider extends AbstractBillingProvider
                     ->setTipAfeIgv('10')
                     ->setTotalImpuestos($igv)
                     ->setMtoValorVenta($lineBase);
+
+                if (Decimal::compare($lineDiscount, 0, 2) > 0) {
+                    $detail->setDescuentos([
+                        (new \Greenter\Model\Sale\Charge)
+                            ->setCodTipo('00')
+                            ->setFactor((float) Decimal::round(Decimal::div($lineDiscount, $lineSubtotal, 10), 5))
+                            ->setMontoBase((float) $lineSubtotal)
+                            ->setMonto((float) $lineDiscount),
+                    ]);
+                }
 
                 return $detail;
             })
@@ -427,11 +463,12 @@ class GreenterBillingProvider extends AbstractBillingProvider
     private function normalizeCorrelative(string $number): string
     {
         $trimmed = ltrim(trim($number), '0');
+
         return $trimmed !== '' ? $trimmed : '1';
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function resolveIgvRate(array $payload, float $subtotal, float $tax): float
     {
@@ -479,7 +516,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function resolveTipoOperacion(BillingSetting $setting, array $payload, string $documentType): ?string
     {
@@ -587,7 +624,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
                 throw new \RuntimeException('El archivo PFX/P12 no contiene certificado público y clave privada válidos.');
             }
 
-            return trim($public) . PHP_EOL . trim($private) . PHP_EOL;
+            return trim($public).PHP_EOL.trim($private).PHP_EOL;
         }
 
         if (! str_contains($content, 'BEGIN CERTIFICATE')) {
@@ -614,12 +651,12 @@ class GreenterBillingProvider extends AbstractBillingProvider
             throw new \RuntimeException('No se pudo extraer el certificado público del archivo PEM.');
         }
 
-        return trim($publicCert) . PHP_EOL . trim($privateKeyPem) . PHP_EOL;
+        return trim($publicCert).PHP_EOL.trim($privateKeyPem).PHP_EOL;
     }
 
     private function extractPemBlock(string $content, string $type): ?string
     {
-        $pattern = '/-----BEGIN ' . preg_quote($type, '/') . '-----.*?-----END ' . preg_quote($type, '/') . '-----/s';
+        $pattern = '/-----BEGIN '.preg_quote($type, '/').'-----.*?-----END '.preg_quote($type, '/').'-----/s';
         if (! preg_match($pattern, $content, $matches)) {
             return null;
         }

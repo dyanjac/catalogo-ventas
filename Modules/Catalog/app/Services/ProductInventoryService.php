@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Services;
 
+use App\Support\Decimal;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ class ProductInventoryService
         private readonly InventoryBalanceReadService $balanceReader,
     ) {}
 
-    public function syncBranchStock(Product $product, ?int $branchId, int $stock, int $minStock): void
+    public function syncBranchStock(Product $product, ?int $branchId, int|float|string $stock, int|float|string $minStock): void
     {
         $branchId ??= $this->branchContext->defaultBranchId();
 
@@ -36,12 +37,12 @@ class ProductInventoryService
             ],
             [
                 'stock' => 0,
-                'min_stock' => max(0, $minStock),
+                'min_stock' => Decimal::nonNegative(Decimal::assertScale($minStock, 4)),
                 'is_active' => true,
             ]
         );
 
-        $this->movements->recordAdjustment($product, $branchId, max(0, $stock), [
+        $this->movements->recordAdjustment($product, $branchId, Decimal::nonNegative(Decimal::assertScale($stock, 4)), [
             'reason_code' => 'manual_adjustment',
             'reason' => 'legacy_sync_branch_stock',
         ]);
@@ -57,8 +58,8 @@ class ProductInventoryService
             ->first();
 
         $product->forceFill([
-            'stock' => (int) ($totals?->stock_total ?? 0),
-            'min_stock' => (int) ($totals?->min_stock_total ?? 0),
+            'stock' => Decimal::assertScale($totals?->stock_total ?? 0, 4),
+            'min_stock' => Decimal::assertScale($totals?->min_stock_total ?? 0, 4),
         ])->save();
     }
 
@@ -87,7 +88,7 @@ class ProductInventoryService
             ->value('physical_stock');
 
         if ($unallocated === null) {
-            $unallocated = (int) ($branchStock->stock ?? 0) - (int) ($totals?->stock_total ?? 0);
+            $unallocated = Decimal::sub($branchStock->stock ?? 0, $totals?->stock_total ?? 0, 4);
         }
 
         $hasActiveWarehouses = ProductWarehouseStock::query()
@@ -98,15 +99,15 @@ class ProductInventoryService
             ->exists();
 
         $branchStock->fill([
-            'stock' => (int) ($totals?->stock_total ?? 0) + max(0, (int) $unallocated),
-            'min_stock' => (int) ($totals?->min_stock_total ?? 0),
+            'stock' => Decimal::add($totals?->stock_total ?? 0, Decimal::nonNegative($unallocated), 4),
+            'min_stock' => Decimal::assertScale($totals?->min_stock_total ?? 0, 4),
             'is_active' => $hasActiveWarehouses ? true : (bool) ($branchStock->is_active ?? false),
         ])->save();
 
         $this->syncAggregateStock($product->fresh());
     }
 
-    public function availableStock(Product $product, ?int $branchId = null): int
+    public function availableStock(Product $product, ?int $branchId = null): int|string
     {
         $branchWasProvided = $branchId !== null;
         $branchId ??= $this->branchContext->currentBranchId();
@@ -124,20 +125,20 @@ class ProductInventoryService
         }
 
         if (! $branchId) {
-            return (int) ($product->stock ?? 0);
+            return $product->stock ?? 0;
         }
 
         if ($product->relationLoaded('branchStocks')) {
             $branchStock = $product->branchStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
 
-            return (int) ($branchStock?->stock ?? 0);
+            return $branchStock?->stock ?? 0;
         }
 
-        return (int) ($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('stock') ?? 0);
+        return Decimal::quantity($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('stock') ?? 0);
     }
 
-    public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
+    public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int|string
     {
         $balance = InventoryBalance::query()
             ->where('organization_id', $product->organization_id)
@@ -156,10 +157,10 @@ class ProductInventoryService
             $warehouseStock = $product->warehouseStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (int) $stock->warehouse_id === $warehouseId && (bool) $stock->is_active);
 
-            return (int) ($warehouseStock?->stock ?? 0);
+            return $warehouseStock?->stock ?? 0;
         }
 
-        return (int) (ProductWarehouseStock::query()
+        return Decimal::quantity(ProductWarehouseStock::query()
             ->forCurrentOrganization()
             ->where('product_id', $product->id)
             ->where('branch_id', $branchId)
@@ -168,12 +169,12 @@ class ProductInventoryService
             ->value('stock') ?? 0);
     }
 
-    public function minimumStock(Product $product, ?int $branchId = null): int
+    public function minimumStock(Product $product, ?int $branchId = null): int|string
     {
         $branchId ??= $this->branchContext->currentBranchId();
 
         if (! $branchId) {
-            return (int) ($product->min_stock ?? 0);
+            return $product->min_stock ?? 0;
         }
 
         if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
@@ -184,10 +185,10 @@ class ProductInventoryService
             $branchStock = $product->branchStocks
                 ->first(fn ($stock) => (int) $stock->branch_id === $branchId && (bool) $stock->is_active);
 
-            return (int) ($branchStock?->min_stock ?? 0);
+            return $branchStock?->min_stock ?? 0;
         }
 
-        return (int) ($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('min_stock') ?? 0);
+        return Decimal::quantity($product->branchStocks()->where('branch_id', $branchId)->where('is_active', true)->value('min_stock') ?? 0);
     }
 
     /**
@@ -206,12 +207,12 @@ class ProductInventoryService
             ->keyBy('product_id');
     }
 
-    public function assertAvailable(Product $product, int $quantity, ?int $branchId = null): void
+    public function assertAvailable(Product $product, int|float|string $quantity, ?int $branchId = null): void
     {
         $branchId ??= $this->branchContext->currentBranchId();
         $available = $this->availableStock($product, $branchId);
 
-        if ($available < $quantity) {
+        if (Decimal::compare($available, $quantity, 4) < 0) {
             throw new \Illuminate\Validation\ValidationException(
                 validator: validator([], []),
                 response: back()->withErrors([
@@ -221,7 +222,7 @@ class ProductInventoryService
         }
     }
 
-    public function decrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
+    public function decrementBranchStock(Product $product, int $branchId, int|float|string $quantity, array $context = []): void
     {
         DB::transaction(function () use ($product, $branchId, $quantity, $context): void {
             $selectedWarehouseId = isset($context['warehouse_id']) ? (int) $context['warehouse_id'] : null;
@@ -244,7 +245,7 @@ class ProductInventoryService
                 ->get()
                 ->keyBy(fn (InventoryBalance $balance): int => (int) ($balance->warehouse_id ?? 0));
 
-            $remaining = $quantity;
+            $remaining = Decimal::assertScale($quantity, 4);
             $allocations = [];
             foreach ($warehouseStocks->sortBy(fn (ProductWarehouseStock $stock): int => $stock->warehouse?->is_default ? 0 : 1) as $stock) {
                 if ($selectedWarehouseId !== null && (int) $stock->warehouse_id !== $selectedWarehouseId) {
@@ -257,15 +258,16 @@ class ProductInventoryService
                 $balance = $balances->get((int) $stock->warehouse_id);
                 $available = $balance
                     ? ($balance->is_active ? $balance->availableStock() : 0)
-                    : (int) $stock->stock;
-                $allocated = min($remaining, max(0, $available));
-                if ($allocated > 0) {
+                    : $stock->stock;
+                $available = Decimal::nonNegative($available);
+                $allocated = Decimal::compare($remaining, $available, 4) < 0 ? $remaining : $available;
+                if (Decimal::compare($allocated, 0, 4) > 0) {
                     $allocations[] = [(int) $stock->warehouse_id, $allocated];
-                    $remaining -= $allocated;
+                    $remaining = Decimal::sub($remaining, $allocated, 4);
                 }
             }
 
-            if ($remaining > 0 && $selectedWarehouseId === null) {
+            if (Decimal::compare($remaining, 0, 4) > 0 && $selectedWarehouseId === null) {
                 $branchBalance = $balances->get(0);
                 $branchStock = ProductBranchStock::query()
                     ->where('organization_id', $product->organization_id)
@@ -276,18 +278,19 @@ class ProductInventoryService
                 $available = $branchBalance
                     ? ($branchBalance->is_active ? $branchBalance->availableStock() : 0)
                     : ($branchStock?->is_active
-                        ? max(0, (int) $branchStock->stock - (int) $warehouseStocks->sum('stock'))
+                        ? Decimal::nonNegative(Decimal::sub($branchStock->stock, $warehouseStocks->sum('stock'), 4))
                         : 0);
-                $allocated = min($remaining, max(0, $available));
-                if ($allocated > 0) {
+                $available = Decimal::nonNegative($available);
+                $allocated = Decimal::compare($remaining, $available, 4) < 0 ? $remaining : $available;
+                if (Decimal::compare($allocated, 0, 4) > 0) {
                     $allocations[] = [null, $allocated];
-                    $remaining -= $allocated;
+                    $remaining = Decimal::sub($remaining, $allocated, 4);
                 }
             }
 
-            if ($remaining > 0) {
+            if (Decimal::compare($remaining, 0, 4) > 0) {
                 throw ValidationException::withMessages([
-                    'stock' => "Stock insuficiente para {$product->name} en el ".($selectedWarehouseId ? 'almacén seleccionado' : 'ámbito de la sucursal').'. Disponible: '.($quantity - $remaining).'.',
+                    'stock' => "Stock insuficiente para {$product->name} en el ".($selectedWarehouseId ? 'almacén seleccionado' : 'ámbito de la sucursal').'. Disponible: '.Decimal::sub($quantity, $remaining, 4).'.',
                 ]);
             }
 
@@ -306,12 +309,12 @@ class ProductInventoryService
         }, max(1, (int) config('catalog.reservations.transaction_attempts', 5)));
     }
 
-    public function incrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
+    public function incrementBranchStock(Product $product, int $branchId, int|float|string $quantity, array $context = []): void
     {
         $this->movements->recordInbound($product, $branchId, $quantity, $context);
     }
 
-    public function adjustBranchStock(Product $product, int $branchId, int $targetStock, array $context = []): void
+    public function adjustBranchStock(Product $product, int $branchId, int|float|string $targetStock, array $context = []): void
     {
         $this->movements->recordAdjustment($product, $branchId, $targetStock, $context);
     }

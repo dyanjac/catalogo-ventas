@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
+use App\Support\Decimal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -36,12 +38,12 @@ class InventoryBalance extends Model
 
     protected $casts = [
         'location_type' => InventoryLocationType::class,
-        'physical_stock' => 'integer',
-        'reserved_stock' => 'integer',
-        'in_transit_stock' => 'integer',
-        'min_stock' => 'integer',
-        'average_cost' => 'decimal:4',
-        'last_cost' => 'decimal:4',
+        'physical_stock' => Quantity::class,
+        'reserved_stock' => Quantity::class,
+        'in_transit_stock' => Quantity::class,
+        'min_stock' => Quantity::class,
+        'average_cost' => 'decimal:6',
+        'last_cost' => 'decimal:6',
         'version' => 'integer',
         'reservation_version' => 'integer',
         'transit_version' => 'integer',
@@ -73,9 +75,11 @@ class InventoryBalance extends Model
         return $this->hasMany(InventoryReservationItem::class, 'inventory_balance_id');
     }
 
-    public function availableStock(): int
+    public function availableStock(): int|string
     {
-        return max(0, (int) $this->physical_stock - (int) $this->reserved_stock);
+        $available = Decimal::sub($this->physical_stock, $this->reserved_stock, 4);
+
+        return Decimal::compare($available, 0, 4) > 0 ? $available : 0;
     }
 
     public static function locationKey(int $branchId, ?int $warehouseId): string

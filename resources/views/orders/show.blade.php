@@ -83,7 +83,7 @@
                                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                                         <div>
                                             <div class="fw-semibold">{{ $item->product?->name ?? ('Producto #' . $item->product_id) }}</div>
-                                            <div class="text-muted small">{{ $item->quantity }} unidad(es) x {{ $item->currency }} {{ number_format((float) $item->unit_price, 2) }}</div>
+                                            <div class="text-muted small">{{ $item->quantity }} unidad(es) x {{ $item->currency }} {{ \App\Support\Decimal::unitPriceForInput($item->unit_price) }}</div>
                                         </div>
                                         <div class="text-lg-end">
                                             <div class="fw-semibold">{{ $item->currency }} {{ number_format((float) $item->line_total, 2) }}</div>

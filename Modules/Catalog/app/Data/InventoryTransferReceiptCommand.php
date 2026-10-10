@@ -6,7 +6,7 @@ namespace Modules\Catalog\Data;
 
 final readonly class InventoryTransferReceiptCommand
 {
-    /** @param array<int, int> $quantitiesByItemId */
+    /** @param array<int, int|float|string> $quantitiesByItemId */
     public function __construct(
         public int $organizationId,
         public int $transferId,

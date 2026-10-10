@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\UnitMeasure;
+use App\Support\Decimal;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -130,16 +131,16 @@ class ProductsIndex extends Component
         $this->validate([
             'assignmentBranchStates' => ['array'],
             'assignmentBranchMinStocks' => ['array'],
-            'assignmentBranchMinStocks.*' => ['nullable', 'integer', 'min:0'],
+            'assignmentBranchMinStocks.*' => ['nullable', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'min:0'],
             'assignmentWarehouseStates' => ['array'],
             'assignmentWarehouseMinStocks' => ['array'],
-            'assignmentWarehouseMinStocks.*' => ['nullable', 'integer', 'min:0'],
+            'assignmentWarehouseMinStocks.*' => ['nullable', 'regex:/^\d{1,14}(?:\.\d{1,4})?$/', 'numeric', 'min:0'],
         ]);
 
         foreach ($branches as $branch) {
             $branchId = (int) $branch->id;
             $branchEnabled = (bool) ($this->assignmentBranchStates[$branchId] ?? false);
-            $branchMinStock = max(0, (int) ($this->assignmentBranchMinStocks[$branchId] ?? 0));
+            $branchMinStock = Decimal::nonNegative(($this->assignmentBranchMinStocks[$branchId] ?? 0) ?: 0);
             $branchWarehouses = $warehouses->get($branchId, collect());
 
             foreach ($branchWarehouses as $warehouse) {
@@ -150,7 +151,7 @@ class ProductsIndex extends Component
                     ->first();
 
                 if (! $warehouseEnabled && $existingWarehouseStock) {
-                    if ((int) $existingWarehouseStock->stock > 0) {
+                    if (Decimal::compare($existingWarehouseStock->stock, 0, 4) > 0) {
                         throw ValidationException::withMessages([
                             'assignmentWarehouseStates.'.$warehouse->id => "No puedes desactivar el almacen {$warehouse->name} mientras el producto tenga stock registrado alli.",
                         ]);
@@ -180,7 +181,7 @@ class ProductsIndex extends Component
             }
 
             if (! $branchEnabled && $existingBranchStock) {
-                if ((int) $existingBranchStock->stock > 0) {
+                if (Decimal::compare($existingBranchStock->stock, 0, 4) > 0) {
                     throw ValidationException::withMessages([
                         'assignmentBranchStates.'.$branchId => "No puedes desactivar la sucursal {$branch->name} mientras el producto tenga stock disponible en esa sucursal.",
                     ]);
@@ -199,9 +200,9 @@ class ProductsIndex extends Component
                 'branch_id' => $branchId,
             ]);
 
-            if ($branchStock->exists || $branchShouldBeActive || $branchMinStock > 0) {
+            if ($branchStock->exists || $branchShouldBeActive || Decimal::compare($branchMinStock, 0, 4) > 0) {
                 $branchStock->fill([
-                    'stock' => (int) ($branchStock->stock ?? 0),
+                    'stock' => $branchStock->stock ?? 0,
                     'min_stock' => $branchMinStock,
                     'is_active' => $branchShouldBeActive,
                 ])->save();
@@ -209,19 +210,19 @@ class ProductsIndex extends Component
 
             foreach ($branchWarehouses as $warehouse) {
                 $warehouseEnabled = (bool) ($this->assignmentWarehouseStates[$warehouse->id] ?? false);
-                $warehouseMinStock = max(0, (int) ($this->assignmentWarehouseMinStocks[$warehouse->id] ?? 0));
+                $warehouseMinStock = Decimal::nonNegative(($this->assignmentWarehouseMinStocks[$warehouse->id] ?? 0) ?: 0);
                 $warehouseStock = ProductWarehouseStock::query()->firstOrNew([
                     'product_id' => $product->id,
                     'warehouse_id' => $warehouse->id,
                 ]);
 
-                if ($warehouseStock->exists || $warehouseEnabled || $warehouseMinStock > 0) {
+                if ($warehouseStock->exists || $warehouseEnabled || Decimal::compare($warehouseMinStock, 0, 4) > 0) {
                     $warehouseStock->fill([
                         'branch_id' => $branchId,
-                        'stock' => (int) ($warehouseStock->stock ?? 0),
+                        'stock' => $warehouseStock->stock ?? 0,
                         'min_stock' => $warehouseMinStock,
-                        'average_cost' => (float) ($warehouseStock->average_cost ?? $product->average_price ?? $product->purchase_price ?? 0),
-                        'last_cost' => (float) ($warehouseStock->last_cost ?? $product->purchase_price ?? $product->average_price ?? 0),
+                        'average_cost' => $warehouseStock->average_cost ?? $product->average_price ?? $product->purchase_price ?? 0,
+                        'last_cost' => $warehouseStock->last_cost ?? $product->purchase_price ?? $product->average_price ?? 0,
                         'is_active' => $warehouseEnabled,
                     ])->save();
                 }
@@ -333,13 +334,13 @@ class ProductsIndex extends Component
         foreach ($branches as $branch) {
             $stock = $branchStocks->get($branch->id);
             $this->assignmentBranchStates[$branch->id] = (bool) ($stock?->is_active ?? false);
-            $this->assignmentBranchMinStocks[$branch->id] = (string) (int) ($stock?->min_stock ?? 0);
+            $this->assignmentBranchMinStocks[$branch->id] = (string) ($stock?->min_stock ?? 0);
         }
 
         foreach ($warehouses as $warehouse) {
             $stock = $warehouseStocks->get($warehouse->id);
             $this->assignmentWarehouseStates[$warehouse->id] = (bool) ($stock?->is_active ?? false);
-            $this->assignmentWarehouseMinStocks[$warehouse->id] = (string) (int) ($stock?->min_stock ?? 0);
+            $this->assignmentWarehouseMinStocks[$warehouse->id] = (string) ($stock?->min_stock ?? 0);
         }
     }
 

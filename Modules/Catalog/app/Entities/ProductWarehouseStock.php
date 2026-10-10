@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,10 +25,10 @@ class ProductWarehouseStock extends Model
     ];
 
     protected $casts = [
-        'stock' => 'integer',
-        'min_stock' => 'integer',
-        'average_cost' => 'decimal:4',
-        'last_cost' => 'decimal:4',
+        'stock' => Quantity::class,
+        'min_stock' => Quantity::class,
+        'average_cost' => 'decimal:6',
+        'last_cost' => 'decimal:6',
         'is_active' => 'boolean',
     ];
 

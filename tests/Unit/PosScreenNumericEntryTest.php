@@ -53,7 +53,7 @@ class PosScreenNumericEntryTest extends TestCase
 
         $screen->items[0]['quantity'] = '0.5';
         $screen->items[0]['unit_price'] = '12.50';
-        $this->assertSame(6.25, $screen->subtotal());
-        $this->assertSame(0.5, $screen->itemCount());
+        $this->assertSame('6.25', $screen->subtotal());
+        $this->assertSame('0.5', $screen->itemCount());
     }
 }

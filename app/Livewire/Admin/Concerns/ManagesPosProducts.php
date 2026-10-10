@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Concerns;
 
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -88,7 +89,7 @@ trait ManagesPosProducts
         $newItem = [
             'product_id' => (string) $product['id'],
             'quantity' => '1',
-            'unit_price' => number_format($product['price'], 2, '.', ''),
+            'unit_price' => Decimal::unitPriceForInput($product['price']),
         ];
         $emptyIndex = collect($this->items)->search(fn (array $item): bool => (string) ($item['product_id'] ?? '') === '');
         if ($emptyIndex === false) {
@@ -214,8 +215,8 @@ trait ManagesPosProducts
             'quickProduct.category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('organization_id', $organizationId)],
             'quickProduct.unit_measure_id' => ['required', 'integer', Rule::exists('unit_measures', 'id')->where('organization_id', $organizationId)],
             'quickProduct.product_type' => ['required', Rule::in([ProductType::PhysicalGood->value, ProductType::Service->value])],
-            'quickProduct.sale_price' => ['required', 'regex:/^\\d{1,8}(?:\\.\\d{1,2})?$/'],
-            'quickProduct.purchase_price' => ['nullable', 'regex:/^\\d{1,8}(?:\\.\\d{1,2})?$/'],
+            'quickProduct.sale_price' => ['required', 'regex:/^\\d{1,12}(?:\\.\\d{1,6})?$/'],
+            'quickProduct.purchase_price' => ['nullable', 'regex:/^\\d{1,12}(?:\\.\\d{1,6})?$/'],
         ])['quickProduct'];
 
         $name = trim($validated['name']);
@@ -315,8 +316,8 @@ trait ManagesPosProducts
             'quickStockWarehouseId' => ['required', 'integer', Rule::exists('inventory_warehouses', 'id')
                 ->where('organization_id', $organization->currentOrganizationId())
                 ->where('branch_id', $branchId)->where('is_active', true)],
-            'quickStockQuantity' => ['required', 'integer', 'min:1', 'max:999999999'],
-            'quickStockUnitCost' => ['required', 'regex:/^\\d{1,8}(?:\\.\\d{1,4})?$/', 'numeric', 'gt:0'],
+            'quickStockQuantity' => ['required', 'regex:/^\\d{1,14}(?:\\.\\d{1,4})?$/', 'numeric', 'gt:0'],
+            'quickStockUnitCost' => ['required', 'regex:/^\\d{1,12}(?:\\.\\d{1,6})?$/', 'numeric', 'gt:0'],
         ]);
         $warehouse = InventoryWarehouse::query()->forCurrentOrganization()->findOrFail((int) $validated['quickStockWarehouseId']);
         abort_unless($scope->canAccessInventoryWarehouse(auth()->user(), $warehouse, 'inventory'), 403);
@@ -334,8 +335,8 @@ trait ManagesPosProducts
                 'created_by' => auth()->id(),
                 'items' => [[
                     'product_id' => (int) $product->id,
-                    'quantity' => (int) $validated['quickStockQuantity'],
-                    'unit_cost' => round((float) $validated['quickStockUnitCost'], 4),
+                    'quantity' => Decimal::assertScale($validated['quickStockQuantity'], 4),
+                    'unit_cost' => Decimal::assertScale($validated['quickStockUnitCost'], 6),
                 ]],
             ]);
             $documents->confirm($document->id, auth()->id());
@@ -359,8 +360,8 @@ trait ManagesPosProducts
         $this->quickProductStep = 2;
         $this->quickStockKey = (string) Str::uuid();
         $this->quickStockQuantity = '';
-        $this->quickStockUnitCost = (float) $product->purchase_price > 0
-            ? number_format((float) $product->purchase_price, 2, '.', '') : '';
+        $this->quickStockUnitCost = Decimal::compare($product->purchase_price ?? 0, 0) > 0
+            ? Decimal::normalize($product->purchase_price) : '';
         $this->quickStockWarehouseId = (string) ($this->availableWarehouses()->firstWhere('id', (int) $this->warehouseId)?->id
             ?? $this->availableWarehouses()->first()?->id ?? '');
     }
@@ -427,7 +428,7 @@ trait ManagesPosProducts
                 $balance = $ledgerStock->get($product->id);
                 $stock = $balance
                     ? ($balance->is_active ? $balance->availableStock() : 0)
-                    : ($usesLedger ? 0 : (int) ($warehouseStock->get($product->id) ?? 0));
+                    : ($usesLedger ? 0 : Decimal::quantity($warehouseStock->get($product->id) ?? 0));
 
                 return [
                     'id' => (int) $product->id,
@@ -437,7 +438,7 @@ trait ManagesPosProducts
                     'description' => (string) ($product->description ?? ''),
                     'category_id' => (int) $product->category_id,
                     'stock' => $tracks ? $stock : 999999,
-                    'price' => round((float) ($product->sale_price ?? $product->price ?? 0), 2),
+                    'price' => Decimal::assertScale($product->sale_price ?? $product->price ?? 0, 6),
                     'tracks_inventory' => $tracks,
                     'label' => (string) ($product->name.' ('.($product->sku ?: 'SIN-SKU').')'),
                 ];

@@ -2,6 +2,7 @@
 
 namespace Modules\Catalog\Entities;
 
+use App\Casts\Quantity;
 use App\Models\Concerns\BelongsToOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -46,13 +47,13 @@ class InventoryMovement extends Model
 
     protected $casts = [
         'movement_type' => InventoryMovementType::class,
-        'quantity' => 'integer',
-        'stock_before' => 'integer',
-        'stock_after' => 'integer',
-        'average_cost_before' => 'decimal:4',
-        'unit_cost' => 'decimal:4',
-        'average_cost_after' => 'decimal:4',
-        'total_cost' => 'decimal:4',
+        'quantity' => Quantity::class,
+        'stock_before' => Quantity::class,
+        'stock_after' => Quantity::class,
+        'average_cost_before' => 'decimal:6',
+        'unit_cost' => 'decimal:6',
+        'average_cost_after' => 'decimal:6',
+        'total_cost' => 'decimal:6',
         'performed_by' => 'integer',
         'reference_id' => 'integer',
         'balance_version' => 'integer',

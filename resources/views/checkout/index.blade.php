@@ -94,26 +94,21 @@
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label for="checkout-series" class="form-label">Serie</label>
-                                <input type="text" name="series" id="checkout-series" class="form-control" value="{{ old('series', 'PED') }}" maxlength="4" placeholder="PED">
+                                <input type="text" id="checkout-series" class="form-control" value="{{ config('orders.checkout.series', 'PED') }}" readonly>
                             </div>
                             <div class="col-md-3">
                                 <label for="checkout-currency" class="form-label">Moneda</label>
-                                <select name="currency" id="checkout-currency" class="form-select">
-                                    <option value="PEN" @selected(old('currency', 'PEN') === 'PEN')>PEN</option>
-                                    <option value="USD" @selected(old('currency') === 'USD')>USD</option>
-                                </select>
+                                <input type="text" id="checkout-currency" class="form-control" value="{{ config('orders.checkout.currency', 'PEN') }}" readonly>
                             </div>
                             <div class="col-md-3">
                                 <label for="checkout-discount" class="form-label">Descuento</label>
-                                <input type="number" step="0.01" min="0" name="discount" id="checkout-discount" value="{{ old('discount', '0') }}" class="form-control" placeholder="0.00">
+                                <input type="text" id="checkout-discount" value="{{ $totals['discount'] }}" class="form-control" readonly>
                             </div>
                             <div class="col-md-3">
                                 <label for="checkout-shipping" class="form-label">Envío</label>
-                                <input type="number" step="0.01" min="0" name="shipping" id="checkout-shipping" value="{{ old('shipping', '0') }}" class="form-control" placeholder="0.00">
+                                <input type="text" id="checkout-shipping" value="{{ $totals['shipping'] }}" class="form-control" readonly>
                             </div>
                         </div>
-
-                        <input type="hidden" name="tax_rate" id="checkout-tax-rate" value="{{ old('tax_rate', '0.18') }}">
 
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -161,24 +156,24 @@
                     <h4 class="mb-3">Pedido listo para cierre</h4>
 
                     <div class="d-grid gap-3 mb-4">
-                        @foreach ($cart as $item)
+                        @foreach ($cart as $index => $item)
                             <div class="border rounded-4 p-3 bg-white">
                                 <div class="d-flex justify-content-between gap-3 align-items-start">
                                     <div>
                                         <div class="fw-semibold">{{ $item['name'] }}</div>
-                                        <small class="text-muted">{{ $item['quantity'] }} x S/ {{ number_format((float) $item['price'], 2) }}</small>
+                                        <small class="text-muted">{{ $item['quantity'] }} x S/ {{ $item['price'] }}</small>
                                     </div>
-                                    <strong>S/ {{ number_format((float) $item['price'] * (int) $item['quantity'], 2) }}</strong>
+                                    <strong>S/ {{ $totals['lines'][$index]['total'] }}</strong>
                                 </div>
                             </div>
                         @endforeach
                     </div>
 
-                    <div class="mp-summary-row"><span>Subtotal</span><strong id="summary-subtotal">S/ {{ number_format((float) $subtotal, 2) }}</strong></div>
-                    <div class="mp-summary-row"><span>Descuento</span><strong id="summary-discount">S/ 0.00</strong></div>
-                    <div class="mp-summary-row"><span>IGV (18%)</span><strong id="summary-tax">S/ {{ number_format((float) $subtotal * 0.18, 2) }}</strong></div>
-                    <div class="mp-summary-row"><span>Envío</span><strong id="summary-shipping">S/ 0.00</strong></div>
-                    <div class="mp-summary-row mp-summary-total"><span>Total</span><strong id="summary-total">S/ {{ number_format((float) $subtotal * 1.18, 2) }}</strong></div>
+                    <div class="mp-summary-row"><span>Subtotal</span><strong id="summary-subtotal">S/ {{ $totals['subtotal'] }}</strong></div>
+                    <div class="mp-summary-row"><span>Descuento</span><strong id="summary-discount">S/ {{ $totals['discount'] }}</strong></div>
+                    <div class="mp-summary-row"><span>IGV ({{ (float) config('orders.checkout.tax_rate', 0.18) * 100 }}%)</span><strong id="summary-tax">S/ {{ $totals['tax'] }}</strong></div>
+                    <div class="mp-summary-row"><span>Envío</span><strong id="summary-shipping">S/ {{ $totals['shipping'] }}</strong></div>
+                    <div class="mp-summary-row mp-summary-total"><span>Total</span><strong id="summary-total">S/ {{ $totals['total'] }}</strong></div>
 
                     <div class="alert alert-light border rounded-4 mt-4 mb-0">
                         El precio final se recalcula con el stock y valor actual del producto antes de grabar el pedido.
@@ -188,40 +183,4 @@
         </div>
     </div>    
 </section>
-<script>
-    (function () {
-        const subtotal = {{ (float) $subtotal }};
-        const discountInput = document.getElementById('checkout-discount');
-        const shippingInput = document.getElementById('checkout-shipping');
-        const taxRateInput = document.getElementById('checkout-tax-rate');
-
-        const summaryDiscount = document.getElementById('summary-discount');
-        const summaryTax = document.getElementById('summary-tax');
-        const summaryShipping = document.getElementById('summary-shipping');
-        const summaryTotal = document.getElementById('summary-total');
-        const summarySubtotal = document.getElementById('summary-subtotal');
-
-        const fmt = (value) => `S/ ${value.toFixed(2)}`;
-
-        const recalc = () => {
-            const discount = Math.max(0, Math.min(parseFloat(discountInput.value || '0'), subtotal));
-            const shipping = Math.max(0, parseFloat(shippingInput.value || '0'));
-            const taxRate = Math.max(0, Math.min(parseFloat(taxRateInput.value || '0.18'), 1));
-
-            const taxableBase = Math.max(0, subtotal - discount);
-            const tax = taxableBase * taxRate;
-            const total = taxableBase + tax + shipping;
-
-            summarySubtotal.textContent = fmt(subtotal);
-            summaryDiscount.textContent = fmt(discount);
-            summaryTax.textContent = fmt(tax);
-            summaryShipping.textContent = fmt(shipping);
-            summaryTotal.textContent = fmt(total);
-        };
-
-        discountInput.addEventListener('input', recalc);
-        shippingInput.addEventListener('input', recalc);
-        recalc();
-    })();
-</script>
 @endsection

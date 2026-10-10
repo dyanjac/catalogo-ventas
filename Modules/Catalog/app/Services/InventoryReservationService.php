@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Services;
 
+use App\Support\Decimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
@@ -68,7 +69,7 @@ class InventoryReservationService
                     foreach ($items as $balanceId => $quantity) {
                         /** @var InventoryBalance $balance */
                         $balance = $balances->get($balanceId);
-                        if ($balance->availableStock() < $quantity) {
+                        if (Decimal::compare($balance->availableStock(), $quantity, 4) < 0) {
                             throw ValidationException::withMessages([
                                 "items.{$balanceId}" => "Stock disponible insuficiente: {$balance->availableStock()}.",
                             ]);
@@ -88,11 +89,11 @@ class InventoryReservationService
                         'meta' => $command->meta,
                     ]);
 
-                    $total = 0;
+                    $total = '0';
                     foreach ($items as $balanceId => $quantity) {
                         /** @var InventoryBalance $balance */
                         $balance = $balances->get($balanceId);
-                        $total += $quantity;
+                        $total = Decimal::add($total, $quantity, 4);
                         InventoryReservationItem::query()->create([
                             'organization_id' => $command->organizationId,
                             'reservation_id' => $reservation->id,
@@ -103,7 +104,7 @@ class InventoryReservationService
                             'quantity' => $quantity,
                         ]);
                         $balance->forceFill([
-                            'reserved_stock' => (int) $balance->reserved_stock + $quantity,
+                            'reserved_stock' => Decimal::add($balance->reserved_stock, $quantity, 4),
                             'reservation_version' => (int) $balance->reservation_version + 1,
                         ])->save();
                     }
@@ -222,12 +223,12 @@ class InventoryReservationService
                 throw ValidationException::withMessages(['reservation' => 'La reserva no contiene items.']);
             }
 
-            $total = 0;
+            $total = '0';
             foreach ($items as $item) {
                 $balance = InventoryBalance::query()
                     ->where('organization_id', $organizationId)
                     ->findOrFail($item->inventory_balance_id);
-                $this->movements->recordReservedOutbound($balance, (int) $item->quantity, [
+                $this->movements->recordReservedOutbound($balance, $item->quantity, [
                     'idempotency_key' => $idempotencyKey.':item:'.$item->id,
                     'reason_code' => 'dispatch',
                     'reason' => 'reserved_dispatch',
@@ -237,7 +238,7 @@ class InventoryReservationService
                     'reference_code' => $referenceCode,
                     'meta' => [...$payloadMeta, 'reservation_id' => $reservationId, 'reservation_item_id' => $item->id],
                 ]);
-                $total += (int) $item->quantity;
+                $total = Decimal::add($total, $item->quantity, 4);
             }
 
             $reservation->forceFill([
@@ -252,7 +253,7 @@ class InventoryReservationService
                 $eventType,
                 InventoryReservationStatus::Active,
                 InventoryReservationStatus::Consumed,
-                -$total,
+                Decimal::sub(0, $total, 4),
                 $actorId,
                 $payloadMeta,
             );
@@ -386,18 +387,18 @@ class InventoryReservationService
                     $items->pluck('inventory_balance_id')->map(fn ($id) => (int) $id)->all(),
                     requireActive: false,
                 );
-                $total = 0;
+                $total = '0';
 
                 foreach ($items as $item) {
                     /** @var InventoryBalance $balance */
                     $balance = $balances->get((int) $item->inventory_balance_id);
-                    $quantity = (int) $item->quantity;
-                    if ((int) $balance->reserved_stock < $quantity) {
+                    $quantity = $item->quantity;
+                    if (Decimal::compare($balance->reserved_stock, $quantity, 4) < 0) {
                         throw new RuntimeException('El saldo reservado presenta una inconsistencia y no puede liberarse.');
                     }
-                    $total += $quantity;
+                    $total = Decimal::add($total, $quantity, 4);
                     $balance->forceFill([
-                        'reserved_stock' => (int) $balance->reserved_stock - $quantity,
+                        'reserved_stock' => Decimal::sub($balance->reserved_stock, $quantity, 4),
                         'reservation_version' => (int) $balance->reservation_version + 1,
                     ])->save();
                 }
@@ -415,7 +416,7 @@ class InventoryReservationService
                     $eventType,
                     InventoryReservationStatus::Active,
                     $target,
-                    -$total,
+                    Decimal::sub(0, $total, 4),
                     $actorId,
                     $meta,
                 );
@@ -439,7 +440,7 @@ class InventoryReservationService
         }
     }
 
-    /** @return array<int, int> */
+    /** @return array<int, int|string> */
     private function normalizeItems(InventoryReservationCommand $command): array
     {
         $this->assertValidKey($command->idempotencyKey);
@@ -449,17 +450,17 @@ class InventoryReservationService
 
         $normalized = [];
         foreach ($command->items as $item) {
-            if ($item->balanceId < 1 || $item->quantity < 1) {
+            if ($item->balanceId < 1 || Decimal::compare($item->quantity, 0, 4) <= 0) {
                 throw ValidationException::withMessages(['items' => 'Cada item requiere saldo y cantidad positiva.']);
             }
-            $normalized[$item->balanceId] = ($normalized[$item->balanceId] ?? 0) + $item->quantity;
+            $normalized[$item->balanceId] = Decimal::quantity(Decimal::add($normalized[$item->balanceId] ?? 0, Decimal::assertScale($item->quantity, 4), 4));
         }
         ksort($normalized, SORT_NUMERIC);
 
         return $normalized;
     }
 
-    /** @param array<int, int> $items */
+    /** @param array<int, int|string> $items */
     private function reservationPayloadHash(InventoryReservationCommand $command, array $items): string
     {
         $payload = [
@@ -592,7 +593,7 @@ class InventoryReservationService
         InventoryReservationEventType $type,
         ?InventoryReservationStatus $before,
         InventoryReservationStatus $after,
-        int $delta,
+        int|string $delta,
         ?int $actorId,
         array $meta,
     ): void {

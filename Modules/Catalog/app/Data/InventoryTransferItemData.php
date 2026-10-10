@@ -8,6 +8,6 @@ final readonly class InventoryTransferItemData
 {
     public function __construct(
         public int $productId,
-        public int $quantity,
+        public int|float|string $quantity,
     ) {}
 }

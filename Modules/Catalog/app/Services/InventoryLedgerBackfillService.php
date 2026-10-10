@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Services;
 
 use App\Models\Organization;
+use App\Support\Decimal;
 use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
@@ -65,9 +66,9 @@ class InventoryLedgerBackfillService
                 $product,
                 (int) $stock->branch_id,
                 (int) $stock->warehouse_id,
-                (int) $stock->stock,
-                (int) $stock->min_stock,
-                (float) $stock->average_cost,
+                $stock->stock,
+                $stock->min_stock,
+                $stock->average_cost,
                 $isActive,
                 $dryRun,
                 $stats,
@@ -78,17 +79,17 @@ class InventoryLedgerBackfillService
             $activeWarehouseStocks = $warehouseStocks
                 ->where('branch_id', $stock->branch_id)
                 ->filter(fn (ProductWarehouseStock $warehouseStock): bool => (bool) $warehouseStock->is_active && $activeWarehouseIds->contains((int) $warehouseStock->warehouse_id));
-            $warehouseTotal = (int) $activeWarehouseStocks->sum('stock');
-            $warehouseMinimum = (int) $activeWarehouseStocks->sum('min_stock');
-            $unallocated = max(0, (int) $stock->stock - $warehouseTotal);
-            $unallocatedMinimum = max(0, (int) $stock->min_stock - $warehouseMinimum);
+            $warehouseTotal = $activeWarehouseStocks->reduce(fn (string $sum, ProductWarehouseStock $row): string => Decimal::add($sum, $row->stock, 4), '0');
+            $warehouseMinimum = $activeWarehouseStocks->reduce(fn (string $sum, ProductWarehouseStock $row): string => Decimal::add($sum, $row->min_stock, 4), '0');
+            $unallocated = Decimal::nonNegative(Decimal::sub($stock->stock, $warehouseTotal, 4));
+            $unallocatedMinimum = Decimal::nonNegative(Decimal::sub($stock->min_stock, $warehouseMinimum, 4));
             $this->baseline(
                 $product,
                 (int) $stock->branch_id,
                 null,
                 $unallocated,
                 $unallocatedMinimum,
-                (float) ($product->average_price ?? $product->purchase_price ?? 0),
+                $product->average_price ?? $product->purchase_price ?? 0,
                 (bool) $stock->is_active,
                 $dryRun,
                 $stats,
@@ -110,9 +111,9 @@ class InventoryLedgerBackfillService
                 $product,
                 (int) $defaultBranchId,
                 null,
-                (int) $product->stock,
-                (int) $product->min_stock,
-                (float) ($product->average_price ?? $product->purchase_price ?? 0),
+                $product->stock,
+                $product->min_stock,
+                $product->average_price ?? $product->purchase_price ?? 0,
                 (bool) $product->is_active,
                 $dryRun,
                 $stats,
@@ -121,7 +122,7 @@ class InventoryLedgerBackfillService
     }
 
     /** @param array{organizations:int,products:int,baselines:int,skipped:int,dry_run:bool} $stats */
-    private function baseline(Product $product, int $branchId, ?int $warehouseId, int $stock, int $minStock, float $averageCost, bool $isActive, bool $dryRun, array &$stats): void
+    private function baseline(Product $product, int $branchId, ?int $warehouseId, int|float|string $stock, int|float|string $minStock, int|float|string $averageCost, bool $isActive, bool $dryRun, array &$stats): void
     {
         $locationKey = InventoryBalance::locationKey($branchId, $warehouseId);
 

@@ -34,6 +34,7 @@ use Modules\Catalog\Services\InventoryLedgerBackfillService;
 use Modules\Catalog\Services\InventoryMovementService;
 use Modules\Catalog\Services\InventoryReservationService;
 use Modules\Orders\Entities\Order;
+use Modules\Orders\Entities\OrderItem;
 use Modules\Orders\Enums\OrderWarehouseStatus;
 use Modules\Orders\Enums\SalesInventoryChannelMode;
 use Modules\Orders\Services\OrderCheckoutService;
@@ -352,11 +353,10 @@ class SalesInventoryWorkflowTest extends TestCase
         $this->assertSame(1, $scope['balance']->fresh()->reserved_stock);
     }
 
-    public function test_pos_rejects_fractional_quantity_for_inventory_product(): void
+    public function test_pos_preserves_four_decimal_inventory_quantity_through_reservation(): void
     {
         $scope = $this->scope('pos');
 
-        $this->expectException(ValidationException::class);
         $this->storePos($scope['user'], [
             'document_type' => 'order',
             'currency' => 'PEN',
@@ -365,10 +365,35 @@ class SalesInventoryWorkflowTest extends TestCase
             'idempotency_key' => 'pos-physical-fraction',
             'customer' => ['name' => 'Cliente inventario'],
             'items' => [
-                ['product_id' => $scope['product']->id, 'quantity' => '0.5', 'unit_price' => '12.50'],
-                ['product_id' => $scope['product']->id, 'quantity' => '0.5', 'unit_price' => '12.50'],
+                ['product_id' => $scope['product']->id, 'quantity' => '0.0005', 'unit_price' => '12.50'],
+                ['product_id' => $scope['product']->id, 'quantity' => '0.0005', 'unit_price' => '12.50'],
             ],
         ]);
+
+        $this->assertSame('0.001', OrderItem::query()->firstOrFail()->quantity);
+        $this->assertSame('0.001', $scope['balance']->fresh()->reserved_stock);
+    }
+
+    public function test_pos_persists_six_decimal_price_and_rounds_subtotal_before_tax(): void
+    {
+        $scope = $this->scope('pos');
+
+        $this->storePos($scope['user'], [
+            'document_type' => 'order',
+            'currency' => 'PEN',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'idempotency_key' => 'pos-six-decimal-price',
+            'customer' => ['name' => 'Cliente precisión'],
+            'items' => [['product_id' => $scope['product']->id, 'quantity' => '0.5', 'unit_price' => '0.123456']],
+        ]);
+
+        $order = Order::query()->with('items')->firstOrFail();
+        $this->assertSame('0.123456', $order->items->first()->unit_price);
+        $this->assertSame('0.06', (string) $order->subtotal);
+        $this->assertSame('0.01', (string) $order->tax);
+        $this->assertSame('0.07', (string) $order->total);
+        $this->assertSame('0.5', $scope['balance']->fresh()->reserved_stock);
     }
 
     public function test_pos_uses_catalog_price_when_manual_price_is_empty(): void
@@ -416,8 +441,9 @@ class SalesInventoryWorkflowTest extends TestCase
             ->assertSet('items.0.unit_price', '12.50')
             ->set('items.0.quantity', '0.5')
             ->call('goNext')
+            ->assertSet('currentStep', 1)
+            ->call('goPrev')
             ->assertSet('currentStep', 0)
-            ->assertHasErrors(['wizard'])
             ->set('items.0.quantity', '1')
             ->call('goNext')
             ->assertSet('currentStep', 1)

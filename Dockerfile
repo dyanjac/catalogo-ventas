@@ -13,7 +13,7 @@ RUN apt-get update \
         libldap2-dev \
         libzip-dev \
     && docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ \
-    && docker-php-ext-install -j"$(nproc)" ldap sockets zip \
+    && docker-php-ext-install -j"$(nproc)" bcmath ldap sockets zip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Accounting\Services;
 
 use App\Models\Organization;
+use App\Support\Decimal;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -12,9 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Accounting\Enums\EconomicEventStatus;
 use Modules\Accounting\Enums\EconomicEventType;
+use Modules\Accounting\Models\AccountingAccount;
 use Modules\Accounting\Models\AccountingActivationItem;
 use Modules\Accounting\Models\AccountingActivationRun;
-use Modules\Accounting\Models\AccountingAccount;
 use Modules\Accounting\Models\AccountingEconomicEvent;
 use Modules\Accounting\Models\AccountingEntry;
 use Modules\Accounting\Models\AccountingPeriod;
@@ -297,12 +298,14 @@ final class HistoricalAccountingActivationService
         $issues = $this->validateDocumentOrder($document);
         $order = $document->order;
         if ($order) {
-            $lineTotal = round((float) $order->items->sum(fn ($item) => (float) $item->line_total), 2);
-            $lineTax = round((float) $order->items->sum(fn ($item) => (float) $item->tax_amount), 2);
-            if (abs($lineTotal - (float) $document->total) > 0.01 || abs($lineTax - (float) $document->tax) > 0.01) {
+            $lineTotal = $order->items->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->line_total, 2), '0');
+            $lineTax = $order->items->reduce(fn (string $sum, $item): string => Decimal::add($sum, $item->tax_amount, 2), '0');
+            if (Decimal::compare(Decimal::add($lineTotal, $order->shipping, 2), $document->total, 2) !== 0
+                || Decimal::compare($lineTax, $document->tax, 2) !== 0) {
                 $issues[] = $this->issue('document_totals_mismatch', 'Los importes de las líneas no concilian con el comprobante.');
             }
-            if (abs(((float) $document->subtotal + (float) $document->tax) - (float) $document->total) > 0.01) {
+            $headerTotal = Decimal::add(Decimal::sub($document->subtotal, $order->discount, 2), Decimal::add($document->tax, $order->shipping, 2), 2);
+            if (Decimal::compare($headerTotal, $document->total, 2) !== 0) {
                 $issues[] = $this->issue('document_header_mismatch', 'Subtotal más impuesto no coincide con el total del comprobante.');
             }
             if (BillingDocument::query()->where('organization_id', $document->organization_id)->where('order_id', $order->id)
@@ -369,7 +372,7 @@ final class HistoricalAccountingActivationService
         if (! $document->relatedDocument || $document->relatedDocument->organization_id !== $document->organization_id
             || ! in_array($document->relatedDocument->document_type, ['factura', 'boleta'], true)) {
             $issues[] = $this->issue('invalid_original_document', 'La nota de crédito no tiene comprobante original válido del tenant.');
-        } elseif ((float) $document->total <= 0 || (float) $document->total > (float) $document->relatedDocument->total) {
+        } elseif (Decimal::compare($document->total, 0, 2) <= 0 || Decimal::compare($document->total, $document->relatedDocument->total, 2) > 0) {
             $issues[] = $this->issue('invalid_credit_note_amount', 'El importe de la nota de crédito no es válido respecto del comprobante original.');
         }
         $payload = ['order_id' => (int) $document->order_id, 'original_document_id' => (int) $document->related_document_id,
@@ -395,12 +398,12 @@ final class HistoricalAccountingActivationService
         }
         $items = $document->items->map(function ($item) use (&$issues, $document): array {
             if ($item->organization_id !== $document->organization_id || ! $item->inventory_movement_id || ! $item->movement
-                || $item->movement->organization_id !== $document->organization_id || (float) $item->movement->total_cost <= 0) {
+                || $item->movement->organization_id !== $document->organization_id || Decimal::compare($item->movement->total_cost, 0, 6) <= 0) {
                 $issues[] = $this->issue('missing_immutable_cost', 'Un ítem no tiene movimiento y costo histórico inmutables.');
             }
 
             return ['product_id' => (int) $item->product_id, 'movement_id' => $item->inventory_movement_id ? (int) $item->inventory_movement_id : null,
-                'quantity' => (int) $item->quantity, 'total_cost' => (string) ($item->movement?->total_cost ?? 0)];
+                'quantity' => (string) $item->quantity, 'total_cost' => (string) ($item->movement?->total_cost ?? 0)];
         })->values()->all();
         $suffix = $return ? 'return' : 'dispatch';
         $type = $return ? EconomicEventType::InventoryReturned : EconomicEventType::InventoryDispatched;
@@ -514,7 +517,7 @@ final class HistoricalAccountingActivationService
                 'is_default_tax', 'updated_at',
             ])->all(),
             'periods' => AccountingPeriod::query()->where('organization_id', $organizationId)
-                ->where(function ($query) use ($cutoff, $through): void {
+                ->where(function ($query) use ($cutoff): void {
                     $query->where('year', '>', $cutoff->year)->orWhere(fn ($q) => $q->where('year', $cutoff->year)->where('month', '>=', $cutoff->month));
                 })->where(function ($query) use ($through): void {
                     $query->where('year', '<', $through->year)->orWhere(fn ($q) => $q->where('year', $through->year)->where('month', '<=', $through->month));
@@ -536,6 +539,7 @@ final class HistoricalAccountingActivationService
             $code = trim((string) $settings->{'default_account_'.$role});
             if ($code === '') {
                 $issues[] = $this->issue('missing_default_account_'.$role, "Falta la cuenta explícita para {$role}.");
+
                 continue;
             }
             if (! AccountingAccount::query()->where('organization_id', $organizationId)->where('code', $code)->where('is_active', true)->exists()) {

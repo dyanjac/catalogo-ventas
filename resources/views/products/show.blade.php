@@ -52,10 +52,10 @@
                     </div>
 
                     <div class="mp-detail-price-wrap">
-                        <div class="mp-detail-price">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }}</div>
+                        <div class="mp-detail-price">S/ {{ \App\Support\Decimal::unitPriceForInput($product->display_price ?? 0) }}</div>
                         <div class="mp-detail-subprice">
                             @if($product->wholesale_price)
-                                Precio mayor: S/ {{ number_format((float) $product->wholesale_price, 2) }}
+                                Precio mayor: S/ {{ \App\Support\Decimal::unitPriceForInput($product->wholesale_price) }}
                             @else
                                 Disponible para cotizacion inmediata
                             @endif
@@ -69,14 +69,14 @@
                     <div class="mp-spec-grid">
                         <div><span>Stock</span><strong>{{ $product->stock }}</strong></div>
                         <div><span>Stock minimo</span><strong>{{ $product->min_stock }}</strong></div>
-                        <div><span>Precio promedio</span><strong>S/ {{ number_format((float) ($product->average_price ?? 0), 2) }}</strong></div>
+                        <div><span>Precio promedio</span><strong>S/ {{ \App\Support\Decimal::unitPriceForInput($product->average_price ?? 0) }}</strong></div>
                         <div><span>Usa serie</span><strong>{{ $product->uses_series ? 'Si' : 'No' }}</strong></div>
                     </div>
 
                     <div class="mp-detail-actions">
                         <div class="input-group input-group-lg">
                             <span class="input-group-text">Cantidad</span>
-                            <input id="legacy-detail-qty-{{ $product->id }}" type="number" min="1" value="1" class="form-control">
+                            <input id="legacy-detail-qty-{{ $product->id }}" type="text" inputmode="decimal" value="1" class="form-control" aria-label="Cantidad">
                         </div>
 
                         <form method="POST" action="{{ route('cart.add', $product->id) }}">
@@ -107,8 +107,8 @@
 
 <script>
     function normalizeLegacyDetailQty(input) {
-        const raw = parseInt(input?.value ?? '1', 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+        const raw = (input?.value ?? '1').trim();
+        return /^\d+(?:\.\d{1,4})?$/.test(raw) && Number(raw) > 0 ? raw : '1';
     }
 
     function syncLegacyDetailQty(productId) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Services;
 
 use App\Services\OrganizationContextService;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -170,7 +171,7 @@ class InventoryTransferService
                     ->where('organization_id', $organizationId)
                     ->lockForUpdate()
                     ->findOrFail($item->destination_balance_id);
-                $quantity = (int) $item->quantity;
+                $quantity = Decimal::assertScale($item->quantity, 4);
                 $movement = $this->movements->recordWarehouseOutbound(
                     $item->product,
                     (int) $transfer->source_branch_id,
@@ -180,7 +181,7 @@ class InventoryTransferService
                         'idempotency_key' => $idempotencyKey.':item:'.$item->id,
                         'reason_code' => 'transfer',
                         'reason' => 'warehouse_transfer_dispatch',
-                        'unit_cost' => (float) $sourceBalance->average_cost,
+                        'unit_cost' => $sourceBalance->average_cost,
                         'performed_by' => $actorId,
                         'reference_type' => InventoryTransfer::class,
                         'reference_id' => $transfer->id,
@@ -263,14 +264,14 @@ class InventoryTransferService
             $items = $lockedItems->keyBy('id');
             foreach ($quantities as $itemId => $quantity) {
                 $item = $items->get((int) $itemId);
-                if (! $item || (int) $quantity > (int) $item->dispatched_quantity - (int) $item->received_quantity) {
+                if (! $item || Decimal::compare($quantity, Decimal::sub($item->dispatched_quantity, $item->received_quantity, 4), 4) > 0) {
                     throw ValidationException::withMessages(['items' => 'La recepcion excede la cantidad pendiente o contiene un item ajeno.']);
                 }
             }
             $this->prelockOperationRows($transfer, $items->pluck('product_id')->map(fn ($id) => (int) $id)->all());
             $before = $transfer->status;
             $willComplete = $items->every(function (InventoryTransferItem $item) use ($quantities): bool {
-                return (int) $item->received_quantity + (int) ($quantities[$item->id] ?? 0) === (int) $item->dispatched_quantity;
+                return Decimal::compare(Decimal::add($item->received_quantity, $quantities[$item->id] ?? 0, 4), $item->dispatched_quantity, 4) === 0;
             });
             $after = $willComplete ? InventoryTransferStatus::Received : InventoryTransferStatus::PartiallyReceived;
             $event = $this->recordEvent(
@@ -288,11 +289,11 @@ class InventoryTransferService
                 /** @var InventoryTransferItem $item */
                 $item = $items->get((int) $itemId);
                 $balance = InventoryBalance::query()->where('organization_id', $command->organizationId)->findOrFail($item->destination_balance_id);
-                $movement = $this->movements->recordTransitInbound($balance, (int) $quantity, [
+                $movement = $this->movements->recordTransitInbound($balance, $quantity, [
                     'idempotency_key' => $command->idempotencyKey.':item:'.$item->id,
                     'reason_code' => 'transfer',
                     'reason' => 'warehouse_transfer_receipt',
-                    'unit_cost' => (float) $item->unit_cost,
+                    'unit_cost' => $item->unit_cost,
                     'performed_by' => $command->actorId,
                     'reference_type' => InventoryTransfer::class,
                     'reference_id' => $transfer->id,
@@ -300,13 +301,13 @@ class InventoryTransferService
                     'notes' => $command->notes,
                     'meta' => ['source_warehouse_id' => $transfer->source_warehouse_id, 'transfer_event_id' => $event->id],
                 ]);
-                $item->forceFill(['received_quantity' => (int) $item->received_quantity + (int) $quantity])->save();
+                $item->forceFill(['received_quantity' => Decimal::add($item->received_quantity, $quantity, 4)])->save();
                 InventoryTransferEventItem::query()->create([
                     'organization_id' => $command->organizationId,
                     'event_id' => $event->id,
                     'transfer_item_id' => $item->id,
-                    'quantity' => (int) $quantity,
-                    'transit_delta' => (int) $quantity * -1,
+                    'quantity' => $quantity,
+                    'transit_delta' => Decimal::sub(0, $quantity, 4),
                     'inventory_movement_id' => $movement->id,
                 ]);
             }
@@ -343,7 +344,7 @@ class InventoryTransferService
         }, $this->attempts());
     }
 
-    public function transferProduct(Product $product, int $sourceBranchId, int $destinationBranchId, int $quantity, array $context = []): InventoryTransfer
+    public function transferProduct(Product $product, int $sourceBranchId, int $destinationBranchId, int|float|string $quantity, array $context = []): InventoryTransfer
     {
         $organizationId = (int) $product->organization_id;
         $source = InventoryWarehouse::query()->where('organization_id', $organizationId)->where('branch_id', $sourceBranchId)->where('is_default', true)->where('is_active', true)->first();
@@ -365,15 +366,15 @@ class InventoryTransferService
         return $this->dispatch($organizationId, (int) $transfer->id, $key.':dispatch', $context['created_by'] ?? null);
     }
 
-    /** @param array<int, InventoryTransferItemData> $items @return array<int, int> */
+    /** @param array<int, InventoryTransferItemData> $items @return array<int, int|string> */
     private function normalizeItems(array $items): array
     {
         $normalized = [];
         foreach ($items as $item) {
-            if ($item->productId < 1 || $item->quantity < 1) {
+            if ($item->productId < 1 || Decimal::compare($item->quantity, 0, 4) <= 0) {
                 throw ValidationException::withMessages(['items' => 'Cada item requiere producto y cantidad positiva.']);
             }
-            $normalized[$item->productId] = ($normalized[$item->productId] ?? 0) + $item->quantity;
+            $normalized[$item->productId] = Decimal::quantity(Decimal::add($normalized[$item->productId] ?? 0, Decimal::assertScale($item->quantity, 4), 4));
         }
         if ($normalized === []) {
             throw ValidationException::withMessages(['items' => 'La transferencia requiere items.']);
@@ -531,7 +532,7 @@ class InventoryTransferService
         }
     }
 
-    /** @param array<int, int> $quantities @return array<int, int> */
+    /** @param array<int, int|float|string> $quantities @return array<int, int|string> */
     private function normalizeReceiptQuantities(array $quantities): array
     {
         $normalized = [];
@@ -539,10 +540,10 @@ class InventoryTransferService
             if (! is_int($itemId) && ! ctype_digit((string) $itemId)) {
                 throw ValidationException::withMessages(['items' => 'La recepcion contiene un identificador de item invalido.']);
             }
-            if (filter_var($quantity, FILTER_VALIDATE_INT) === false || (int) $quantity < 1) {
-                throw ValidationException::withMessages(['items' => 'Cada cantidad recibida debe ser un entero positivo.']);
+            if (! is_numeric($quantity) || Decimal::compare($quantity, 0, 4) <= 0) {
+                throw ValidationException::withMessages(['items' => 'Cada cantidad recibida debe ser positiva.']);
             }
-            $normalized[(int) $itemId] = (int) $quantity;
+            $normalized[(int) $itemId] = Decimal::quantity(Decimal::assertScale($quantity, 4));
         }
         if ($normalized === []) {
             throw ValidationException::withMessages(['items' => 'La recepcion requiere al menos una cantidad positiva.']);

@@ -41,6 +41,7 @@ class CommerceSettingController extends Controller
             'support_phone' => ['nullable', 'string', 'max:30'],
             'email' => ['required', 'email', 'max:255'],
             'support_email' => ['nullable', 'email', 'max:255'],
+            'rounding_mode' => ['sometimes', 'required', 'in:half_up,half_even'],
             'logo_file' => ['nullable', 'image', 'max:4096'],
             'remove_logo' => ['nullable', 'boolean'],
         ]);

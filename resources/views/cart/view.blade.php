@@ -26,7 +26,7 @@
             <div class="row g-4">
                 <div class="col-lg-8">
                     <div class="mp-cart-panel">
-                        @foreach ($cart as $item)
+                        @foreach (array_values($cart) as $index => $item)
                             <div class="mp-cart-item">
                                 <div class="mp-cart-media">
                                     <img
@@ -39,10 +39,10 @@
                                         <div>
                                             <h5 class="mb-1">{{ $item['name'] }}</h5>
                                             <p class="mb-1 text-muted">Codigo interno: {{ $item['id'] }}</p>
-                                            <div class="mp-cart-price">S/ {{ number_format((float) $item['price'], 2) }} <span>por unidad</span></div>
+                                            <div class="mp-cart-price">S/ {{ $item['price'] }} <span>por unidad</span></div>
                                         </div>
                                         <div class="text-lg-end">
-                                            <div class="mp-cart-line-total">S/ {{ number_format((float) $item['price'] * (int) $item['quantity'], 2) }}</div>
+                                            <div class="mp-cart-line-total">S/ {{ $totals['lines'][$index]['total'] }}</div>
                                             <small class="text-muted">Total parcial</small>
                                         </div>
                                     </div>
@@ -52,7 +52,7 @@
                                             @csrf
                                             <div class="input-group" style="max-width: 160px;">
                                                 <span class="input-group-text">Cant.</span>
-                                                <input type="number" min="1" name="quantity" value="{{ $item['quantity'] }}" class="form-control">
+                                                <input type="text" inputmode="decimal" name="quantity" value="{{ $item['quantity'] }}" class="form-control">
                                             </div>
                                             <button class="btn btn-light border rounded-pill px-3">Actualizar</button>
                                         </form>
@@ -77,11 +77,11 @@
                     <div class="mp-cart-summary">
                         <span class="mp-kicker">Resumen</span>
                         <h4 class="mb-3">Totales del pedido</h4>
-                        <div class="mp-summary-row"><span>Subtotal</span><strong>S/ {{ number_format((float) $total, 2) }}</strong></div>
-                        <div class="mp-summary-row"><span>Descuento</span><strong>S/ 0.00</strong></div>
-                        <div class="mp-summary-row"><span>IGV (18%)</span><strong>S/ {{ number_format((float) $total * 0.18, 2) }}</strong></div>
-                        <div class="mp-summary-row"><span>Envio</span><strong>S/ 0.00</strong></div>
-                        <div class="mp-summary-row mp-summary-total"><span>Total</span><strong>S/ {{ number_format((float) $total * 1.18, 2) }}</strong></div>
+                        <div class="mp-summary-row"><span>Subtotal</span><strong>S/ {{ $totals['subtotal'] }}</strong></div>
+                        <div class="mp-summary-row"><span>Descuento</span><strong>S/ {{ $totals['discount'] }}</strong></div>
+                        <div class="mp-summary-row"><span>IGV ({{ (float) config('orders.checkout.tax_rate', 0.18) * 100 }}%)</span><strong>S/ {{ $totals['tax'] }}</strong></div>
+                        <div class="mp-summary-row"><span>Envio</span><strong>S/ {{ $totals['shipping'] }}</strong></div>
+                        <div class="mp-summary-row mp-summary-total"><span>Total</span><strong>S/ {{ $totals['total'] }}</strong></div>
 
                         <div class="mp-info-strip mt-4 mb-4">
                             <div class="mp-info-chip"><i class="fa fa-shield-alt"></i><span>Compra segura</span></div>

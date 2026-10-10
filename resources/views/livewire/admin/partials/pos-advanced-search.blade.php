@@ -24,7 +24,7 @@
                 <div class="pos-result" wire:key="advanced-product-{{ $result['id'] }}">
                     <div>
                         <strong>{{ $result['name'] }}</strong>
-                        <span>{{ $result['sku'] }} · {{ $result['brand'] ?: 'Sin marca' }} · S/ {{ number_format($result['price'], 2) }}</span>
+                        <span>{{ $result['sku'] }} · {{ $result['brand'] ?: 'Sin marca' }} · S/ {{ \App\Support\Decimal::unitPriceForInput($result['price']) }}</span>
                         @if (($result['description'] ?? '') !== '') <small>{{ mb_strimwidth($result['description'], 0, 90, '…') }}</small> @endif
                     </div>
                     <div class="pos-result-actions">

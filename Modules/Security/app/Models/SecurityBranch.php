@@ -22,6 +22,7 @@ class SecurityBranch extends Model
         'phone',
         'is_active',
         'is_default',
+        'rounding_mode',
     ];
 
     protected function casts(): array

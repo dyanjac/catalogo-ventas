@@ -3,12 +3,14 @@
 namespace Modules\Orders\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\DocumentTotals;
 use App\Services\OrganizationContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Modules\Orders\Entities\Order;
 use Modules\Orders\Services\OrderCheckoutService;
 use Modules\Orders\Services\OrderQueryService;
+use Modules\Security\Models\SecurityBranch;
 
 class OrderController extends Controller
 {
@@ -16,8 +18,8 @@ class OrderController extends Controller
         private readonly OrderCheckoutService $checkoutService,
         private readonly OrderQueryService $orderQueryService,
         private readonly OrganizationContextService $organizationContext,
-    ) {
-    }
+        private readonly DocumentTotals $documentTotals,
+    ) {}
 
     public function showCheckout()
     {
@@ -30,7 +32,9 @@ class OrderController extends Controller
         $cart = session('cart', []);
         abort_if(empty($cart), 400, 'Carrito vacío');
 
-        $checkoutData = $this->checkoutService->buildCheckoutData($cart);
+        $branchId = auth()->user()?->branch_id
+            ?: SecurityBranch::query()->forCurrentOrganization()->where('is_default', true)->value('id');
+        $checkoutData = $this->checkoutService->buildCheckoutData($cart, false, $branchId ? (int) $branchId : null);
         session(['cart' => collect($checkoutData['items'])->keyBy('id')->all()]);
         session()->put('checkout_idempotency_key', session('checkout_idempotency_key') ?: (string) Str::uuid());
 
@@ -40,9 +44,18 @@ class OrderController extends Controller
                 ->with('error', 'Actualizamos tu carrito antes de continuar. Revisa disponibilidad y vuelve a intentar.');
         }
 
+        $totals = $this->documentTotals->calculate(
+            array_map(fn (array $item): array => ['quantity' => $item['quantity'], 'unit_price' => $item['price']], $checkoutData['items']),
+            (string) config('orders.checkout.discount', 0),
+            (string) config('orders.checkout.shipping', 0),
+            (string) config('orders.checkout.tax_rate', 0.18),
+            (int) $this->organizationContext->currentOrganizationId(),
+            $branchId ? (int) $branchId : null,
+        );
+
         return view('checkout.index', [
             'cart' => $checkoutData['items'],
-            'subtotal' => $checkoutData['subtotal'],
+            'totals' => $totals,
         ]);
     }
 

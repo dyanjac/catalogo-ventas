@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Services;
 
+use App\Services\RoundingPolicy;
+use App\Support\Decimal;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,8 @@ use RuntimeException;
 
 class InventoryLedgerService
 {
+    public function __construct(private readonly RoundingPolicy $rounding) {}
+
     public function append(InventoryMovementCommand $command): InventoryMovement
     {
         $this->assertScope($command);
@@ -53,23 +57,24 @@ class InventoryLedgerService
                         ]);
                     }
 
-                    $before = (int) $balance->physical_stock;
+                    $before = Decimal::assertScale($balance->physical_stock, 4);
                     $quantityDelta = $command->targetStock !== null
-                        ? $command->targetStock - $before
-                        : (int) $command->quantityDelta;
-                    $after = $before + $quantityDelta;
-                    $reservedAfter = (int) $balance->reserved_stock + $command->reservedStockDelta;
-                    $inTransitAfter = (int) $balance->in_transit_stock + $command->inTransitStockDelta;
+                        ? Decimal::sub(Decimal::assertScale($command->targetStock, 4), $before, 4)
+                        : Decimal::assertScale($command->quantityDelta ?? 0, 4);
+                    $after = Decimal::add($before, $quantityDelta, 4);
+                    $reservedAfter = Decimal::add($balance->reserved_stock, $command->reservedStockDelta, 4);
+                    $inTransitAfter = Decimal::add($balance->in_transit_stock, $command->inTransitStockDelta, 4);
 
-                    if ($reservedAfter < 0 || $inTransitAfter < 0 || $after < $reservedAfter) {
+                    if (Decimal::compare($reservedAfter, 0, 4) < 0 || Decimal::compare($inTransitAfter, 0, 4) < 0 || Decimal::compare($after, $reservedAfter, 4) < 0) {
                         throw ValidationException::withMessages([
                             'stock' => 'El movimiento viola los saldos fisico, reservado o en transito.',
                         ]);
                     }
 
-                    $averageBefore = round((float) $balance->average_cost, 4);
-                    $unitCost = round($command->unitCost > 0 ? $command->unitCost : $averageBefore, 4);
-                    $averageAfter = $this->averageCostAfter($before, $after, $quantityDelta, $averageBefore, $unitCost, $command->type);
+                    $mode = $this->rounding->mode($command->organizationId, $command->branchId);
+                    $averageBefore = Decimal::round($balance->average_cost, 6, $mode);
+                    $unitCost = Decimal::round(Decimal::compare($command->unitCost, 0) > 0 ? $command->unitCost : $averageBefore, 6, $mode);
+                    $averageAfter = $this->averageCostAfter($before, $after, $quantityDelta, $averageBefore, $unitCost, $command->type, $mode);
                     $nextVersion = (int) $balance->version + 1;
 
                     $movement = InventoryMovement::query()->create([
@@ -90,7 +95,7 @@ class InventoryLedgerService
                         'average_cost_before' => $averageBefore,
                         'unit_cost' => $unitCost,
                         'average_cost_after' => $averageAfter,
-                        'total_cost' => round(abs($quantityDelta) * $unitCost, 4),
+                        'total_cost' => Decimal::round(Decimal::mul(ltrim($quantityDelta, '-'), $unitCost, 10), 6, $mode),
                         'performed_by' => $command->performedBy,
                         'reference_type' => $command->referenceType,
                         'reference_id' => $command->referenceId,
@@ -109,8 +114,8 @@ class InventoryLedgerService
                         'version' => $nextVersion,
                         'reserved_stock' => $reservedAfter,
                         'in_transit_stock' => $inTransitAfter,
-                        'reservation_version' => (int) $balance->reservation_version + ($command->reservedStockDelta !== 0 ? 1 : 0),
-                        'transit_version' => (int) $balance->transit_version + ($command->inTransitStockDelta !== 0 ? 1 : 0),
+                        'reservation_version' => (int) $balance->reservation_version + (Decimal::compare($command->reservedStockDelta, 0, 4) !== 0 ? 1 : 0),
+                        'transit_version' => (int) $balance->transit_version + (Decimal::compare($command->inTransitStockDelta, 0, 4) !== 0 ? 1 : 0),
                     ])->save();
 
                     return $movement;
@@ -143,9 +148,9 @@ class InventoryLedgerService
         int $productId,
         int $branchId,
         ?int $warehouseId,
-        int $stock,
-        int $minStock,
-        float $averageCost,
+        int|float|string $stock,
+        int|float|string $minStock,
+        int|float|string $averageCost,
         string $idempotencyKey,
         bool $isActive = true,
     ): InventoryMovement {
@@ -167,7 +172,7 @@ class InventoryLedgerService
         ));
 
         InventoryBalance::query()->whereKey($movement->inventory_balance_id)->update([
-            'min_stock' => max(0, $minStock),
+            'min_stock' => Decimal::nonNegative($minStock),
             'is_active' => $isActive,
         ]);
 
@@ -190,10 +195,10 @@ class InventoryLedgerService
             type: InventoryMovementType::Reversal,
             reasonCode: InventoryMovementReason::Reversal,
             idempotencyKey: $idempotencyKey,
-            quantityDelta: ((int) $movement->quantity) * -1,
-            initialStock: (int) $movement->stock_after,
-            initialAverageCost: (float) $movement->average_cost_after,
-            unitCost: (float) $movement->unit_cost,
+            quantityDelta: Decimal::sub(0, $movement->quantity, 4),
+            initialStock: $movement->stock_after,
+            initialAverageCost: $movement->average_cost_after,
+            unitCost: $movement->unit_cost,
             performedBy: $actorId,
             reason: $reason ?? 'movement_reversal',
             referenceType: InventoryMovement::class,
@@ -229,7 +234,7 @@ class InventoryLedgerService
 
         $balance = InventoryBalance::query()->whereKey($balance->id)->lockForUpdate()->firstOrFail();
 
-        if ($balance->version === 0 && $command->initialStock !== 0 && $command->type !== InventoryMovementType::OpeningStock) {
+        if ($balance->version === 0 && Decimal::compare($command->initialStock, 0, 4) !== 0 && $command->type !== InventoryMovementType::OpeningStock) {
             $this->createRuntimeBaseline($balance, $command);
             $balance->refresh();
         }
@@ -260,7 +265,7 @@ class InventoryLedgerService
             'average_cost_before' => 0,
             'unit_cost' => $command->initialAverageCost,
             'average_cost_after' => $command->initialAverageCost,
-            'total_cost' => round(abs($command->initialStock) * $command->initialAverageCost, 4),
+            'total_cost' => Decimal::round(Decimal::mul(ltrim(Decimal::normalize($command->initialStock), '-'), $command->initialAverageCost, 10), 6, $this->rounding->mode($command->organizationId, $command->branchId)),
             'ledger_generation' => 1,
             'occurred_at' => now(),
             'meta' => ['source' => 'runtime_legacy_mirror'],
@@ -275,31 +280,32 @@ class InventoryLedgerService
     }
 
     private function averageCostAfter(
-        int $before,
-        int $after,
-        int $delta,
-        float $averageBefore,
-        float $unitCost,
+        string $before,
+        string $after,
+        string $delta,
+        string $averageBefore,
+        string $unitCost,
         InventoryMovementType $type,
-    ): float {
-        if ($after === 0) {
-            return 0.0;
+        string $mode,
+    ): string {
+        if (Decimal::compare($after, 0, 4) === 0) {
+            return '0.000000';
         }
 
         if ($type === InventoryMovementType::Reversal) {
-            $inventoryValueAfter = ($before * $averageBefore) + ($delta * $unitCost);
+            $inventoryValueAfter = Decimal::add(Decimal::mul($before, $averageBefore, 10), Decimal::mul($delta, $unitCost, 10), 10);
 
-            if ($inventoryValueAfter < -0.0001) {
+            if (Decimal::compare($inventoryValueAfter, '-0.0001', 10) < 0) {
                 throw ValidationException::withMessages([
                     'stock' => 'La reversión produciría una valorización negativa del inventario.',
                 ]);
             }
 
-            return round(max(0.0, $inventoryValueAfter) / $after, 4);
+            return Decimal::round(Decimal::div(Decimal::compare($inventoryValueAfter, 0) > 0 ? $inventoryValueAfter : 0, $after, 12), 6, $mode);
         }
 
-        if ($delta > 0 && in_array($type, [InventoryMovementType::Inbound, InventoryMovementType::OpeningStock], true)) {
-            return round((($before * $averageBefore) + ($delta * $unitCost)) / $after, 4);
+        if (Decimal::compare($delta, 0, 4) > 0 && in_array($type, [InventoryMovementType::Inbound, InventoryMovementType::OpeningStock], true)) {
+            return Decimal::round(Decimal::div(Decimal::add(Decimal::mul($before, $averageBefore, 10), Decimal::mul($delta, $unitCost, 10), 10), $after, 12), 6, $mode);
         }
 
         return $averageBefore;
@@ -354,7 +360,7 @@ class InventoryLedgerService
             'reason_code' => $command->reasonCode->value,
             'quantity_delta' => $command->quantityDelta,
             'target_stock' => $command->targetStock,
-            'unit_cost' => round($command->unitCost, 4),
+            'unit_cost' => Decimal::round($command->unitCost, 6),
             'reference_type' => $command->referenceType,
             'reference_id' => $command->referenceId,
             'reversal_of_id' => $command->reversalOfId,

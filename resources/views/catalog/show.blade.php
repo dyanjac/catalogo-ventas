@@ -51,10 +51,10 @@
                     </div>
 
                     <div class="mp-detail-price-wrap">
-                        <div class="mp-detail-price">S/ {{ number_format((float) ($product->display_price ?? 0), 2) }}</div>
+                        <div class="mp-detail-price">S/ {{ \App\Support\Decimal::unitPriceForInput($product->display_price ?? 0) }}</div>
                         <div class="mp-detail-subprice">
                             @if($product->wholesale_price)
-                                Precio mayor: S/ {{ number_format((float) $product->wholesale_price, 2) }}
+                                Precio mayor: S/ {{ \App\Support\Decimal::unitPriceForInput($product->wholesale_price) }}
                             @else
                                 Cotiza volumen por WhatsApp
                             @endif
@@ -75,7 +75,7 @@
                     <div class="mp-detail-actions">
                         <div class="input-group input-group-lg">
                             <span class="input-group-text">Cantidad</span>
-                            <input id="detail-qty-{{ $product->id }}" type="number" min="1" value="1" class="form-control">
+                            <input id="detail-qty-{{ $product->id }}" type="text" inputmode="decimal" value="1" class="form-control" aria-label="Cantidad">
                         </div>
 
                         <form method="POST" action="{{ $storefrontRoutes->route('cart.add', ['product' => $product->id]) }}">
@@ -105,8 +105,8 @@
 </section>
 <script>
     function normalizeDetailQty(input) {
-        const raw = parseInt(input?.value ?? '1', 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : 1;
+        const raw = (input?.value ?? '1').trim();
+        return /^\d+(?:\.\d{1,4})?$/.test(raw) && Number(raw) > 0 ? raw : '1';
     }
 
     function syncDetailQty(productId) {

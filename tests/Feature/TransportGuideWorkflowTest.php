@@ -87,21 +87,22 @@ class TransportGuideWorkflowTest extends TestCase
         ]);
         InventoryTransferItem::query()->create([
             'organization_id' => $scope['organization']->id, 'transfer_id' => $transfer->id,
-            'product_id' => $scope['product']->id, 'quantity' => 3,
+            'product_id' => $scope['product']->id, 'quantity' => '0.0005',
         ]);
         $before = InventoryMovement::query()->count();
 
         $guide = app(TransportGuideService::class)->create($this->command(
-            $scope, 'gre-transfer-f7', reason: '04', quantity: 3, inventoryTransferId: $transfer->id,
+            $scope, 'gre-transfer-f7', reason: '04', quantity: '0.0005', inventoryTransferId: $transfer->id,
         ));
 
         $this->assertSame($transfer->id, $guide->inventory_transfer_id);
+        $this->assertSame('0.0005', $guide->items()->firstOrFail()->quantity);
         $this->assertSame('draft', $transfer->fresh()->status->value);
         $this->assertSame($before, InventoryMovement::query()->count());
 
         try {
             app(TransportGuideService::class)->create($this->command(
-                $scope, 'gre-transfer-mismatch-f7', reason: '04', quantity: 2, inventoryTransferId: $transfer->id,
+                $scope, 'gre-transfer-mismatch-f7', reason: '04', quantity: '0.0004', inventoryTransferId: $transfer->id,
             ));
             $this->fail('La GRE debe coincidir con los items de la transferencia.');
         } catch (ValidationException) {
@@ -316,7 +317,7 @@ class TransportGuideWorkflowTest extends TestCase
         TransportGuideType $type = TransportGuideType::Sender,
         TransportMode $mode = TransportMode::Private,
         string $reason = '01',
-        float $quantity = 1,
+        int|float|string $quantity = 1,
         ?int $inventoryTransferId = null,
         ?int $relatedGuideId = null,
         ?array $externalSender = null,
