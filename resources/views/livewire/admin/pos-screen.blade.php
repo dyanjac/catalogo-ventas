@@ -19,6 +19,8 @@
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
         <input type="hidden" name="document_type" value="{{ $documentType }}">
+        <input type="hidden" name="branch_id" value="{{ $branchId }}">
+        <input type="hidden" name="warehouse_id" value="{{ $warehouseId }}">
         <input type="hidden" name="customer[name]" value="{{ $customer['name'] }}">
         <input type="hidden" name="customer[address]" value="{{ $customer['address'] }}">
         <input type="hidden" name="customer[city]" value="{{ $customer['city'] }}">
@@ -89,6 +91,27 @@
                                 </div>
 
                                 <div class="product-search-box">
+                                    <div class="pos-location-fields">
+                                        <div>
+                                            <label for="pos_branch">Sucursal</label>
+                                            <select id="pos_branch" class="form-control" wire:model.live="branchId">
+                                                @foreach ($saleBranches as $branch)
+                                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="pos_warehouse">Almacén de salida</label>
+                                            <select id="pos_warehouse" class="form-control" wire:model.live="warehouseId">
+                                                <option value="">Seleccionar almacén</option>
+                                                @foreach ($saleWarehouses as $warehouse)
+                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    @error('branch_id') <small class="text-danger d-block mb-2">{{ $message }}</small> @enderror
+                                    @error('warehouse_id') <small class="text-danger d-block mb-2">{{ $message }}</small> @enderror
                                     <label for="product_search" class="font-weight-semibold">Buscar producto</label>
                                     <div class="pos-search-controls">
                                         <div class="pos-autocomplete">
@@ -352,6 +375,14 @@
                                 <div class="summary-line">
                                     <span>Documento</span>
                                     <strong>{{ $meta['title'] }}</strong>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Sucursal</span>
+                                    <strong>{{ $saleBranches->firstWhere('id', (int) $branchId)?->name ?? 'Sin seleccionar' }}</strong>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Almacén</span>
+                                    <strong>{{ $saleWarehouses->firstWhere('id', (int) $warehouseId)?->name ?? 'Sin seleccionar' }}</strong>
                                 </div>
                                 <div class="summary-line">
                                     <span>Cliente</span>

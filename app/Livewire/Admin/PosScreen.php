@@ -8,6 +8,7 @@ use Livewire\Component;
 use Modules\Catalog\Entities\Category;
 use Modules\Catalog\Entities\UnitMeasure;
 use Modules\Sales\Services\CustomerDocumentLookupService;
+use Modules\Sales\Services\PosLocationService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Modules\Security\Services\SecurityScopeService;
 
@@ -50,11 +51,22 @@ class PosScreen extends Component
 
     public array $items = [];
 
+    public string $branchId = '';
+
+    public string $warehouseId = '';
+
     public function mount(
         SecurityScopeService $scopeService,
         SecurityBranchContextService $branchContext,
     ): void {
-        $this->loadProductIndex($scopeService, $branchContext);
+        $locations = app(PosLocationService::class);
+        $preferredBranch = (int) old('branch_id', $branchContext->currentBranchId(auth()->user()));
+        $branches = $locations->branches(auth()->user());
+        $this->branchId = (string) ($branches->firstWhere('id', $preferredBranch)?->id ?? $branches->first()?->id ?? '');
+        $warehouses = $locations->warehouses((int) $this->branchId);
+        $this->warehouseId = (string) ($warehouses->firstWhere('id', (int) old('warehouse_id'))?->id
+            ?? $warehouses->first()?->id ?? '');
+        $this->loadProductIndex($scopeService);
 
         $this->documentType = old('document_type', 'order');
         $this->currency = old('currency', config('sales.default_currency', 'PEN'));
@@ -100,6 +112,26 @@ class PosScreen extends Component
     {
         $this->documentType = in_array($type, ['order', 'boleta', 'factura'], true) ? $type : 'order';
         $this->syncDocumentRules();
+    }
+
+    public function updatedBranchId(SecurityScopeService $scope): void
+    {
+        $locations = app(PosLocationService::class);
+        $locations->assertBranch(auth()->user(), (int) $this->branchId);
+        $this->warehouseId = (string) ($locations->warehouses((int) $this->branchId)->first()?->id ?? '');
+        $this->quickStockWarehouseId = $this->warehouseId;
+        $this->loadProductIndex($scope);
+        $this->resetErrorBag('wizard');
+    }
+
+    public function updatedWarehouseId(SecurityScopeService $scope): void
+    {
+        app(PosLocationService::class)->assertBranch(auth()->user(), (int) $this->branchId);
+        if ($this->warehouseId !== '') {
+            app(PosLocationService::class)->assertWarehouse((int) $this->branchId, (int) $this->warehouseId);
+        }
+        $this->loadProductIndex($scope);
+        $this->resetErrorBag('wizard');
     }
 
     public function addItem(): void
@@ -229,6 +261,8 @@ class PosScreen extends Component
             'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(['id', 'name']),
             'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(['id', 'name']),
             'warehouses' => $this->availableWarehouses(),
+            'saleBranches' => app(PosLocationService::class)->branches(auth()->user()),
+            'saleWarehouses' => $this->branchId !== '' ? app(PosLocationService::class)->warehouses((int) $this->branchId) : collect(),
             'canCreateProduct' => $this->canCreateProduct(),
             'canAddStock' => $this->canAddStock(),
         ]);
@@ -305,6 +339,12 @@ class PosScreen extends Component
         $this->resetErrorBag('wizard');
 
         if ($this->currentStep === 0) {
+            if ($this->branchId === '' || $this->warehouseId === '') {
+                $this->addError('wizard', 'Selecciona una sucursal y un almacén antes de continuar.');
+
+                return false;
+            }
+            $requestedByProduct = [];
             foreach ($this->items as $item) {
                 $product = $this->getProductById((string) ($item['product_id'] ?? ''));
                 $quantity = trim((string) ($item['quantity'] ?? ''));
@@ -312,6 +352,12 @@ class PosScreen extends Component
 
                 if (! $product) {
                     $this->addError('wizard', 'Selecciona un producto en cada ítem o quita las filas vacías.');
+
+                    return false;
+                }
+                $requestedByProduct[$product['id']] = ($requestedByProduct[$product['id']] ?? 0) + (float) $quantity;
+                if (($product['tracks_inventory'] ?? false) && $product['stock'] < $requestedByProduct[$product['id']]) {
+                    $this->addError('wizard', "Stock insuficiente para {$product['name']} en el almacén seleccionado.");
 
                     return false;
                 }

@@ -26,6 +26,7 @@ use Modules\Orders\Repositories\OrderRepositoryInterface;
 use Modules\Orders\Services\OrderInventoryLifecycleService;
 use Modules\Orders\Services\SalesInventoryChannelRolloutService;
 use Modules\Sales\Services\CustomerDocumentLookupService;
+use Modules\Sales\Services\PosLocationService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Throwable;
 
@@ -38,6 +39,7 @@ class SalesPosController extends Controller
         private readonly SalesInventoryChannelRolloutService $channelRollouts,
         private readonly OrderInventoryLifecycleService $inventoryLifecycle,
         private readonly OrderRepositoryInterface $orders,
+        private readonly PosLocationService $locations,
     ) {}
 
     public function index(): View
@@ -87,6 +89,8 @@ class SalesPosController extends Controller
             'payment_method' => ['required', 'in:cash,transfer,card,yape'],
             'payment_status' => ['required', 'in:pending,paid'],
             'idempotency_key' => ['required', 'string', 'max:160'],
+            'branch_id' => ['nullable', 'integer'],
+            'warehouse_id' => ['nullable', 'integer'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'shipping' => ['nullable', 'numeric', 'min:0'],
@@ -122,10 +126,20 @@ class SalesPosController extends Controller
         $taxRate = (float) ($data['tax_rate'] ?? config('sales.default_tax_rate', 0.18));
         $discount = round((float) ($data['discount'] ?? 0), 2);
         $shipping = round((float) ($data['shipping'] ?? 0), 2);
-        $branchId = (int) ($this->branchContext->currentBranchId($request->user()) ?: 0);
+        $branchId = (int) ($data['branch_id'] ?? $this->branchContext->currentBranchId($request->user()) ?: 0);
+        if (isset($data['branch_id'])) {
+            $this->locations->assertBranch($request->user(), $branchId);
+        }
+        $warehouseId = isset($data['warehouse_id']) ? (int) $data['warehouse_id'] : null;
+        if (isset($data['branch_id']) && $warehouseId === null) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Selecciona un almacén de salida para esta venta.']);
+        }
+        if ($warehouseId !== null) {
+            $this->locations->assertWarehouse($branchId, $warehouseId);
+        }
         $integrated = $this->channelRollouts->isActive((int) $organizationId, 'pos');
         $idempotencyKey = trim((string) $data['idempotency_key']);
-        $payloadHash = hash('sha256', json_encode(Arr::sortRecursive([
+        $payloadIdentity = [
             'organization_id' => (int) $organizationId,
             'branch_id' => $branchId,
             'document_type' => $data['document_type'],
@@ -141,7 +155,11 @@ class SalesPosController extends Controller
             'tax_rate' => $taxRate,
             'discount' => $discount,
             'shipping' => $shipping,
-        ]), JSON_THROW_ON_ERROR));
+        ];
+        if ($warehouseId !== null) {
+            $payloadIdentity['warehouse_id'] = $warehouseId;
+        }
+        $payloadHash = hash('sha256', json_encode(Arr::sortRecursive($payloadIdentity), JSON_THROW_ON_ERROR));
 
         $createdOrder = null;
         $createdBillingDocument = null;
@@ -149,7 +167,7 @@ class SalesPosController extends Controller
         $replayed = false;
 
         try {
-            DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, &$replayed, $data, $taxRate, $discount, $shipping, $branchId, $organizationId, $integrated, $idempotencyKey, $payloadHash, $salesAccounting): void {
+            DB::transaction(function () use (&$createdOrder, &$createdBillingDocument, &$payload, &$replayed, $data, $taxRate, $discount, $shipping, $branchId, $warehouseId, $organizationId, $integrated, $idempotencyKey, $payloadHash, $salesAccounting): void {
                 $existing = Order::query()
                     ->where('organization_id', $organizationId)
                     ->where('sales_channel', 'pos')
@@ -179,7 +197,7 @@ class SalesPosController extends Controller
                     ->get()
                     ->keyBy('id');
 
-                $normalizedItems = $this->normalizeItems($items, $products, $branchId);
+                $normalizedItems = $this->normalizeItems($items, $products, $branchId, $warehouseId);
                 $subtotal = round((float) $normalizedItems->sum(fn (array $line) => $line['line_subtotal']), 2);
                 $discountAmount = min($discount, $subtotal);
                 $taxableBase = max(0, $subtotal - $discountAmount);
@@ -194,6 +212,7 @@ class SalesPosController extends Controller
                     'organization_id' => $organizationId,
                     'user_id' => (int) auth()->id(),
                     'branch_id' => $branchId ?: null,
+                    'warehouse_id' => $warehouseId,
                     'sales_channel' => 'pos',
                     'idempotency_key' => $idempotencyKey,
                     'payload_hash' => $payloadHash,
@@ -247,6 +266,7 @@ class SalesPosController extends Controller
                             'reason' => 'pos_sale',
                             'performed_by' => auth()->id(),
                             'reference_type' => Order::class,
+                            'warehouse_id' => $warehouseId,
                             'reference_id' => $createdOrder->id,
                             'reference_code' => $createdOrder->series.'-'.str_pad((string) $createdOrder->order_number, 8, '0', STR_PAD_LEFT),
                             'meta' => ['channel' => 'pos', 'document_type' => $data['document_type']],
@@ -393,7 +413,7 @@ class SalesPosController extends Controller
      * @param  Collection<int,Product>  $products
      * @return Collection<int,array{product:Product,quantity:float,unit_price:float,line_subtotal:float}>
      */
-    private function normalizeItems(Collection $items, Collection $products, int $branchId): Collection
+    private function normalizeItems(Collection $items, Collection $products, int $branchId, ?int $warehouseId = null): Collection
     {
         foreach ($items as $line) {
             $product = $products->get((int) $line['product_id']);
@@ -418,7 +438,7 @@ class SalesPosController extends Controller
             ];
         })->values();
 
-        return $items->map(function (array $item) use ($products, $branchId): array {
+        return $items->map(function (array $item) use ($products, $branchId, $warehouseId): array {
             $product = $products->get((int) $item['product_id']);
             $quantity = (float) $item['quantity'];
 
@@ -429,12 +449,14 @@ class SalesPosController extends Controller
             }
 
             $available = $product->tracksInventory()
-                ? $this->inventory->availableStock($product, $branchId)
+                ? ($warehouseId !== null
+                    ? $this->inventory->availableWarehouseStock($product, $branchId, $warehouseId)
+                    : $this->inventory->availableStock($product, $branchId))
                 : $quantity;
 
             if ($product->tracksInventory() && $available < $quantity) {
                 throw ValidationException::withMessages([
-                    'items' => ["Stock insuficiente para {$product->name} en la sucursal. Disponible: {$available}."],
+                    'items' => ["Stock insuficiente para {$product->name} en ".($warehouseId ? 'el almacén seleccionado' : 'la sucursal').". Disponible: {$available}."],
                 ]);
             }
 

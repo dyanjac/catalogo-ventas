@@ -139,6 +139,15 @@ class ProductInventoryService
 
     public function availableWarehouseStock(Product $product, int $branchId, int $warehouseId): int
     {
+        $balance = InventoryBalance::query()
+            ->where('organization_id', $product->organization_id)
+            ->where('product_id', $product->id)
+            ->where('branch_id', $branchId)
+            ->where('warehouse_id', $warehouseId)
+            ->first(['physical_stock', 'reserved_stock', 'is_active']);
+        if ($balance) {
+            return $balance->is_active ? $balance->availableStock() : 0;
+        }
         if ($this->balanceReader->usesLedger((int) $product->organization_id)) {
             return $this->balanceReader->warehouseAvailableStock((int) $product->organization_id, (int) $product->id, $branchId, $warehouseId);
         }
@@ -215,11 +224,13 @@ class ProductInventoryService
     public function decrementBranchStock(Product $product, int $branchId, int $quantity, array $context = []): void
     {
         DB::transaction(function () use ($product, $branchId, $quantity, $context): void {
+            $selectedWarehouseId = isset($context['warehouse_id']) ? (int) $context['warehouse_id'] : null;
             $warehouseStocks = ProductWarehouseStock::query()
                 ->where('organization_id', $product->organization_id)
                 ->where('product_id', $product->id)
                 ->where('branch_id', $branchId)
                 ->where('is_active', true)
+                ->when($selectedWarehouseId !== null, fn ($query) => $query->where('warehouse_id', $selectedWarehouseId))
                 ->with('warehouse')
                 ->orderBy('warehouse_id')
                 ->lockForUpdate()
@@ -236,6 +247,9 @@ class ProductInventoryService
             $remaining = $quantity;
             $allocations = [];
             foreach ($warehouseStocks->sortBy(fn (ProductWarehouseStock $stock): int => $stock->warehouse?->is_default ? 0 : 1) as $stock) {
+                if ($selectedWarehouseId !== null && (int) $stock->warehouse_id !== $selectedWarehouseId) {
+                    continue;
+                }
                 if (! $stock->warehouse?->is_active || (int) $stock->warehouse->branch_id !== $branchId) {
                     continue;
                 }
@@ -251,7 +265,7 @@ class ProductInventoryService
                 }
             }
 
-            if ($remaining > 0) {
+            if ($remaining > 0 && $selectedWarehouseId === null) {
                 $branchBalance = $balances->get(0);
                 $branchStock = ProductBranchStock::query()
                     ->where('organization_id', $product->organization_id)
@@ -273,7 +287,7 @@ class ProductInventoryService
 
             if ($remaining > 0) {
                 throw ValidationException::withMessages([
-                    'stock' => "Stock insuficiente para {$product->name} en la sucursal. Disponible: ".($quantity - $remaining).'.',
+                    'stock' => "Stock insuficiente para {$product->name} en el ".($selectedWarehouseId ? 'almacén seleccionado' : 'ámbito de la sucursal').'. Disponible: '.($quantity - $remaining).'.',
                 ]);
             }
 

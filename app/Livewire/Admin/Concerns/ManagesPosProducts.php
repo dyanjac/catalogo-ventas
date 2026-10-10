@@ -12,12 +12,13 @@ use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\ProductBranchStock;
+use Modules\Catalog\Entities\ProductWarehouseStock;
 use Modules\Catalog\Enums\ProductAccountingTreatment;
 use Modules\Catalog\Enums\ProductType;
 use Modules\Catalog\Services\InventoryBalanceReadService;
 use Modules\Catalog\Services\InventoryDocumentService;
+use Modules\Sales\Services\PosLocationService;
 use Modules\Security\Services\SecurityAuthorizationService;
-use Modules\Security\Services\SecurityBranchContextService;
 use Modules\Security\Services\SecurityScopeService;
 
 trait ManagesPosProducts
@@ -78,7 +79,7 @@ trait ManagesPosProducts
         $product = $this->getProductById((string) $productId);
 
         if (! $product || $product['stock'] <= 0) {
-            $this->addError('productSearch', 'Este producto no tiene stock disponible en la sucursal.');
+            $this->addError('productSearch', 'Este producto no tiene stock disponible en el almacén seleccionado.');
 
             return;
         }
@@ -191,7 +192,6 @@ trait ManagesPosProducts
 
     public function saveQuickProduct(
         OrganizationContextService $organization,
-        SecurityBranchContextService $branchContext,
         SecurityScopeService $scope,
     ): void {
         abort_unless($this->canCreateProduct(), 403);
@@ -232,7 +232,8 @@ trait ManagesPosProducts
             } while (Product::withTrashed()->where('organization_id', $organizationId)->where('sku', $sku)->exists());
         }
 
-        $branchId = $branchContext->currentBranchId(auth()->user());
+        $branchId = (int) $this->branchId;
+        app(PosLocationService::class)->assertBranch(auth()->user(), $branchId);
         $product = DB::transaction(function () use ($validated, $organizationId, $branchId, $name, $sku, $slug): Product {
             $product = Product::query()->create([
                 'organization_id' => $organizationId,
@@ -265,7 +266,7 @@ trait ManagesPosProducts
         });
 
         $this->quickProductId = (int) $product->id;
-        $this->loadProductIndex($scope, $branchContext);
+        $this->loadProductIndex($scope);
         if (! $product->tracksInventory()) {
             $this->quickProductOpen = false;
             $this->selectProduct((int) $product->id);
@@ -298,15 +299,14 @@ trait ManagesPosProducts
 
     public function saveQuickStock(
         OrganizationContextService $organization,
-        SecurityBranchContextService $branchContext,
         SecurityScopeService $scope,
         InventoryDocumentService $documents,
     ): void {
         abort_unless($this->canAddStock(), 403);
         $product = Product::query()->forCurrentOrganization()->findOrFail($this->quickProductId);
         abort_unless($product->tracksInventory() && $scope->canAccessProduct(auth()->user(), $product, 'catalog'), 403);
-        $branchId = $branchContext->currentBranchId(auth()->user());
-        abort_unless($branchId, 403);
+        $branchId = (int) $this->branchId;
+        app(PosLocationService::class)->assertBranch(auth()->user(), $branchId);
 
         $this->quickStockQuantity = trim($this->quickStockQuantity);
         $this->quickStockUnitCost = trim($this->quickStockUnitCost);
@@ -345,7 +345,8 @@ trait ManagesPosProducts
             return;
         }
 
-        $this->loadProductIndex($scope, $branchContext);
+        $this->warehouseId = (string) $warehouse->id;
+        $this->loadProductIndex($scope);
         $this->quickProductOpen = false;
         $this->selectProduct((int) $product->id);
         $this->productFeedback = 'Stock cargado y producto añadido a la venta.';
@@ -360,7 +361,8 @@ trait ManagesPosProducts
         $this->quickStockQuantity = '';
         $this->quickStockUnitCost = (float) $product->purchase_price > 0
             ? number_format((float) $product->purchase_price, 2, '.', '') : '';
-        $this->quickStockWarehouseId = (string) ($this->availableWarehouses()->first()?->id ?? '');
+        $this->quickStockWarehouseId = (string) ($this->availableWarehouses()->firstWhere('id', (int) $this->warehouseId)?->id
+            ?? $this->availableWarehouses()->first()?->id ?? '');
     }
 
     private function canCreateProduct(): bool
@@ -385,7 +387,7 @@ trait ManagesPosProducts
         if (! $this->canAddStock()) {
             return collect();
         }
-        $branchId = app(SecurityBranchContextService::class)->currentBranchId(auth()->user());
+        $branchId = (int) $this->branchId;
         if (! $branchId) {
             return collect();
         }
@@ -397,34 +399,35 @@ trait ManagesPosProducts
             ->values();
     }
 
-    private function loadProductIndex(
-        SecurityScopeService $scopeService,
-        SecurityBranchContextService $branchContext,
-    ): void {
+    private function loadProductIndex(SecurityScopeService $scopeService): void
+    {
         $actor = auth()->user();
-        $branchId = $branchContext->currentBranchId($actor);
+        $branchId = (int) $this->branchId;
+        $warehouseId = (int) $this->warehouseId;
         $organizationId = (int) app(OrganizationContextService::class)->currentOrganizationId();
         $usesLedger = $organizationId > 0 && app(InventoryBalanceReadService::class)->usesLedger($organizationId);
-        $ledgerStock = $usesLedger
+        $ledgerStock = $organizationId > 0 && $warehouseId > 0
             ? InventoryBalance::query()->where('organization_id', $organizationId)
-                ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
-                ->where('is_active', true)
-                ->selectRaw('product_id, SUM(physical_stock - reserved_stock) AS available_stock')
-                ->groupBy('product_id')->pluck('available_stock', 'product_id')
+                ->where('branch_id', $branchId)->where('warehouse_id', $warehouseId)
+                ->get(['product_id', 'physical_stock', 'reserved_stock', 'is_active'])->keyBy('product_id')
+            : collect();
+
+        $warehouseStock = $warehouseId > 0
+            ? ProductWarehouseStock::query()->where('organization_id', $organizationId)
+                ->where('branch_id', $branchId)->where('warehouse_id', $warehouseId)
+                ->where('is_active', true)->pluck('stock', 'product_id')
             : collect();
 
         $this->productIndex = $scopeService->scopeProducts(Product::query()->forCurrentOrganization(), $actor, 'catalog')
             ->where('is_active', true)
-            ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId)->where('is_active', true) : $query])
             ->orderBy('name')
             ->get(['id', 'name', 'sku', 'brand', 'description', 'category_id', 'sale_price', 'price', 'stock', 'product_type'])
-            ->map(function (Product $product) use ($branchId, $usesLedger, $ledgerStock): array {
+            ->map(function (Product $product) use ($ledgerStock, $warehouseStock, $usesLedger): array {
                 $tracks = $product->tracksInventory();
-                $stock = $usesLedger
-                    ? (int) ($ledgerStock->get($product->id) ?? 0)
-                    : ($branchId
-                        ? (int) ($product->branchStocks->firstWhere('branch_id', $branchId)?->stock ?? 0)
-                        : (int) $product->stock);
+                $balance = $ledgerStock->get($product->id);
+                $stock = $balance
+                    ? ($balance->is_active ? $balance->availableStock() : 0)
+                    : ($usesLedger ? 0 : (int) ($warehouseStock->get($product->id) ?? 0));
 
                 return [
                     'id' => (int) $product->id,
