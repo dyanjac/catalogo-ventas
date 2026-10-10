@@ -6,15 +6,23 @@ use App\Livewire\Admin\PosScreen;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Livewire\Livewire;
 use Mockery;
+use Modules\Accounting\Services\SalesAccountingService;
+use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Services\ElectronicBillingService;
 use Modules\Catalog\Entities\Category;
+use Modules\Catalog\Entities\InventoryBalance;
 use Modules\Catalog\Entities\InventoryDocument;
+use Modules\Catalog\Entities\InventoryMovement;
 use Modules\Catalog\Entities\InventoryWarehouse;
 use Modules\Catalog\Entities\Product;
 use Modules\Catalog\Entities\UnitMeasure;
 use Modules\Catalog\Enums\ProductAccountingTreatment;
 use Modules\Catalog\Enums\ProductType;
+use Modules\Orders\Entities\Order;
+use Modules\Sales\Http\Controllers\SalesPosController;
 use Modules\Security\Models\SecurityBranch;
 use Modules\Security\Services\SecurityAuthorizationService;
 use Tests\TestCase;
@@ -62,6 +70,62 @@ class PosProductDiscoveryTest extends TestCase
             'product_id' => $newProduct->id,
         ]);
         $this->assertSame(1, InventoryDocument::query()->count());
+    }
+
+    public function test_invoice_uses_warehouse_stock_loaded_from_quick_product_flow(): void
+    {
+        $fixture = $this->fixture();
+        $this->authorizeActions(true);
+
+        Livewire::actingAs($fixture['user'])
+            ->test(PosScreen::class)
+            ->call('openQuickProduct')
+            ->set('quickProduct.name', 'Producto facturable')
+            ->set('quickProduct.category_id', (string) $fixture['category']->id)
+            ->set('quickProduct.unit_measure_id', (string) $fixture['unit']->id)
+            ->set('quickProduct.sale_price', '12.50')
+            ->call('saveQuickProduct')
+            ->set('quickStockWarehouseId', (string) $fixture['warehouse']->id)
+            ->set('quickStockQuantity', '3')
+            ->set('quickStockUnitCost', '5.25')
+            ->call('saveQuickStock')
+            ->assertHasNoErrors();
+
+        $product = Product::query()->where('name', 'Producto facturable')->firstOrFail();
+        BillingSetting::query()->create([
+            'organization_id' => $fixture['organization']->id,
+            'enabled' => true,
+            'provider' => 'external',
+            'invoice_series' => 'F001',
+        ]);
+        $billing = Mockery::mock(ElectronicBillingService::class);
+        $billing->shouldReceive('issueOrQueue')->once()->andReturn([
+            'ok' => false, 'queued' => false, 'message' => 'Pendiente de emisión',
+        ]);
+        $request = Request::create('/admin/sales/pos', 'POST', [
+            'document_type' => 'factura',
+            'currency' => 'PEN',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'idempotency_key' => 'pos-quick-stock-invoice',
+            'customer' => ['name' => 'Cliente facturable', 'document_type' => 'RUC', 'document_number' => '20123456789'],
+            'items' => [['product_id' => $product->id, 'quantity' => '1', 'unit_price' => '12.50']],
+        ]);
+        $request->setUserResolver(fn () => $fixture['user']);
+        $this->actingAs($fixture['user']);
+        app()->instance('request', $request);
+
+        app(SalesPosController::class)->store($request, $billing, app(SalesAccountingService::class));
+        app(SalesPosController::class)->store($request, $billing, app(SalesAccountingService::class));
+
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('billing_documents', 1);
+        $this->assertSame(2, (int) InventoryBalance::query()
+            ->where('product_id', $product->id)->where('warehouse_id', $fixture['warehouse']->id)
+            ->value('physical_stock'));
+        $this->assertSame(1, InventoryMovement::query()
+            ->where('product_id', $product->id)->where('reference_type', Order::class)
+            ->where('warehouse_id', $fixture['warehouse']->id)->count());
     }
 
     public function test_product_and_stock_actions_reject_users_without_permissions(): void
