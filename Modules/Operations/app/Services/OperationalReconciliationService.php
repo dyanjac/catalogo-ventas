@@ -68,7 +68,7 @@ final class OperationalReconciliationService
         ]);
 
         try {
-            if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            if (DB::transactionLevel() === 0 && in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
                 DB::statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
             }
 

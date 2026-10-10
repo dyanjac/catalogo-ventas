@@ -10,6 +10,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Modules\Billing\Models\BillingDocument;
+use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Services\Providers\GreenterBillingProvider;
 use Modules\Billing\Services\Xml\BillingXmlGenerator;
 use Tests\TestCase;
 
@@ -74,5 +76,38 @@ class DocumentTotalsPolicyTest extends TestCase
         $this->assertStringContainsString('<Quantity>0.0005</Quantity>', $xml);
         $this->assertStringContainsString('<UnitPrice>0.123456</UnitPrice>', $xml);
         $this->assertStringContainsString('<LineSubtotal>0.00</LineSubtotal>', $xml);
+    }
+
+    public function test_greenter_xml_preserves_line_discount_shipping_and_decimal_precision(): void
+    {
+        $setting = new BillingSetting([
+            'environment' => 'sandbox',
+            'default_invoice_operation_code' => '',
+            'provider_credentials' => ['greenter' => ['ruc' => '20123456789']],
+        ]);
+        $payload = [
+            'document_type' => 'factura', 'series' => 'F001', 'number' => '1',
+            'issue_date' => '2026-10-10', 'currency' => 'PEN', 'tax_rate' => '0.18',
+            'customer' => ['name' => 'Cliente', 'document_type' => 'RUC', 'document_number' => '20987654321'],
+            'totals' => ['subtotal' => '10.00', 'discount' => '1.00', 'tax' => '1.62', 'shipping' => '2.00', 'total' => '12.62'],
+            'items' => [[
+                'sku' => 'MICRO', 'name' => 'Micro costo', 'quantity' => '0.0005',
+                'unit_price' => '20000.123456', 'line_subtotal' => '10.00',
+                'line_discount' => '1.00', 'line_tax' => '1.62', 'line_total' => '10.62',
+            ]],
+        ];
+
+        $invoice = (new \ReflectionMethod(GreenterBillingProvider::class, 'buildInvoiceFromPayload'))
+            ->invoke(app(GreenterBillingProvider::class), $setting, $payload, '2.1');
+        $xml = (new \Greenter\Xml\Builder\InvoiceBuilder)->build($invoice);
+
+        $this->assertStringContainsString('<cbc:IssueDate>2026-10-10</cbc:IssueDate>', $xml);
+        $this->assertStringContainsString('<cbc:InvoicedQuantity unitCode="NIU">0.0005</cbc:InvoicedQuantity>', $xml);
+        $this->assertStringContainsString('<cbc:PriceAmount currencyID="PEN">20000.123456</cbc:PriceAmount>', $xml);
+        $this->assertStringContainsString('<cbc:AllowanceChargeReasonCode>00</cbc:AllowanceChargeReasonCode>', $xml);
+        $this->assertStringContainsString('<cbc:AllowanceChargeReasonCode>50</cbc:AllowanceChargeReasonCode>', $xml);
+        $this->assertStringContainsString('<cbc:TaxInclusiveAmount currencyID="PEN">10.62</cbc:TaxInclusiveAmount>', $xml);
+        $this->assertStringContainsString('<cbc:ChargeTotalAmount currencyID="PEN">2.00</cbc:ChargeTotalAmount>', $xml);
+        $this->assertStringContainsString('<cbc:PayableAmount currencyID="PEN">12.62</cbc:PayableAmount>', $xml);
     }
 }

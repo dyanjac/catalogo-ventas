@@ -4,6 +4,7 @@ namespace Modules\Billing\Services\Providers;
 
 use App\Support\Decimal;
 use DateTime;
+use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -205,7 +206,8 @@ class GreenterBillingProvider extends AbstractBillingProvider
         $discount = Decimal::round($totals['discount'] ?? 0, 2);
         $taxable = Decimal::sub($subtotal, $discount, 2);
         $tax = Decimal::round($totals['tax'] ?? 0, 2);
-        $total = Decimal::round($totals['total'] ?? Decimal::add($taxable, $tax, 2), 2);
+        $shipping = Decimal::round($totals['shipping'] ?? 0, 2);
+        $total = Decimal::round($totals['total'] ?? Decimal::add(Decimal::add($taxable, $tax, 2), $shipping, 2), 2);
         $taxRate = $this->resolveIgvRate($payload, (float) $taxable, (float) $tax);
         $taxPercent = round($taxRate * 100, 2);
 
@@ -219,7 +221,7 @@ class GreenterBillingProvider extends AbstractBillingProvider
             ->setTipoDoc($documentType)
             ->setSerie((string) ($payload['series'] ?? 'F001'))
             ->setCorrelativo($this->normalizeCorrelative((string) ($payload['number'] ?? '1')))
-            ->setFechaEmision(new DateTime($issueDate))
+            ->setFechaEmision(new DateTime($issueDate, new DateTimeZone(\Greenter\Model\TimeZonePe::DEFAULT)))
             ->setTipoMoneda($currency)
             ->setCompany($company)
             ->setClient($client)
@@ -229,9 +231,19 @@ class GreenterBillingProvider extends AbstractBillingProvider
             ->setMtoIGV((float) $tax)
             ->setTotalImpuestos((float) $tax)
             ->setValorVenta((float) $taxable)
-            ->setSubTotal((float) $total)
+            ->setSubTotal((float) Decimal::sub($total, $shipping, 2))
             ->setMtoImpVenta((float) $total)
             ->setDetails($details);
+
+        if (Decimal::compare($shipping, 0, 2) > 0) {
+            $invoice->setCargos([
+                (new \Greenter\Model\Sale\Charge)
+                    ->setCodTipo('50')
+                    ->setFactor(1.0)
+                    ->setMontoBase((float) $shipping)
+                    ->setMonto((float) $shipping),
+            ])->setSumOtrosCargos((float) $shipping);
+        }
 
         $tipoOperacion = $this->resolveTipoOperacion($setting, $payload, $documentType);
         if ($tipoOperacion !== null) {
@@ -385,7 +397,8 @@ class GreenterBillingProvider extends AbstractBillingProvider
                 $lineSubtotal = isset($line['line_subtotal'])
                     ? Decimal::round($line['line_subtotal'], 2)
                     : Decimal::round(Decimal::mul($unitValueValue, $quantityValue, 10), 2);
-                $lineBaseValue = Decimal::sub($lineSubtotal, $line['line_discount'] ?? 0, 2);
+                $lineDiscount = Decimal::round($line['line_discount'] ?? 0, 2);
+                $lineBaseValue = Decimal::sub($lineSubtotal, $lineDiscount, 2);
                 $igvValue = isset($line['line_tax'])
                     ? Decimal::round($line['line_tax'], 2)
                     : Decimal::round(Decimal::mul($lineBaseValue, (string) $taxRate, 12), 2);
@@ -410,6 +423,16 @@ class GreenterBillingProvider extends AbstractBillingProvider
                     ->setTipAfeIgv('10')
                     ->setTotalImpuestos($igv)
                     ->setMtoValorVenta($lineBase);
+
+                if (Decimal::compare($lineDiscount, 0, 2) > 0) {
+                    $detail->setDescuentos([
+                        (new \Greenter\Model\Sale\Charge)
+                            ->setCodTipo('00')
+                            ->setFactor((float) Decimal::round(Decimal::div($lineDiscount, $lineSubtotal, 10), 5))
+                            ->setMontoBase((float) $lineSubtotal)
+                            ->setMonto((float) $lineDiscount),
+                    ]);
+                }
 
                 return $detail;
             })
