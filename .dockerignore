@@ -4,6 +4,8 @@
 node_modules
 vendor
 .env
+.env.*
+!.env.example
 .env.docker
 .env.swarm
 .env.swarm.*

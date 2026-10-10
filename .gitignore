@@ -1,6 +1,7 @@
 *.log
 .DS_Store
 .env
+.env.migrate
 .env.backup
 .env.production
 .env.docker.local
