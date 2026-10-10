@@ -30,6 +30,7 @@
                 <x-admin.detail-grid
                     :items="[
                         ['label' => 'SKU', 'value' => $product->sku ?? '-'],
+                        ['label' => 'Marca', 'value' => $product->brand ?? '-'],
                         ['label' => 'Categoría', 'value' => $product->category?->name ?? '-'],
                         ['label' => 'Unidad', 'value' => $product->unitMeasure?->name ?? '-'],
                         ['label' => 'Precio compra', 'value' => 'S/ ' . number_format((float) ($product->purchase_price ?? 0), 2)],

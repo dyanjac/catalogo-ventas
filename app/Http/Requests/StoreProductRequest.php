@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Catalog\Enums\ProductAccountingTreatment;
 use Modules\Catalog\Enums\ProductType;
+use Modules\Security\Services\SecurityAuthorizationService;
 
 class StoreProductRequest extends FormRequest
 {
@@ -15,7 +16,10 @@ class StoreProductRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $authorization = app(SecurityAuthorizationService::class);
+
+        return $authorization->canAccessModule($this->user(), 'catalog')
+            && $authorization->hasPermission($this->user(), 'catalog.products.create');
     }
 
     protected function prepareForValidation(): void
@@ -30,6 +34,7 @@ class StoreProductRequest extends FormRequest
 
         $this->merge([
             'name' => $this->normalizeText($this->input('name')),
+            'brand' => $this->normalizeText($this->input('brand')),
             'sku' => $this->normalizeText($this->input('sku')),
             'slug' => $this->normalizeText($this->input('slug')),
             'description' => $this->normalizeText($this->input('description')),
@@ -71,6 +76,7 @@ class StoreProductRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:190'],
+            'brand' => ['nullable', 'string', 'max:120'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('organization_id', $organizationId)],
             'unit_measure_id' => ['required', 'integer', Rule::exists('unit_measures', 'id')->where('organization_id', $organizationId)],
             'sku' => ['nullable', 'string', 'max:80', Rule::unique('products', 'sku')->where('organization_id', $organizationId)],

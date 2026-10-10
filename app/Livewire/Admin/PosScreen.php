@@ -2,16 +2,19 @@
 
 namespace App\Livewire\Admin;
 
-use Livewire\Component;
+use App\Livewire\Admin\Concerns\ManagesPosProducts;
 use Illuminate\Support\Str;
-use Modules\Catalog\Entities\Product;
-use Modules\Catalog\Services\ProductInventoryService;
+use Livewire\Component;
+use Modules\Catalog\Entities\Category;
+use Modules\Catalog\Entities\UnitMeasure;
 use Modules\Sales\Services\CustomerDocumentLookupService;
 use Modules\Security\Services\SecurityBranchContextService;
 use Modules\Security\Services\SecurityScopeService;
 
 class PosScreen extends Component
 {
+    use ManagesPosProducts;
+
     public string $documentType = 'order';
 
     public int $currentStep = 0;
@@ -32,8 +35,6 @@ class PosScreen extends Component
 
     public string $observations = '';
 
-    public string $productSearch = '';
-
     public string $lookupFeedback = '';
 
     public string $lookupFeedbackType = 'muted';
@@ -49,48 +50,11 @@ class PosScreen extends Component
 
     public array $items = [];
 
-    /**
-     * @var array<int, array{id:int,name:string,sku:string,stock:int,price:float,label:string,tracks_inventory:bool}>
-     */
-    public array $productIndex = [];
-
     public function mount(
         SecurityScopeService $scopeService,
         SecurityBranchContextService $branchContext,
-        ProductInventoryService $inventory,
-    ): void
-    {
-        $actor = auth()->user();
-        $branchId = $branchContext->currentBranchId($actor);
-
-        $this->productIndex = $scopeService->scopeProducts(Product::query(), $actor, 'catalog')
-            ->where('is_active', true)
-            ->with(['branchStocks' => fn ($query) => $branchId ? $query->where('branch_id', $branchId)->where('is_active', true) : $query])
-            ->orderBy('name')
-            ->get(['id', 'name', 'sku', 'sale_price', 'price', 'stock', 'product_type'])
-            ->map(function (Product $product) use ($branchId, $inventory): ?array {
-                $price = (float) ($product->sale_price ?? $product->price ?? 0);
-                $stock = $product->tracksInventory()
-                    ? $inventory->availableStock($product, $branchId)
-                    : 999999;
-
-                if ($stock <= 0) {
-                    return null;
-                }
-
-                return [
-                    'id' => (int) $product->id,
-                    'name' => (string) $product->name,
-                    'sku' => (string) ($product->sku ?: 'SIN-SKU'),
-                    'stock' => $stock,
-                    'price' => round($price, 2),
-                    'tracks_inventory' => $product->tracksInventory(),
-                    'label' => (string) ($product->name.' ('.($product->sku ?: 'SIN-SKU').')'),
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
+    ): void {
+        $this->loadProductIndex($scopeService, $branchContext);
 
         $this->documentType = old('document_type', 'order');
         $this->currency = old('currency', config('sales.default_currency', 'PEN'));
@@ -157,30 +121,6 @@ class PosScreen extends Component
         }
     }
 
-    public function addItemBySearch(): void
-    {
-        $product = $this->findProductByTerm($this->productSearch);
-
-        if (! $product) {
-            $this->addError('productSearch', 'No se encontro un producto con ese criterio.');
-            return;
-        }
-
-        $this->resetErrorBag('productSearch');
-        $newItem = [
-            'product_id' => (string) $product['id'],
-            'quantity' => '1',
-            'unit_price' => number_format($product['price'], 2, '.', ''),
-        ];
-        $emptyIndex = collect($this->items)->search(fn (array $item): bool => (string) ($item['product_id'] ?? '') === '');
-        if ($emptyIndex === false) {
-            $this->items[] = $newItem;
-        } else {
-            $this->items[$emptyIndex] = $newItem;
-        }
-        $this->productSearch = '';
-    }
-
     public function lookupCustomerDocument(CustomerDocumentLookupService $lookupService): void
     {
         $type = trim((string) ($this->customer['document_type'] ?? ''));
@@ -189,6 +129,7 @@ class PosScreen extends Component
         if ($type === '' || $number === '') {
             $this->lookupFeedback = 'Selecciona tipo y numero de documento antes de consultar.';
             $this->lookupFeedbackType = 'danger';
+
             return;
         }
 
@@ -197,6 +138,7 @@ class PosScreen extends Component
         if (! ($result['ok'] ?? false)) {
             $this->lookupFeedback = (string) ($result['message'] ?? 'No se pudo consultar el documento.');
             $this->lookupFeedbackType = 'danger';
+
             return;
         }
 
@@ -283,7 +225,13 @@ class PosScreen extends Component
 
     public function render()
     {
-        return view('livewire.admin.pos-screen');
+        return view('livewire.admin.pos-screen', [
+            'categories' => Category::query()->forCurrentOrganization()->orderBy('name')->get(['id', 'name']),
+            'unitMeasures' => UnitMeasure::query()->forCurrentOrganization()->orderBy('name')->get(['id', 'name']),
+            'warehouses' => $this->availableWarehouses(),
+            'canCreateProduct' => $this->canCreateProduct(),
+            'canAddStock' => $this->canAddStock(),
+        ]);
     }
 
     public function subtotal(): float
@@ -364,18 +312,22 @@ class PosScreen extends Component
 
                 if (! $product) {
                     $this->addError('wizard', 'Selecciona un producto en cada ítem o quita las filas vacías.');
+
                     return false;
                 }
                 if (! preg_match('/^\d{1,9}(?:\.\d{1,3})?$/', $quantity) || (float) $quantity < 0.001) {
                     $this->addError('wizard', 'La cantidad debe ser positiva y tener como máximo tres decimales escritos con punto.');
+
                     return false;
                 }
                 if (($product['tracks_inventory'] ?? false) && floor((float) $quantity) !== (float) $quantity) {
                     $this->addError('wizard', "{$product['name']} requiere una cantidad entera porque controla inventario.");
+
                     return false;
                 }
                 if ($price !== '' && ! preg_match('/^\d{1,8}(?:\.\d{1,2})?$/', $price)) {
                     $this->addError('wizard', 'El precio debe tener como máximo dos decimales escritos con punto.');
+
                     return false;
                 }
             }
@@ -388,40 +340,23 @@ class PosScreen extends Component
 
             if ($customerName === '') {
                 $this->addError('wizard', 'Ingresa el nombre del cliente para continuar.');
+
                 return false;
             }
 
             if ($this->documentType === 'factura' && ($documentType !== 'RUC' || strlen($documentNumber) !== 11)) {
                 $this->addError('wizard', 'Para factura debes registrar un RUC valido de 11 digitos.');
+
                 return false;
             }
 
             if ($this->documentType === 'boleta' && ($documentType === '' || $documentNumber === '')) {
                 $this->addError('wizard', 'Para boleta registra tipo y numero de documento del cliente.');
+
                 return false;
             }
         }
 
         return true;
-    }
-
-    private function findProductByTerm(string $term): ?array
-    {
-        $normalized = mb_strtolower(trim($term));
-
-        if ($normalized === '') {
-            return null;
-        }
-
-        return collect($this->productIndex)->first(function (array $product) use ($normalized): bool {
-            return mb_strtolower($product['label']) === $normalized
-                || str_contains(mb_strtolower($product['name']), $normalized)
-                || str_contains(mb_strtolower($product['sku']), $normalized);
-        });
-    }
-
-    private function getProductById(string $id): ?array
-    {
-        return collect($this->productIndex)->first(fn (array $product): bool => (string) $product['id'] === $id);
     }
 }
